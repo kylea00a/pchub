@@ -2,10 +2,12 @@
 set -euo pipefail
 
 APP_DIR="/var/www/pchub"
-PUBLIC_URL="${PUBLIC_URL:-http://165.22.242.51}"
+API_URL="${API_URL:-https://api.pchub.cloud}"
 JWT_SECRET="${JWT_SECRET:-$(openssl rand -hex 32)}"
 
 echo "==> Deploying pchub to ${APP_DIR}"
+echo "==> API URL: ${API_URL}"
+
 mkdir -p /var/www
 cd /var/www
 
@@ -19,15 +21,12 @@ else
 fi
 
 npm install
-npm install -g pm2
+command -v pm2 >/dev/null || npm install -g pm2
 
-echo "NEXT_PUBLIC_API_URL=${PUBLIC_URL}" > web/.env.local
-echo "NEXT_PUBLIC_API_URL=${PUBLIC_URL}" > admin/.env.local
+echo "NEXT_PUBLIC_API_URL=${API_URL}" > web/.env.local
+echo "NEXT_PUBLIC_API_URL=${API_URL}" > admin/.env.local
 
 mkdir -p api/data
-export PUBLIC_API_URL="${PUBLIC_URL}"
-export JWT_SECRET="${JWT_SECRET}"
-export PORT=4000
 
 npm run build -w web
 npm run build -w admin
@@ -37,7 +36,6 @@ ln -sf /etc/nginx/sites-available/pchub /etc/nginx/sites-enabled/pchub
 rm -f /etc/nginx/sites-enabled/default
 nginx -t && systemctl reload nginx
 
-# Inject server env into pm2 config
 cat > deploy/ecosystem.config.cjs <<EOF
 module.exports = {
   apps: [
@@ -50,7 +48,7 @@ module.exports = {
         NODE_ENV: "production",
         PORT: "4000",
         JWT_SECRET: "${JWT_SECRET}",
-        PUBLIC_API_URL: "${PUBLIC_URL}",
+        PUBLIC_API_URL: "${API_URL}",
       },
     },
     {
@@ -74,8 +72,12 @@ EOF
 pm2 delete pchub-api pchub-web pchub-admin 2>/dev/null || true
 pm2 start deploy/ecosystem.config.cjs
 pm2 save
-pm2 startup systemd -hp "${PM2_HOME:-/root/.pm2}" --service-name pm2-root | tail -1 | bash || true
 
 echo ""
-echo "Deployed. Health: ${PUBLIC_URL}/api/health"
-echo "JWT_SECRET saved in pm2 env — set JWT_SECRET in ecosystem.config.cjs for persistence."
+echo "Deployed."
+echo "  Site:  https://pchub.cloud"
+echo "  Admin: https://admin.pchub.cloud"
+echo "  API:   ${API_URL}/api/health"
+echo ""
+echo "DNS must point all hostnames to this server. Then run:"
+echo "  certbot --nginx -d pchub.cloud -d www.pchub.cloud -d api.pchub.cloud -d admin.pchub.cloud"

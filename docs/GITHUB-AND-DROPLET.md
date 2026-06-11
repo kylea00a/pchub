@@ -1,5 +1,58 @@
 # GitHub + Droplet + Cursor
 
+**Domain:** https://pchub.cloud  
+**Admin:** https://admin.pchub.cloud  
+**API:** https://api.pchub.cloud  
+**Droplet IP (DNS only):** `165.22.242.51`  
+**App on server:** `/var/www/pchub`
+
+> **pchub.cloud must point to the Droplet** (see DNS below). The IP is not the public URL.
+
+## Cursor Remote SSH
+
+```
+Host pchub-droplet
+  HostName 165.22.242.51
+  User root
+  IdentityFile ~/.ssh/id_ed25519
+```
+
+`Cmd+Shift+P` → **Remote-SSH: Connect to Host…** → `pchub-droplet` → open `/var/www/pchub`
+
+## Redeploy after `git push`
+
+```bash
+ssh root@165.22.242.51 'cd /var/www/pchub && git pull && npm install && npm run build -w web && npm run build -w admin && pm2 restart all'
+```
+
+(First time used tarball; for `git pull` add the Droplet deploy key to GitHub — see below.)
+
+**Droplet deploy key** (for private `git pull` later):  
+`ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIWM4lq2gTG+Kh19S7LCfLeO6DEptLNY+kLVptcQMO69 pchub-droplet`  
+Add at [github.com/kylea00a/pchub/settings/keys](https://github.com/kylea00a/pchub/settings/keys) → **Deploy keys** → allow read access.
+
+## DNS — required (GoDaddy)
+
+[pchub.cloud DNS](https://dcc.godaddy.com) → **pchub.cloud** → **DNS** → **DNS Records**
+
+Delete parking / forwarding records. Add:
+
+| Type | Name | Value | TTL |
+|------|------|--------|-----|
+| A | `@` | `165.22.242.51` | 600 |
+| A | `www` | `165.22.242.51` | 600 |
+| A | `api` | `165.22.242.51` | 600 |
+| A | `admin` | `165.22.242.51` | 600 |
+
+Wait 5–30 minutes, then on the Droplet:
+
+```bash
+ssh root@165.22.242.51
+certbot --nginx -d pchub.cloud -d www.pchub.cloud -d api.pchub.cloud -d admin.pchub.cloud
+```
+
+---
+
 ## 1. Push this repo to GitHub (one-time)
 
 ### On GitHub.com
