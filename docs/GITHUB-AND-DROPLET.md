@@ -19,17 +19,49 @@ Host pchub-droplet
 
 `Cmd+Shift+P` → **Remote-SSH: Connect to Host…** → `pchub-droplet` → open `/var/www/pchub`
 
-## Redeploy after `git push`
+## Auto-deploy (push → live site)
+
+Every `git push` to **main** triggers GitHub Actions → SSH to Droplet → `git pull` → rebuild → restart.
+
+**One-time setup** — add two secrets at  
+[github.com/kylea00a/pchub/settings/secrets/actions](https://github.com/kylea00a/pchub/settings/secrets/actions):
+
+| Secret name | Value |
+|-------------|--------|
+| `DROPLET_HOST` | `165.22.242.51` |
+| `DROPLET_SSH_KEY` | Private key from setup below (entire file) |
+
+Generate the deploy key on your Mac (one-time):
 
 ```bash
-ssh root@165.22.242.51 'cd /var/www/pchub && git pull && npm install && npm run build -w web && npm run build -w admin && pm2 restart all'
+ssh-keygen -t ed25519 -f ~/.ssh/pchub_deploy -N "" -C "github-actions-deploy"
+cat ~/.ssh/pchub_deploy.pub | ssh root@165.22.242.51 'cat >> ~/.ssh/authorized_keys'
 ```
 
-(First time used tarball; for `git pull` add the Droplet deploy key to GitHub — see below.)
+Copy **private** key into GitHub secret `DROPLET_SSH_KEY`:
 
-**Droplet deploy key** (for private `git pull` later):  
-`ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIWM4lq2gTG+Kh19S7LCfLeO6DEptLNY+kLVptcQMO69 pchub-droplet`  
-Add at [github.com/kylea00a/pchub/settings/keys](https://github.com/kylea00a/pchub/settings/keys) → **Deploy keys** → allow read access.
+```bash
+cat ~/.ssh/pchub_deploy
+```
+
+### Your daily workflow (Mac)
+
+```bash
+cd /Users/jay/SkyPC
+# edit code...
+git add -A
+git commit -m "what you changed"
+git push
+```
+
+Watch deploy: [github.com/kylea00a/pchub/actions](https://github.com/kylea00a/pchub/actions)  
+Live in ~2–3 minutes at https://pchub.cloud
+
+### Manual deploy (if Actions fails)
+
+```bash
+ssh root@165.22.242.51 'cd /var/www/pchub && git pull && bash deploy/pull-and-restart.sh'
+```
 
 ## DNS — required (GoDaddy)
 

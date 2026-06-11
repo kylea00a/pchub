@@ -32,6 +32,9 @@ npm-debug.log*
 # Cloudflare tunnel credentials (machine-local)
 .cloudflared/
 
+# Server-only secrets (never commit)
+deploy/.production-secrets
+
 # IDE
 .idea/
 .vscode/
