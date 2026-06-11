@@ -1,0 +1,22 @@
+{
+  "name": "skypc",
+  "private": true,
+  "workspaces": [
+    "api",
+    "web",
+    "admin",
+    "agent"
+  ],
+  "scripts": {
+    "dev": "concurrently -n api,web,admin -c blue,green,magenta \"npm run dev -w api\" \"npm run dev -w web\" \"npm run dev -w admin\"",
+    "dev:api": "npm run dev -w api",
+    "dev:web": "npm run dev -w web",
+    "dev:admin": "npm run dev -w admin",
+    "tunnel": "cloudflared tunnel --config scripts/tunnel/pchub.cloud.yml run",
+    "agent": "npm run start -w agent",
+    "agent:once": "npm run once -w agent"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

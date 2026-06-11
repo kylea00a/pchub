@@ -1,0 +1,26 @@
+# Cloudflare Tunnel config for pchub.cloud (temp hosting from your Mac)
+#
+# Before running:
+#   1. cloudflared tunnel login
+#   2. cloudflared tunnel create pchub-dev
+#   3. Replace TUNNEL_ID below with the UUID from step 2
+#   4. cloudflared tunnel route dns pchub-dev pchub.cloud
+#   5. cloudflared tunnel route dns pchub-dev www.pchub.cloud
+#   6. cloudflared tunnel route dns pchub-dev admin.pchub.cloud
+#   7. cloudflared tunnel route dns pchub-dev api.pchub.cloud
+#
+# Run: npm run tunnel   (with npm run dev in another terminal)
+
+tunnel: TUNNEL_ID
+credentials-file: /Users/jay/.cloudflared/TUNNEL_ID.json
+
+ingress:
+  - hostname: pchub.cloud
+    service: http://localhost:3000
+  - hostname: www.pchub.cloud
+    service: http://localhost:3000
+  - hostname: admin.pchub.cloud
+    service: http://localhost:3001
+  - hostname: api.pchub.cloud
+    service: http://localhost:4000
+  - service: http_status:404

@@ -1,0 +1,37 @@
+node_modules/
+.DS_Store
+
+# Secrets & local env
+.env
+.env.*
+!.env.example
+!.env.local.example
+web/.env.local
+admin/.env.local
+agent/.env
+agent/config.json
+
+# API / DB
+*.db
+api/data/
+
+# Agent runtime
+agent/.agent-state.json
+agent/agent.log
+agent/.personal-layer/
+
+# Next.js build output
+web/.next/
+admin/.next/
+out/
+
+# Logs & debug
+npm-debug.log*
+*.log
+
+# Cloudflare tunnel credentials (machine-local)
+.cloudflared/
+
+# IDE
+.idea/
+.vscode/

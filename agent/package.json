@@ -1,0 +1,19 @@
+{
+  "name": "agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "once": "tsx src/index.ts --once"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "systeminformation": "^5.25.11"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.16",
+    "tsx": "^4.19.3",
+    "typescript": "^5.7.3"
+  }
+}

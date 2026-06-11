@@ -1,0 +1,7 @@
+{
+  "apiUrl": "http://localhost:4000",
+  "pairingCode": "PASTE_FROM_HOST_PAGE",
+  "machineName": "My Gaming PC",
+  "machineCity": "Manila",
+  "priceCents": 50
+}
