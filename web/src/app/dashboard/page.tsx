@@ -96,55 +96,61 @@ export default function DashboardPage() {
   const activeMachineIds = new Set(dashboard?.activeSessions.map((s) => s.machineId));
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b border-border">
-        <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-6">
-          <Link href="/" className="text-sm text-muted hover:text-foreground">
-            ← SkyPC
+    <div className="min-h-screen">
+      <header className="border-b border-border bg-background/80 backdrop-blur-xl">
+        <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-6">
+          <Link
+            href="/"
+            className="font-mono text-[10px] uppercase tracking-widest text-muted hover:text-accent"
+          >
+            ← PCHUB
           </Link>
-          <div className="flex items-center gap-4 text-sm">
+          <div className="flex items-center gap-4 font-mono text-[10px] uppercase tracking-widest">
             <span className="text-muted">{user?.email}</span>
-            <button type="button" onClick={logout} className="text-muted hover:text-foreground">
-              Log out
+            <button type="button" onClick={logout} className="text-muted hover:text-accent">
+              Exit
             </button>
           </div>
         </div>
       </header>
 
       <main className="mx-auto max-w-5xl px-6 py-12">
-        <h1 className="text-3xl font-semibold">My dashboard</h1>
+        <p className="eyebrow">Console</p>
+        <h1 className="mt-2 text-3xl font-semibold">Fleet control</h1>
         <p className="mt-2 text-muted">
-          Turn PCs on or off. Rent multiple machines — each session is billed per minute.
+          Power nodes on or off. Multiple sessions metered per minute.
         </p>
 
         {error && (
-          <p className="mt-6 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          <p className="mt-6 border border-red-500/40 bg-red-500/5 px-4 py-3 text-sm text-red-300">
             {error}
           </p>
         )}
 
         {dashboard && (
           <>
-            <div className="mt-8 grid gap-4 sm:grid-cols-4">
+            <div className="mt-8 grid gap-px bg-border sm:grid-cols-4">
               {[
-                { label: "Active PCs", value: String(dashboard.summary.activeSessions) },
-                { label: "Running cost", value: dashboard.summary.runningPerMinuteFormatted },
+                { label: "Active", value: String(dashboard.summary.activeSessions) },
+                { label: "Rate", value: dashboard.summary.runningPerMinuteFormatted },
                 { label: "Est. total", value: dashboard.summary.runningEstimatedFormatted },
                 {
-                  label: "Cloud storage",
+                  label: "Cloud",
                   value: `${dashboard.profile.usedFormatted} / ${dashboard.profile.quotaFormatted}`,
                 },
               ].map((s) => (
-                <div key={s.label} className="rounded-2xl border border-border bg-surface p-5">
-                  <p className="text-xs uppercase tracking-wider text-muted">{s.label}</p>
-                  <p className="mt-2 text-lg font-semibold">{s.value}</p>
+                <div key={s.label} className="pchub-panel bg-surface p-5">
+                  <p className="eyebrow text-muted">{s.label}</p>
+                  <p className="mt-2 font-mono text-lg">{s.value}</p>
                 </div>
               ))}
             </div>
 
             <section className="mt-10">
               <div className="flex items-center justify-between gap-4">
-                <h2 className="text-lg font-medium">Your PCs — powered on</h2>
+                <h2 className="font-mono text-xs uppercase tracking-widest text-foreground">
+                  Active sessions
+                </h2>
                 <label className="flex items-center gap-2 text-sm text-muted">
                   <input
                     type="checkbox"
@@ -163,7 +169,8 @@ export default function DashboardPage() {
                   {dashboard.activeSessions.map((session) => (
                     <article
                       key={session.rentalId}
-                      className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-5"
+                      className="pchub-panel border-l-emerald-400 p-5"
+                      style={{ borderLeftColor: "rgb(52 211 153)" }}
                     >
                       <div className="flex items-start justify-between">
                         <div>
@@ -172,8 +179,8 @@ export default function DashboardPage() {
                             {session.machineCity} · {session.priceFormatted}
                           </p>
                         </div>
-                        <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-xs text-emerald-400">
-                          ON
+                        <span className="border border-emerald-400/50 px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest text-emerald-400">
+                          Live
                         </span>
                       </div>
                       {session.syncMessage && (
@@ -190,9 +197,9 @@ export default function DashboardPage() {
                         type="button"
                         disabled={busy === session.rentalId}
                         onClick={() => turnOff(session.rentalId)}
-                        className="mt-4 rounded-lg bg-red-500/20 px-4 py-2 text-sm font-medium text-red-300 hover:bg-red-500/30 disabled:opacity-50"
+                        className="mt-4 border border-red-500/40 px-4 py-2 font-mono text-[10px] uppercase tracking-widest text-red-400 hover:bg-red-500/10 disabled:opacity-50"
                       >
-                        {busy === session.rentalId ? "Turning off…" : "Turn off"}
+                        {busy === session.rentalId ? "Shutting down…" : "Power off"}
                       </button>
                     </article>
                   ))}
@@ -201,7 +208,7 @@ export default function DashboardPage() {
             </section>
 
             <section className="mt-10">
-              <h2 className="text-lg font-medium">Available PCs — turn on</h2>
+              <h2 className="font-mono text-xs uppercase tracking-widest">Standby nodes</h2>
               <p className="mt-1 text-sm text-muted">
                 <Link href="/#for-renters" className="text-accent hover:underline">
                   Browse all
@@ -213,7 +220,7 @@ export default function DashboardPage() {
                   .map((m) => (
                     <div
                       key={m.id}
-                      className="flex items-center justify-between rounded-xl border border-border bg-surface p-4"
+                      className="pchub-panel flex items-center justify-between p-4"
                     >
                       <div>
                         <p className="font-medium">{m.name}</p>
@@ -225,9 +232,9 @@ export default function DashboardPage() {
                         type="button"
                         disabled={busy === m.id}
                         onClick={() => turnOn(m.id)}
-                        className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-background disabled:opacity-50"
+                        className="pchub-btn-primary px-3 py-1.5 text-[10px] disabled:opacity-50"
                       >
-                        {busy === m.id ? "…" : "Turn on"}
+                        {busy === m.id ? "…" : "Power on"}
                       </button>
                     </div>
                   ))}
@@ -235,13 +242,13 @@ export default function DashboardPage() {
             </section>
 
             <section className="mt-10">
-              <h2 className="text-lg font-medium">Recent sessions</h2>
+              <h2 className="font-mono text-xs uppercase tracking-widest">Session log</h2>
               {dashboard.history.length === 0 ? (
                 <p className="mt-4 text-sm text-muted">No history yet.</p>
               ) : (
-                <div className="mt-4 overflow-x-auto rounded-2xl border border-border">
+                <div className="mt-4 overflow-x-auto border border-border">
                   <table className="w-full text-left text-sm">
-                    <thead className="border-b border-border bg-surface text-muted">
+                    <thead className="border-b border-border bg-surface font-mono text-[10px] uppercase tracking-widest text-muted">
                       <tr>
                         <th className="px-4 py-3">PC</th>
                         <th className="px-4 py-3">Duration</th>
@@ -274,11 +281,11 @@ export default function DashboardPage() {
             </section>
 
             <div className="mt-10 flex gap-3">
-              <Link href="/storage" className="rounded-lg border border-border px-4 py-2 text-sm">
-                Cloud storage
+              <Link href="/storage" className="pchub-btn-ghost px-4 py-2 text-[11px]">
+                Storage
               </Link>
-              <Link href="/#for-renters" className="rounded-lg border border-border px-4 py-2 text-sm">
-                Browse marketplace
+              <Link href="/#for-renters" className="pchub-btn-ghost px-4 py-2 text-[11px]">
+                Fleet
               </Link>
             </div>
           </>

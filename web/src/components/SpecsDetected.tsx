@@ -5,11 +5,11 @@ const specCategories = [
   },
   {
     category: "Memory",
-    fields: ["Total GB", "Speed (MT/s)", "Channels (dual/quad)", "Type DDR4/DDR5"],
+    fields: ["Total GB", "Speed (MT/s)", "Channels", "DDR4 / DDR5"],
   },
   {
     category: "GPU",
-    fields: ["Model & VRAM", "Driver version", "CUDA / DirectX", "Stress test score"],
+    fields: ["Model & VRAM", "Driver version", "CUDA / DirectX", "Stress score"],
   },
   {
     category: "Storage",
@@ -17,11 +17,11 @@ const specCategories = [
   },
   {
     category: "Network",
-    fields: ["Upload / download", "Latency to regions", "Open ports", "NAT type"],
+    fields: ["Upload / download", "Regional latency", "Open ports", "NAT class"],
   },
   {
     category: "System",
-    fields: ["OS version", "Uptime reliability", "Thermal headroom", "Agent version"],
+    fields: ["OS build", "Uptime reliability", "Thermal headroom", "Agent build"],
   },
 ];
 
@@ -29,22 +29,24 @@ export function SpecsDetected() {
   return (
     <section className="border-b border-border py-24">
       <div className="mx-auto max-w-6xl px-6">
-        <h2 className="text-3xl font-semibold tracking-tight">What the agent reads & tests</h2>
-        <p className="mt-4 max-w-2xl text-muted">
-          Inspired by Vast.ai&apos;s self-test: inventory on install, benchmarks before
-          listing, and periodic re-checks to catch drift or misreporting.
+        <p className="eyebrow">Telemetry</p>
+        <h2 className="mt-3 text-3xl font-semibold tracking-tight md:text-4xl">
+          Verified hardware profile
+        </h2>
+        <p className="mt-4 max-w-xl text-muted">
+          Inventory on install, benchmark before listing, periodic re-checks to catch drift
+          or misreporting.
         </p>
-        <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-14 grid gap-px bg-border sm:grid-cols-2 lg:grid-cols-3">
           {specCategories.map((cat) => (
-            <div
-              key={cat.category}
-              className="rounded-xl border border-border bg-surface p-5"
-            >
-              <h3 className="font-medium">{cat.category}</h3>
-              <ul className="mt-3 space-y-1.5">
+            <div key={cat.category} className="pchub-panel bg-surface p-5">
+              <h3 className="font-mono text-sm uppercase tracking-widest text-accent">
+                {cat.category}
+              </h3>
+              <ul className="mt-4 space-y-1.5 border-t border-border pt-4">
                 {cat.fields.map((field) => (
-                  <li key={field} className="text-sm text-muted">
-                    {field}
+                  <li key={field} className="font-mono text-xs text-muted">
+                    <span className="text-accent/60">—</span> {field}
                   </li>
                 ))}
               </ul>

@@ -29,54 +29,52 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-6">
-      <form
-        onSubmit={handleSubmit}
-        className="w-full max-w-md rounded-2xl border border-border bg-surface p-8"
-      >
-        <h1 className="text-2xl font-semibold">Log in</h1>
-        <p className="mt-2 text-sm text-muted">Manage your rented PCs from your dashboard.</p>
+    <div className="flex min-h-screen items-center justify-center px-6 py-16">
+      <form onSubmit={handleSubmit} className="pchub-panel pchub-corners w-full max-w-md p-8">
+        <p className="eyebrow">Authenticate</p>
+        <h1 className="mt-2 text-2xl font-semibold">Operator login</h1>
+        <p className="mt-2 text-sm text-muted">Access your fleet console.</p>
 
-        {error && <p className="mt-4 text-sm text-red-400">{error}</p>}
+        {error && (
+          <p className="mt-4 border border-red-500/40 bg-red-500/5 px-3 py-2 text-sm text-red-400">
+            {error}
+          </p>
+        )}
 
         <label className="mt-6 block text-sm">
-          <span className="text-muted">Email</span>
+          <span className="eyebrow text-muted">Email</span>
           <input
             type="email"
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2"
+            className="pchub-input mt-2"
           />
         </label>
         <label className="mt-4 block text-sm">
-          <span className="text-muted">Password</span>
+          <span className="eyebrow text-muted">Password</span>
           <input
             type="password"
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2"
+            className="pchub-input mt-2"
           />
         </label>
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="mt-6 w-full rounded-xl bg-accent py-2.5 text-sm font-medium text-background disabled:opacity-50"
-        >
-          {loading ? "Logging in…" : "Log in"}
+        <button type="submit" disabled={loading} className="pchub-btn-primary mt-8 w-full">
+          {loading ? "Verifying…" : "Enter"}
         </button>
 
         <p className="mt-6 text-center text-sm text-muted">
-          No account?{" "}
+          New operator?{" "}
           <Link href="/signup" className="text-accent hover:underline">
-            Sign up
+            Register
           </Link>
         </p>
-        <p className="mt-2 text-center text-sm">
-          <Link href="/" className="text-muted hover:text-foreground">
-            ← Back to home
+        <p className="mt-2 text-center">
+          <Link href="/" className="font-mono text-[10px] uppercase tracking-widest text-muted hover:text-accent">
+            ← pchub.cloud
           </Link>
         </p>
       </form>

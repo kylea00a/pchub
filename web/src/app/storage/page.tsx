@@ -92,13 +92,13 @@ export default function StoragePage() {
         {loading && <p className="mt-8 text-muted">Loading…</p>}
 
         {error && (
-          <p className="mt-8 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          <p className="mt-8 border border-red-500/40 bg-red-500/5 px-4 py-3 text-sm text-red-300">
             {error}
           </p>
         )}
 
         {profile && (
-          <div className="mt-8 rounded-2xl border border-border bg-surface p-6">
+          <div className="mt-8 pchub-panel p-6">
             <h2 className="font-medium">Your usage</h2>
             <p className="mt-1 text-sm text-muted">
               Plan: <span className="text-foreground">{profile.planName}</span> ·{" "}
@@ -131,7 +131,7 @@ export default function StoragePage() {
             return (
               <article
                 key={plan.id}
-                className={`rounded-2xl border p-6 transition-colors ${
+                className={`pchub-panel p-6 border transition-colors ${
                   active ? "border-accent bg-accent/5" : "border-border bg-surface"
                 }`}
               >
@@ -156,7 +156,7 @@ export default function StoragePage() {
                   type="button"
                   disabled={active || saving === plan.id}
                   onClick={() => selectPlan(plan.id)}
-                  className="mt-4 rounded-lg border border-border px-4 py-2 text-sm transition-colors hover:border-accent/40 disabled:cursor-default disabled:opacity-50"
+                  className="mt-4 pchub-btn-ghost px-4 py-2 text-sm text-sm transition-colors hover:border-accent/40 disabled:cursor-default disabled:opacity-50"
                 >
                   {active ? "Current plan" : saving === plan.id ? "Saving…" : "Select plan"}
                 </button>
@@ -166,7 +166,7 @@ export default function StoragePage() {
         </div>
 
         {profile && profile.quotaBytes > 0 && (
-          <div className="mt-8 rounded-2xl border border-border bg-surface p-6">
+          <div className="mt-8 pchub-panel p-6">
             <h2 className="font-medium">Test upload to cloud</h2>
             <p className="mt-2 text-sm text-muted">
               Saves to cloud only — simulates files you&apos;d restore on next rental.
@@ -174,14 +174,14 @@ export default function StoragePage() {
             <input
               value={demoPath}
               onChange={(e) => setDemoPath(e.target.value)}
-              className="mt-4 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+              className="mt-4 w-full pchub-input text-sm text-sm"
               placeholder="Documents/notes.txt"
             />
             <textarea
               value={demoText}
               onChange={(e) => setDemoText(e.target.value)}
               rows={3}
-              className="mt-2 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+              className="mt-2 w-full pchub-input text-sm text-sm"
             />
             <button
               type="button"
@@ -201,7 +201,7 @@ export default function StoragePage() {
                   setUploading(false);
                 }
               }}
-              className="mt-3 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-background disabled:opacity-50"
+              className="mt-3 pchub-btn-primary px-4 py-2 text-sm font-medium text-background disabled:opacity-50"
             >
               {uploading ? "Saving…" : "Save to cloud"}
             </button>
@@ -213,13 +213,13 @@ export default function StoragePage() {
         <div className="mt-8 flex flex-wrap gap-3">
           <Link
             href="/#for-renters"
-            className="rounded-xl bg-accent px-5 py-2.5 text-sm font-medium text-background"
+            className="pchub-btn-primary px-5 py-2.5 text-sm font-medium text-background"
           >
             Browse PCs
           </Link>
           <Link
             href="/dashboard"
-            className="rounded-xl border border-border px-5 py-2.5 text-sm"
+            className="pchub-btn-ghost px-5 py-2.5 text-sm"
           >
             Dashboard
           </Link>

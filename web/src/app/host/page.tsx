@@ -50,22 +50,23 @@ export default function HostPage() {
     <div className="min-h-screen bg-background">
       <header className="border-b border-border">
         <div className="mx-auto flex h-16 max-w-3xl items-center justify-between px-6">
-          <Link href="/" className="text-sm text-muted hover:text-foreground">
-            ← Back to SkyPC
+          <Link href="/" className="font-mono text-[10px] uppercase tracking-widest text-muted hover:text-accent">
+            ← PCHUB
           </Link>
-          <span className="text-sm text-muted">Host setup</span>
+          <span className="eyebrow text-muted">Host deploy</span>
         </div>
       </header>
 
       <main className="mx-auto max-w-3xl px-6 py-16">
-        <h1 className="text-3xl font-semibold tracking-tight">Register your PC</h1>
+        <p className="eyebrow">Supply node</p>
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight">Register hardware</h1>
         <p className="mt-4 text-muted leading-relaxed">
           The website handles pairing and downloads. A small{" "}
           <strong className="text-foreground">Windows agent</strong> runs on your PC to detect
           hardware, measure upload speed, and stay online for renters.
         </p>
 
-        <div className="mt-6 rounded-xl border border-border bg-surface p-5 text-sm text-muted">
+        <div className="mt-6 pchub-panel p-5 text-sm text-muted">
           <h2 className="font-medium text-foreground">Why not a pure website?</h2>
           <ul className="mt-3 list-disc space-y-2 pl-5">
             <li>
@@ -88,7 +89,7 @@ export default function HostPage() {
           </p>
         </div>
 
-        <div className="mt-10 rounded-2xl border border-border bg-surface p-6">
+        <div className="mt-10 pchub-panel p-6">
           <h2 className="font-medium">Step 1 — Pairing code</h2>
           <p className="mt-2 text-sm text-muted">Valid for 30 minutes. One code = one PC.</p>
 
@@ -99,7 +100,7 @@ export default function HostPage() {
                 type="text"
                 value={machineName}
                 onChange={(e) => setMachineName(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2"
+                className="mt-1 w-full pchub-input"
               />
             </label>
             <label className="block text-sm">
@@ -108,7 +109,7 @@ export default function HostPage() {
                 type="text"
                 value={machineCity}
                 onChange={(e) => setMachineCity(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2"
+                className="mt-1 w-full pchub-input"
               />
             </label>
           </div>
@@ -117,7 +118,7 @@ export default function HostPage() {
             type="button"
             onClick={generateCode}
             disabled={loading}
-            className="mt-4 rounded-xl bg-accent px-5 py-2.5 text-sm font-medium text-background transition-colors hover:bg-accent-dim disabled:opacity-50"
+            className="mt-4 pchub-btn-primary px-5 py-2.5 text-sm"
           >
             {loading ? "Generating…" : code ? "Generate new code" : "Generate pairing code"}
           </button>
@@ -125,7 +126,7 @@ export default function HostPage() {
           {error && <p className="mt-4 text-sm text-red-400">{error}</p>}
 
           {code && (
-            <div className="mt-6 rounded-xl border border-accent/30 bg-accent/10 p-4">
+            <div className="mt-6 border border-accent/40 bg-accent/5 p-4">
               <p className="text-xs uppercase tracking-wider text-muted">Your code</p>
               <p className="mt-1 font-mono text-3xl font-semibold tracking-widest text-accent">
                 {code}
@@ -139,7 +140,7 @@ export default function HostPage() {
                 type="button"
                 onClick={downloadInstaller}
                 disabled={downloading}
-                className="mt-4 rounded-lg bg-accent px-5 py-2.5 text-sm font-medium text-background disabled:opacity-50"
+                className="mt-4 pchub-btn-primary px-5 py-2.5 text-sm font-medium text-background disabled:opacity-50"
               >
                 {downloading ? "Preparing zip…" : "Download Windows agent (.zip)"}
               </button>
@@ -150,7 +151,7 @@ export default function HostPage() {
           )}
         </div>
 
-        <div className="mt-6 rounded-2xl border border-border bg-surface p-6">
+        <div className="mt-6 pchub-panel p-6">
           <h2 className="font-medium">Step 2 — Windows PC (one double-click)</h2>
           <ol className="mt-4 list-decimal space-y-3 pl-5 text-sm text-muted">
             <li>Extract the zip anywhere (e.g. Desktop)</li>
@@ -181,16 +182,16 @@ export default function HostPage() {
           </p>
         </div>
 
-        <div className="mt-6 rounded-2xl border border-border bg-surface p-6">
+        <div className="mt-6 pchub-panel p-6">
           <h2 className="font-medium">Developers (Mac / terminal)</h2>
           <p className="mt-2 text-sm text-muted">API: {getApiUrl()}</p>
-          <pre className="mt-3 overflow-x-auto rounded-xl bg-background p-4 font-mono text-xs">
+          <pre className="mt-3 overflow-x-auto bg-background border border-border p-4 font-mono text-xs">
             {`# Place config.json in agent/ with your pairing code, then:
 npm run agent`}
           </pre>
         </div>
 
-        <div className="mt-6 rounded-2xl border border-border bg-surface p-6">
+        <div className="mt-6 pchub-panel p-6">
           <h2 className="font-medium">Step 3 — Check listings</h2>
           <p className="mt-2 text-sm text-muted">
             Your PC should show as <strong className="text-emerald-400">Online</strong> with real
@@ -198,7 +199,7 @@ npm run agent`}
           </p>
           <Link
             href="/#for-renters"
-            className="mt-4 inline-block rounded-lg border border-border px-4 py-2 text-sm transition-colors hover:border-accent/40"
+            className="mt-4 inline-block pchub-btn-ghost px-4 py-2 text-[11px] transition-colors hover:border-accent/40"
           >
             View listings →
           </Link>

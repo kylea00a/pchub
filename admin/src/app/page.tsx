@@ -55,11 +55,11 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b border-border">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
+      <header className="border-b border-border bg-background/80 backdrop-blur-xl">
+        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-6">
           <div>
-            <p className="text-xs uppercase tracking-wider text-muted">SkyPC Admin</p>
-            <p className="text-sm font-medium">Operations dashboard</p>
+            <p className="eyebrow text-accent-violet">PCHUB</p>
+            <p className="font-mono text-xs uppercase tracking-widest">Ops console</p>
           </div>
           <div className="flex items-center gap-4 text-sm">
             <span className="text-muted">{user?.email}</span>
@@ -85,7 +85,7 @@ export default function AdminDashboardPage() {
                 { label: "Machines", value: overview.stats.machines },
                 { label: "Active rentals", value: overview.stats.activeRentals },
               ].map((s) => (
-                <div key={s.label} className="rounded-2xl border border-border bg-surface p-5">
+                <div key={s.label} className="pchub-panel border bg-surface p-5">
                   <p className="text-xs uppercase tracking-wider text-muted">{s.label}</p>
                   <p className="mt-2 text-3xl font-semibold">{s.value}</p>
                 </div>
@@ -94,7 +94,7 @@ export default function AdminDashboardPage() {
 
             <section className="mt-12">
               <h2 className="text-lg font-medium">Machines</h2>
-              <div className="mt-4 overflow-x-auto rounded-2xl border border-border">
+              <div className="mt-4 overflow-x-auto pchub-panel border">
                 <table className="w-full text-left text-sm">
                   <thead className="border-b border-border bg-surface text-muted">
                     <tr>
@@ -128,7 +128,7 @@ export default function AdminDashboardPage() {
 
             <section className="mt-12">
               <h2 className="text-lg font-medium">Recent rentals</h2>
-              <div className="mt-4 overflow-x-auto rounded-2xl border border-border">
+              <div className="mt-4 overflow-x-auto pchub-panel border">
                 <table className="w-full text-left text-sm">
                   <thead className="border-b border-border bg-surface text-muted">
                     <tr>

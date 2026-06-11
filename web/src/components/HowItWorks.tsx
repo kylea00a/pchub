@@ -1,53 +1,51 @@
 const steps = [
   {
     step: "01",
-    title: "Host installs agent",
-    body: "A small Windows service installs in the background. No need to leave a window open — it starts on boot and talks to SkyPC over a secure channel.",
+    title: "Agent deploy",
+    body: "Lightweight Windows service on boot. Secure channel to PCHUB control plane — no open windows required.",
   },
   {
     step: "02",
-    title: "Specs are read & tested",
-    body: "The agent reads hardware (CPU cores, RAM speed, GPU, NVMe) and runs a short benchmark suite — similar to Vast.ai self-test — to build a verified profile.",
+    title: "Spec scan",
+    body: "Hardware inventory plus uplink benchmark. CPU, GPU, NVMe, and upload Mbps verified before listing.",
   },
   {
     step: "03",
-    title: "Machine is listed",
-    body: "The host sets price per minute and availability. The listing shows live specs, benchmark scores, latency to your region, and reliability rating.",
+    title: "Fleet listing",
+    body: "Host sets rate and region. Live card shows bench score, latency class, and availability state.",
   },
   {
     step: "04",
-    title: "Renter books a session",
-    body: "A renter picks a desktop, adds balance, and starts a session. Billing ticks every minute while the remote desktop is active and reachable.",
+    title: "Session start",
+    body: "Renter authenticates, selects a node, toggles power on. Meter starts when the desktop is reachable.",
   },
   {
     step: "05",
-    title: "Isolated desktop spins up",
-    body: "The agent provisions an isolated VM or container with reserved CPU/RAM (and GPU when available). The renter gets credentials or a browser stream.",
+    title: "Isolated runtime",
+    body: "Agent provisions reserved compute in an isolated VM or container. Stream credentials issued to renter.",
   },
   {
     step: "06",
-    title: "Session ends & wipe",
-    body: "When the renter stops or balance runs out, the session tears down, disk is wiped, and the host earns their share minus platform fee.",
+    title: "Teardown",
+    body: "Power off ends the meter. Ephemeral disk wiped. Optional personal layer syncs back to cloud.",
   },
 ];
 
 export function HowItWorks() {
   return (
-    <section id="how-it-works" className="border-b border-border bg-surface/30 py-24">
+    <section id="how-it-works" className="border-b border-border bg-surface/50 py-24">
       <div className="mx-auto max-w-6xl px-6">
-        <h2 className="text-3xl font-semibold tracking-tight">How it works</h2>
-        <p className="mt-4 max-w-2xl text-muted">
-          End-to-end flow from install to payout. This is the product shape we&apos;re building toward.
+        <p className="eyebrow">Protocol</p>
+        <h2 className="mt-3 text-3xl font-semibold tracking-tight md:text-4xl">Session lifecycle</h2>
+        <p className="mt-4 max-w-xl text-muted">
+          From agent install to payout — the end-to-end flow we ship on pchub.cloud.
         </p>
-        <ol className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <ol className="mt-14 grid gap-px bg-border sm:grid-cols-2 lg:grid-cols-3">
           {steps.map((item) => (
-            <li
-              key={item.step}
-              className="rounded-2xl border border-border bg-background p-6"
-            >
-              <span className="font-mono text-xs text-accent">{item.step}</span>
-              <h3 className="mt-3 font-medium">{item.title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-muted">{item.body}</p>
+            <li key={item.step} className="pchub-panel relative bg-background p-6">
+              <span className="font-mono text-2xl font-bold text-accent/30">{item.step}</span>
+              <h3 className="mt-2 font-medium">{item.title}</h3>
+              <p className="mt-3 text-sm leading-relaxed text-muted">{item.body}</p>
             </li>
           ))}
         </ol>

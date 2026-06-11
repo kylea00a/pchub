@@ -30,58 +30,56 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-6">
-      <form
-        onSubmit={handleSubmit}
-        className="w-full max-w-md rounded-2xl border border-border bg-surface p-8"
-      >
-        <h1 className="text-2xl font-semibold">Create account</h1>
-        <p className="mt-2 text-sm text-muted">Rent PCs by the minute across the Philippines.</p>
+    <div className="flex min-h-screen items-center justify-center px-6 py-16">
+      <form onSubmit={handleSubmit} className="pchub-panel pchub-corners w-full max-w-md p-8">
+        <p className="eyebrow">Onboard</p>
+        <h1 className="mt-2 text-2xl font-semibold">Create account</h1>
+        <p className="mt-2 text-sm text-muted">Rent verified desktops across the Philippines.</p>
 
-        {error && <p className="mt-4 text-sm text-red-400">{error}</p>}
+        {error && (
+          <p className="mt-4 border border-red-500/40 bg-red-500/5 px-3 py-2 text-sm text-red-400">
+            {error}
+          </p>
+        )}
 
         <label className="mt-6 block text-sm">
-          <span className="text-muted">Name</span>
+          <span className="eyebrow text-muted">Name</span>
           <input
             type="text"
             required
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2"
+            className="pchub-input mt-2"
           />
         </label>
         <label className="mt-4 block text-sm">
-          <span className="text-muted">Email</span>
+          <span className="eyebrow text-muted">Email</span>
           <input
             type="email"
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2"
+            className="pchub-input mt-2"
           />
         </label>
         <label className="mt-4 block text-sm">
-          <span className="text-muted">Password (6+ characters)</span>
+          <span className="eyebrow text-muted">Password</span>
           <input
             type="password"
             required
             minLength={6}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2"
+            className="pchub-input mt-2"
           />
         </label>
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="mt-6 w-full rounded-xl bg-accent py-2.5 text-sm font-medium text-background disabled:opacity-50"
-        >
-          {loading ? "Creating account…" : "Sign up"}
+        <button type="submit" disabled={loading} className="pchub-btn-primary mt-8 w-full">
+          {loading ? "Provisioning…" : "Join network"}
         </button>
 
         <p className="mt-6 text-center text-sm text-muted">
-          Already have an account?{" "}
+          Have an account?{" "}
           <Link href="/login" className="text-accent hover:underline">
             Log in
           </Link>

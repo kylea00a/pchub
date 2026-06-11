@@ -24,6 +24,7 @@ npm run build -w web
 npm run build -w admin
 
 cp deploy/nginx-pchub.conf /etc/nginx/sites-available/pchub
+ln -sf /etc/nginx/sites-available/pchub /etc/nginx/sites-enabled/pchub
 nginx -t && systemctl reload nginx
 
 cat > deploy/ecosystem.config.cjs <<EOF
