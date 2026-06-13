@@ -482,6 +482,65 @@ app.post("/api/agents/register", (req, res) => {
   });
 });
 
+app.post("/api/agents/rejoin", (req, res) => {
+  const { pairingCode, hostname } = req.body as {
+    pairingCode?: string;
+    hostname?: string;
+  };
+
+  if (!pairingCode?.trim()) {
+    res.status(400).json({ error: "pairingCode is required" });
+    return;
+  }
+
+  const pairing = db
+    .prepare("SELECT * FROM pairing_codes WHERE code = ?")
+    .get(pairingCode.trim().toUpperCase()) as
+    | { code: string; used: number; machine_id: string | null; expires_at: string }
+    | undefined;
+
+  if (!pairing) {
+    res.status(404).json({ error: "Invalid pairing code" });
+    return;
+  }
+  if (pairing.used !== 1 || !pairing.machine_id) {
+    res.status(400).json({ error: "Pairing code is not linked to a registered PC yet" });
+    return;
+  }
+
+  const machine = db
+    .prepare("SELECT * FROM machines WHERE id = ?")
+    .get(pairing.machine_id) as MachineRow | undefined;
+  if (!machine) {
+    res.status(404).json({ error: "Registered PC not found" });
+    return;
+  }
+
+  if (hostname?.trim() && machine.hostname && machine.hostname !== hostname.trim()) {
+    res.status(403).json({
+      error: "This pairing code belongs to a different PC. Generate a new code at pchub.cloud/host",
+    });
+    return;
+  }
+
+  const creds = ensureSunshineCredentials(machine);
+  db.prepare(`UPDATE machines SET last_seen_at = ?, status = 'online' WHERE id = ?`).run(
+    nowIso(),
+    machine.id
+  );
+
+  res.json({
+    machineId: machine.id,
+    agentToken: machine.agent_token,
+    name: machine.name,
+    city: machine.city,
+    pricePerMinuteCents: machine.price_per_minute_cents,
+    sunshineUsername: creds.username,
+    sunshinePassword: creds.password,
+    restored: true,
+  });
+});
+
 app.post("/api/agents/heartbeat", authAgent, (req, res) => {
   const machine = (req as express.Request & { machine: MachineRow }).machine;
   const { status } = req.body as { status?: string };

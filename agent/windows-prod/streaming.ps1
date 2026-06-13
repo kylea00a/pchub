@@ -98,7 +98,7 @@ function Update-StreamingSession {
   if ($creds.Username -and $creds.Password) {
     Enable-StreamingFirewall
     Enable-SunshineUpnp -Username $creds.Username -Password $creds.Password | Out-Null
-    try { Start-Service -Name "Sunshine" -ErrorAction SilentlyContinue } catch { }
+    Start-SunshineProcess
   }
 
   $ready = Test-SunshineReady

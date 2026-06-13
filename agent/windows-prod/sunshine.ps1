@@ -58,6 +58,32 @@ function Set-SunshineCredentials {
   try { Start-Service -Name "Sunshine" -ErrorAction SilentlyContinue } catch { }
   Start-Sleep -Seconds 2
   try { Start-Service -Name "Sunshine" -ErrorAction SilentlyContinue } catch { }
+  Start-SunshineProcess
+}
+
+function Start-SunshineProcess {
+  $exe = Get-SunshineExe
+  if (-not $exe) { return }
+
+  foreach ($name in @("Sunshine", "sunshine")) {
+    $svc = Get-Service -Name $name -ErrorAction SilentlyContinue
+    if ($svc -and $svc.Status -ne "Running") {
+      try {
+        Set-Service -Name $name -StartupType Automatic -ErrorAction SilentlyContinue
+        Start-Service -Name $name -ErrorAction Stop
+      } catch { }
+    }
+  }
+
+  Start-Sleep -Seconds 3
+  $ready = Test-SunshineReady
+  if (-not $ready.PortOpen) {
+    $existing = Get-CimInstance Win32_Process -Filter "Name='sunshine.exe'" -ErrorAction SilentlyContinue
+    if (-not $existing) {
+      Start-Process -FilePath $exe -WindowStyle Hidden -ErrorAction SilentlyContinue
+      Start-Sleep -Seconds 5
+    }
+  }
 }
 
 function Invoke-SunshineCurl {
@@ -160,5 +186,6 @@ function Initialize-PchubSunshine {
   Set-SunshineCredentials -Username $Username -Password $Password
   Enable-StreamingFirewall
   Enable-SunshineUpnp -Username $Username -Password $Password | Out-Null
+  Start-SunshineProcess
   Write-Host "      Sunshine ready (firewall + UPnP configured)."
 }

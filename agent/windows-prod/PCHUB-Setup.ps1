@@ -22,6 +22,7 @@ if (-not $Elevated) {
 Set-Location $Root
 $hostPs1 = Join-Path $Root "pchub-host.ps1"
 $sunshinePs1 = Join-Path $Root "sunshine.ps1"
+$statePath = Join-Path $Root ".agent-state.json"
 
 if (-not (Test-Path (Join-Path $Root "config.json"))) {
   Write-Host "config.json not found. Download from https://pchub.cloud/host"
@@ -48,26 +49,47 @@ Write-Host "[2/5] Stopping any old agent..."
 & cmd /c "taskkill /FI `"WINDOWTITLE eq PCHUB Agent Loop*`" /F >nul 2>&1"
 & cmd /c "taskkill /FI `"WINDOWTITLE eq PCHUB Host Status*`" /F >nul 2>&1"
 & cmd /c "wmic process where `"CommandLine like '%pchub-host.ps1%'`" call terminate >nul 2>&1"
-$statePath = Join-Path $Root ".agent-state.json"
-if (Test-Path $statePath) { Remove-Item $statePath -Force }
-Write-Host "      OK"
+Write-Host "      OK (keeping saved registration if present)"
 
-Write-Host ""
-Write-Host "[3/5] Detecting hardware and registering..."
+$hadState = Test-Path $statePath
+if ($hadState) {
+  Write-Host ""
+  Write-Host "[3/5] Repairing existing registration..."
+} else {
+  Write-Host ""
+  Write-Host "[3/5] Detecting hardware and registering..."
+}
+
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $hostPs1 -Once
 if ($LASTEXITCODE -ne 0) {
   Write-Host ""
-  Write-Host "Registration failed. Open agent.log in this folder."
+  Write-Host "Setup failed. Open agent.log in this folder."
+  if (-not $hadState) {
+    Write-Host "If you see 'pairing code already used', download a fresh zip from pchub.cloud/host"
+    Write-Host "or re-run after deploy - rejoin support will restore this PC automatically."
+  }
   Read-Host "Press Enter to exit"
   exit 1
 }
 
 Write-Host ""
-Write-Host "[4/5] Installing remote desktop (Sunshine)..."
+Write-Host "[4/5] Installing / repairing remote desktop (Sunshine)..."
 if (Test-Path $sunshinePs1) {
   . $sunshinePs1
   $state = Get-Content $statePath -Raw | ConvertFrom-Json
   try {
+    if (-not $state.sunshineUsername -or -not $state.sunshinePassword) {
+      Write-Host "      Fetching Sunshine credentials from PCHUB..."
+      $config = Get-Content (Join-Path $Root "config.json") -Raw | ConvertFrom-Json
+      $headers = @{
+        "Content-Type" = "application/json"
+        "Authorization" = "Bearer $($state.agentToken)"
+      }
+      $remote = Invoke-RestMethod -Uri "$($config.apiUrl.TrimEnd('/'))/api/agents/streaming/config" -Headers $headers -Method GET
+      $state.sunshineUsername = $remote.sunshineUsername
+      $state.sunshinePassword = $remote.sunshinePassword
+      $state | ConvertTo-Json | Set-Content $statePath -Encoding UTF8
+    }
     Initialize-PchubSunshine -Username $state.sunshineUsername -Password $state.sunshinePassword
   } catch {
     Write-Host "      Warning: Sunshine setup issue - $($_.Exception.Message)"
@@ -97,7 +119,7 @@ Write-Host "========================================"
 Write-Host ""
 Write-Host "  Taskbar: PCHUB Host Status (Online within ~30s)"
 Write-Host "  Website: https://pchub.cloud"
-Write-Host "  Renters pair Moonlight from their dashboard - no host browser setup."
+Write-Host "  Re-running this setup repairs Sunshine without a new pairing code."
 Write-Host "  Logs:    $Root\agent.log"
 Write-Host ""
 Read-Host "Press Enter to close"

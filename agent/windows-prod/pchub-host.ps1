@@ -72,7 +72,22 @@ function Register-Machine($Config) {
     city = if ($Config.machineCity) { "$($Config.machineCity)".Trim() } else { "Manila" }
     pricePerMinuteCents = if ($Config.priceCents) { [int]$Config.priceCents } else { 50 }
   }
-  $result = Invoke-PchubApi -ApiRoot $Config.apiUrl -Path "/api/agents/register" -Method "POST" -Body $body
+
+  try {
+    $result = Invoke-PchubApi -ApiRoot $Config.apiUrl -Path "/api/agents/register" -Method "POST" -Body $body
+  } catch {
+    $msg = $_.Exception.Message
+    if ($msg -match "already used") {
+      Write-Log "Pairing code already used - restoring existing registration..."
+      $result = Invoke-PchubApi -ApiRoot $Config.apiUrl -Path "/api/agents/rejoin" -Method "POST" -Body @{
+        pairingCode = $body.pairingCode
+        hostname = $hostname
+      }
+    } else {
+      throw
+    }
+  }
+
   $state = @{
     machineId = $result.machineId
     agentToken = $result.agentToken
@@ -82,7 +97,11 @@ function Register-Machine($Config) {
     lastRentalId = $null
   }
   Save-State $state
-  Write-Log "Registered machine `"$($state.name)`" ($($state.machineId))"
+  if ($result.restored) {
+    Write-Log "Restored machine `"$($state.name)`" ($($state.machineId))"
+  } else {
+    Write-Log "Registered machine `"$($state.name)`" ($($state.machineId))"
+  }
   return $state
 }
 
@@ -161,31 +180,43 @@ function Handle-ActiveSession($Config, $State) {
 $config = Get-Config
 Write-Log "PCHUB agent -> $($config.apiUrl) (root: $Root)"
 
-$state = Get-State
-if (-not $state) {
-  $state = Register-Machine $config
-} else {
-  Write-Log "Using saved machine `"$($state.name)`" ($($state.machineId))"
-}
-
-try { Send-Inventory $config $state } catch { Write-Log "Inventory warn: $($_.Exception.Message)" }
-Send-Heartbeat $config $state
-Handle-ActiveSession $config $state
-
-if ($Once) {
-  Write-Log "Single run complete (-Once)."
-  exit 0
-}
-
-$interval = if ($config.heartbeatMs) { [int]$config.heartbeatMs } else { 30000 }
-Write-Log "Heartbeat every $([int]($interval / 1000))s. Keep this process running."
-
-while ($true) {
-  Start-Sleep -Milliseconds $interval
-  try {
-    Send-Heartbeat $config $state
-    Handle-ActiveSession $config $state
-  } catch {
-    Write-Log "Heartbeat failed: $($_.Exception.Message)"
+try {
+  $state = Get-State
+  if (-not $state) {
+    $state = Register-Machine $config
+  } else {
+    Write-Log "Using saved machine `"$($state.name)`" ($($state.machineId))"
+    if (-not $state.sunshineUsername -or -not $state.sunshinePassword) {
+      $remote = Invoke-PchubApi -ApiRoot $config.apiUrl -Path "/api/agents/streaming/config" -Method "GET" -Token $state.agentToken
+      $state.sunshineUsername = $remote.sunshineUsername
+      $state.sunshinePassword = $remote.sunshinePassword
+      Save-State $state
+    }
   }
+
+  try { Send-Inventory $config $state } catch { Write-Log "Inventory warn: $($_.Exception.Message)" }
+  Send-Heartbeat $config $state
+  Handle-ActiveSession $config $state
+
+  if ($Once) {
+    Write-Log "Single run complete (-Once)."
+    exit 0
+  }
+
+  $interval = if ($config.heartbeatMs) { [int]$config.heartbeatMs } else { 30000 }
+  Write-Log "Heartbeat every $([int]($interval / 1000))s. Keep this process running."
+
+  while ($true) {
+    Start-Sleep -Milliseconds $interval
+    try {
+      Send-Heartbeat $config $state
+      Handle-ActiveSession $config $state
+    } catch {
+      Write-Log "Heartbeat failed: $($_.Exception.Message)"
+    }
+  }
+} catch {
+  Write-Log "Agent failed: $($_.Exception.Message)"
+  Write-Error $_.Exception.Message
+  exit 1
 }
