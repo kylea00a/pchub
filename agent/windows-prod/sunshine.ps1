@@ -55,24 +55,27 @@ function Set-SunshineCredentials {
     }
   }
 
-  try { Start-Service -Name "Sunshine" -ErrorAction SilentlyContinue } catch { }
-  Start-Sleep -Seconds 2
-  try { Start-Service -Name "Sunshine" -ErrorAction SilentlyContinue } catch { }
-  Start-SunshineProcess
+  try { Start-SunshineProcess } catch { }
+}
+
+function Get-SunshineService {
+  foreach ($name in @("SunshineService", "Sunshine", "sunshine")) {
+    $svc = Get-Service -Name $name -ErrorAction SilentlyContinue
+    if ($svc) { return $svc }
+  }
+  return $null
 }
 
 function Start-SunshineProcess {
   $exe = Get-SunshineExe
   if (-not $exe) { return }
 
-  foreach ($name in @("Sunshine", "sunshine")) {
-    $svc = Get-Service -Name $name -ErrorAction SilentlyContinue
-    if ($svc -and $svc.Status -ne "Running") {
-      try {
-        Set-Service -Name $name -StartupType Automatic -ErrorAction SilentlyContinue
-        Start-Service -Name $name -ErrorAction Stop
-      } catch { }
-    }
+  $svc = Get-SunshineService
+  if ($svc -and $svc.Status -ne "Running") {
+    try {
+      Set-Service -Name $svc.Name -StartupType Automatic -ErrorAction SilentlyContinue
+      Start-Service -Name $svc.Name -ErrorAction Stop
+    } catch { }
   }
 
   Start-Sleep -Seconds 3
@@ -164,16 +167,20 @@ function Enable-SunshineUpnp {
 }
 
 function Test-SunshineReady {
-  $service = Get-Service -Name "Sunshine" -ErrorAction SilentlyContinue
-  $serviceRunning = $service -and $service.Status -eq "Running"
+  $svc = Get-SunshineService
+  $serviceRunning = $svc -and $svc.Status -eq "Running"
   $portOpen = $false
   if ($serviceRunning) {
+    $portOpen = (Test-NetConnection -ComputerName 127.0.0.1 -Port 47989 -WarningAction SilentlyContinue).TcpTestSucceeded
+  }
+  if (-not $portOpen) {
     $portOpen = (Test-NetConnection -ComputerName 127.0.0.1 -Port 47989 -WarningAction SilentlyContinue).TcpTestSucceeded
   }
   return @{
     Installed = [bool](Get-SunshineExe)
     ServiceRunning = $serviceRunning
     PortOpen = $portOpen
+    ServiceName = if ($svc) { $svc.Name } else { $null }
   }
 }
 
