@@ -3,8 +3,16 @@ param(
   [string]$AgentRoot
 )
 
-$ErrorActionPreference = "SilentlyContinue"
+$ErrorActionPreference = "Stop"
 $AgentRoot = (Resolve-Path $AgentRoot).Path
+$trayLog = Join-Path $AgentRoot "tray.log"
+
+function Write-TrayLog([string]$Message) {
+  Add-Content -Path $trayLog -Value ("[{0}] {1}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"), $Message)
+}
+
+try {
+  Write-TrayLog "Starting tray (STA) at $AgentRoot"
 
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
@@ -14,8 +22,13 @@ $stateFile = Join-Path $AgentRoot ".agent-state.json"
 $configFile = Join-Path $AgentRoot "config.json"
 
 function Test-AgentProcess {
+  $root = $AgentRoot.ToLower()
   Get-CimInstance Win32_Process -Filter "Name='node.exe'" |
-    Where-Object { $_.CommandLine -like "*agent.cjs*" -and $_.CommandLine -like "*$AgentRoot*" }
+    Where-Object {
+      $_.CommandLine -and
+      $_.CommandLine.ToLower().Contains("agent.cjs") -and
+      $_.CommandLine.ToLower().Contains($root)
+    }
 }
 
 function Get-MachineStatus {
@@ -118,4 +131,9 @@ $timer.Add_Tick({ Update-Tray })
 $timer.Start()
 
 Update-Tray
+Write-TrayLog "Tray icon visible"
 [void][System.Windows.Forms.Application]::Run()
+} catch {
+  Write-TrayLog ("TRAY ERROR: " + $_.Exception.Message)
+  throw
+}

@@ -129,26 +129,31 @@ async function collectInventory() {
 }
 
 async function postInventory(token: string, speeds?: { uploadMbps: number; downloadMbps: number }) {
-  const inventory = await collectInventory();
-  if (speeds) {
-    inventory.uploadMbps = speeds.uploadMbps;
-    inventory.downloadMbps = speeds.downloadMbps;
+  try {
+    const inventory = await collectInventory();
+    if (speeds) {
+      inventory.uploadMbps = speeds.uploadMbps;
+      inventory.downloadMbps = speeds.downloadMbps;
+    }
+    await apiFetch("/api/agents/inventory", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(inventory),
+    });
+    const speedLabel =
+      inventory.uploadMbps != null
+        ? ` | ↑${inventory.uploadMbps} ↓${inventory.downloadMbps} Mbps`
+        : "";
+    console.log(
+      `Inventory updated — ${inventory.cpu} | ${inventory.ram} | ${inventory.gpu} | score ${inventory.benchScore}${speedLabel}`
+    );
+  } catch (err) {
+    console.error("Inventory failed:", err instanceof Error ? err.message : err);
+    throw err;
   }
-  await apiFetch("/api/agents/inventory", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(inventory),
-  });
-  const speedLabel =
-    inventory.uploadMbps != null
-      ? ` | ↑${inventory.uploadMbps} ↓${inventory.downloadMbps} Mbps`
-      : "";
-  console.log(
-    `Inventory updated — ${inventory.cpu} | ${inventory.ram} | ${inventory.gpu} | score ${inventory.benchScore}${speedLabel}`
-  );
 }
 
 async function heartbeat(token: string) {
@@ -182,7 +187,11 @@ async function main() {
     console.warn("Speed test skipped:", err instanceof Error ? err.message : err);
   }
 
-  await postInventory(state.agentToken, speeds);
+  try {
+    await postInventory(state.agentToken, speeds);
+  } catch (err) {
+    console.warn("Continuing without inventory this run");
+  }
   await heartbeat(state.agentToken);
   console.log(`Heartbeat OK — ${new Date().toLocaleTimeString()}`);
   await handleStorageSync(state.agentToken).catch((err) => {

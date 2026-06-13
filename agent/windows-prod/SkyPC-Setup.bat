@@ -1,6 +1,9 @@
 @echo off
 title PCHUB — register this PC
+setlocal
 cd /d "%~dp0"
+set "AGENT_DIR=%~dp0"
+if "%AGENT_DIR:~-1%"=="\" set "AGENT_DIR=%AGENT_DIR:~0,-1%"
 
 if not exist config.json (
   echo.
@@ -42,9 +45,19 @@ echo.
 echo Starting agent + system tray icon...
 call "%~dp0Start PCHUB Agent.bat"
 
+powershell -NoProfile -Command "$s=(New-Object -COM WScript.Shell).CreateShortcut([Environment]::GetFolderPath('Desktop') + '\PCHUB Host.lnk'); $s.TargetPath='%AGENT_DIR%\Start PCHUB Agent.bat'; $s.WorkingDirectory='%AGENT_DIR%'; $s.Description='Start PCHUB host agent'; $s.Save()" >nul 2>&1
+
+timeout /t 5 /nobreak >nul
+
 echo.
-echo Done. Look for the PCHUB icon near the clock (system tray).
-echo Your PC should show Online on pchub.cloud within a minute.
-echo Logs: %CD%\agent.log
+echo Done. The agent is running in the background.
 echo.
+echo TRAY ICON: click the ^^ arrow near the clock (bottom-right) — PCHUB may be hidden there.
+echo DESKTOP: we added "PCHUB Host" shortcut — double-click anytime to start/restart.
+echo WEBSITE: refresh pchub.cloud in ~30 seconds — status should show Online.
+echo.
+echo Tip: move this folder to C:\PCHUB-Host (no spaces) if you have issues.
+echo Logs: %AGENT_DIR%\agent.log
+echo.
+echo You can close this window now (press any key).
 pause
