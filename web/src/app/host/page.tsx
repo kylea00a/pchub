@@ -83,9 +83,10 @@ export default function HostPage() {
             </li>
           </ul>
           <p className="mt-3">
-            <strong className="text-foreground">Download:</strong> a zip with the agent and a bundled
-            Windows runtime — no Node.js install on your PC. Double-click{" "}
-            <code className="text-foreground">SkyPC-Setup.bat</code> once.
+            <strong className="text-foreground">Download:</strong> a small zip with a native
+            Windows agent (PowerShell). Run{" "}
+            <code className="text-foreground">allow-windows-defender.bat</code> as Admin first so
+            Windows does not delete files, then <code className="text-foreground">SkyPC-Setup.bat</code>.
           </p>
         </div>
 
