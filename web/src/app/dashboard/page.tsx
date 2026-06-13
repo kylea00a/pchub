@@ -11,6 +11,7 @@ import {
   type Dashboard,
   type Machine,
 } from "@/lib/api";
+import { ConnectPanel } from "@/components/ConnectPanel";
 import { useAuth } from "@/hooks/useAuth";
 
 function formatDuration(seconds: number) {
@@ -186,6 +187,7 @@ export default function DashboardPage() {
                       {session.syncMessage && (
                         <p className="mt-2 text-xs text-muted">{session.syncMessage}</p>
                       )}
+                      {session.connect && <ConnectPanel connect={session.connect} />}
                       <p className="mt-3 text-sm">
                         Running{" "}
                         {session.elapsedSeconds != null

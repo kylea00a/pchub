@@ -106,6 +106,33 @@ if (!rentalColNames.has("sync_status")) {
 if (!rentalColNames.has("sync_message")) {
   db.exec(`ALTER TABLE rentals ADD COLUMN sync_message TEXT`);
 }
+if (!rentalColNames.has("stream_status")) {
+  db.exec(`ALTER TABLE rentals ADD COLUMN stream_status TEXT NOT NULL DEFAULT 'idle'`);
+}
+if (!rentalColNames.has("stream_local_ip")) {
+  db.exec(`ALTER TABLE rentals ADD COLUMN stream_local_ip TEXT`);
+}
+if (!rentalColNames.has("stream_public_ip")) {
+  db.exec(`ALTER TABLE rentals ADD COLUMN stream_public_ip TEXT`);
+}
+if (!rentalColNames.has("stream_port")) {
+  db.exec(`ALTER TABLE rentals ADD COLUMN stream_port INTEGER NOT NULL DEFAULT 47989`);
+}
+if (!rentalColNames.has("stream_https_port")) {
+  db.exec(`ALTER TABLE rentals ADD COLUMN stream_https_port INTEGER NOT NULL DEFAULT 47990`);
+}
+if (!rentalColNames.has("stream_pin")) {
+  db.exec(`ALTER TABLE rentals ADD COLUMN stream_pin TEXT`);
+}
+if (!rentalColNames.has("stream_message")) {
+  db.exec(`ALTER TABLE rentals ADD COLUMN stream_message TEXT`);
+}
+if (!rentalColNames.has("stream_sunshine_installed")) {
+  db.exec(`ALTER TABLE rentals ADD COLUMN stream_sunshine_installed INTEGER NOT NULL DEFAULT 0`);
+}
+if (!rentalColNames.has("stream_updated_at")) {
+  db.exec(`ALTER TABLE rentals ADD COLUMN stream_updated_at TEXT`);
+}
 
 export type RenterProfileRow = {
   id: string;
@@ -138,6 +165,15 @@ export type RentalRow = {
   personal_storage: number;
   sync_status: string;
   sync_message: string | null;
+  stream_status: string;
+  stream_local_ip: string | null;
+  stream_public_ip: string | null;
+  stream_port: number;
+  stream_https_port: number;
+  stream_pin: string | null;
+  stream_message: string | null;
+  stream_sunshine_installed: number;
+  stream_updated_at: string | null;
 };
 
 export type MachineRow = {

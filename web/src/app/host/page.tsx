@@ -79,7 +79,7 @@ export default function HostPage() {
             </li>
             <li>
               Renters need a always-on daemon (like Steam) for heartbeats, storage sync, and
-              future remote desktop.
+              remote desktop (Sunshine + Moonlight).
             </li>
           </ul>
           <p className="mt-3">
@@ -188,7 +188,26 @@ npm run agent`}
         </div>
 
         <div className="mt-6 pchub-panel p-6">
-          <h2 className="font-medium">Step 3 — Check listings</h2>
+          <h2 className="font-medium">Step 3 — Remote desktop (Sunshine, one time)</h2>
+          <p className="mt-2 text-sm text-muted">
+            Renters connect with <strong className="text-foreground">Moonlight</strong> while a
+            session is powered on. Install the host app once:
+          </p>
+          <ol className="mt-4 list-decimal space-y-3 pl-5 text-sm text-muted">
+            <li>
+              In <code className="text-foreground">C:\PCHUB-Host</code>, double-click{" "}
+              <code className="text-foreground">RUN-INSTALL-SUNSHINE.cmd</code>
+            </li>
+            <li>
+              Open <code className="text-foreground">https://localhost:47990</code> and set a
+              Sunshine username/password
+            </li>
+            <li>Keep the PCHUB agent running — it reports the IP renters need on the dashboard</li>
+          </ol>
+        </div>
+
+        <div className="mt-6 pchub-panel p-6">
+          <h2 className="font-medium">Step 4 — Check listings</h2>
           <p className="mt-2 text-sm text-muted">
             Your PC should show as <strong className="text-emerald-400">Online</strong> with real
             specs and ↑ upload Mbps within a minute.

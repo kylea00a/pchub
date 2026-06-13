@@ -2,6 +2,7 @@
 param([switch]$Once)
 
 $Root = $PSScriptRoot
+. (Join-Path $Root "streaming.ps1")
 $ConfigPath = Join-Path $Root "config.json"
 $StatePath = Join-Path $Root ".agent-state.json"
 $LogPath = Join-Path $Root "agent.log"
@@ -135,6 +136,21 @@ function Send-Heartbeat($Config, $State) {
   Write-Log "Heartbeat OK"
 }
 
+function Get-AgentSession($Config, $State) {
+  return Invoke-PchubApi -ApiRoot $Config.apiUrl -Path "/api/agents/session" -Method "GET" -Token $State.agentToken
+}
+
+function Handle-ActiveSession($Config, $State) {
+  try {
+    $session = Get-AgentSession $Config $State
+    if ($session.active) {
+      Update-StreamingSession -Config $Config -State $State -Session $session
+    }
+  } catch {
+    Write-Log "Session check failed: $($_.Exception.Message)"
+  }
+}
+
 $config = Get-Config
 Write-Log "PCHUB agent -> $($config.apiUrl) (root: $Root)"
 
@@ -147,6 +163,7 @@ if (-not $state) {
 
 try { Send-Inventory $config $state } catch { Write-Log "Inventory warn: $($_.Exception.Message)" }
 Send-Heartbeat $config $state
+Handle-ActiveSession $config $state
 
 if ($Once) {
   Write-Log "Single run complete (-Once)."
@@ -160,6 +177,7 @@ while ($true) {
   Start-Sleep -Milliseconds $interval
   try {
     Send-Heartbeat $config $state
+    Handle-ActiveSession $config $state
   } catch {
     Write-Log "Heartbeat failed: $($_.Exception.Message)"
   }

@@ -72,6 +72,27 @@ export type Rental = {
   estimatedTotalCents?: number;
   estimatedTotalFormatted?: string;
   elapsedSeconds?: number | null;
+  connect?: ConnectInfo | null;
+};
+
+export type ConnectInfo = {
+  status: string;
+  localIp: string | null;
+  publicIp: string | null;
+  host: string | null;
+  port: number;
+  httpsPort: number;
+  pin: string | null;
+  message: string | null;
+  sunshineInstalled: boolean;
+  updatedAt: string | null;
+  moonlightLinks: {
+    windows: string;
+    android: string;
+    ios: string;
+    mac: string;
+  };
+  steps: string[];
 };
 
 export type DashboardSummary = {

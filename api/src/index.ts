@@ -14,6 +14,7 @@ import {
 import { db, type InventoryRow, type MachineRow, type RenterProfileRow, type RentalRow } from "./db.js";
 import { requireAdmin, requireAuth, type AuthedRequest } from "./middleware.js";
 import { streamWindowsAgentBundle } from "./host-bundle.js";
+import { formatConnectInfo } from "./streaming.js";
 import {
   STORAGE_PLANS,
   getPlan,
@@ -176,8 +177,9 @@ function startRentalLogic(
   db.prepare(
     `INSERT INTO rentals (
       id, machine_id, status, price_per_minute_cents, started_at, minutes_billed,
-      renter_profile_id, personal_storage, sync_status, sync_message
-    ) VALUES (?, ?, 'active', ?, ?, 0, ?, ?, ?, ?)`
+      renter_profile_id, personal_storage, sync_status, sync_message,
+      stream_status, stream_message
+    ) VALUES (?, ?, 'active', ?, ?, 0, ?, ?, ?, ?, 'pending', ?)`
   ).run(
     rentalId,
     machine.id,
@@ -186,7 +188,8 @@ function startRentalLogic(
     renterProfileId,
     personalStorage ? 1 : 0,
     syncStatus,
-    syncMessage
+    syncMessage,
+    "Waiting for host to prepare remote desktop…"
   );
   db.prepare(`UPDATE machines SET status = 'rented' WHERE id = ?`).run(machine.id);
 
@@ -310,6 +313,7 @@ function formatRental(row: RentalWithMachine) {
     estimatedTotalCents: totalCents,
     estimatedTotalFormatted: `₱${(totalCents / 100).toFixed(2)}`,
     elapsedSeconds: row.status === "active" ? Math.floor((Date.now() - started) / 1000) : null,
+    connect: formatConnectInfo(row),
   };
 }
 
@@ -832,6 +836,86 @@ app.get("/api/rentals/:id", (req, res) => {
     return;
   }
   res.json(formatRental(rental));
+});
+
+app.get("/api/me/rentals/:id/connect", requireAuth, (req, res) => {
+  const user = (req as AuthedRequest).user;
+  const profile = profileForUser(user.id);
+  const rental = db
+    .prepare("SELECT * FROM rentals WHERE id = ? AND renter_profile_id = ?")
+    .get(req.params.id, profile.id) as RentalRow | undefined;
+  if (!rental || rental.status !== "active") {
+    res.status(404).json({ error: "Active rental not found" });
+    return;
+  }
+  res.json(formatConnectInfo(rental));
+});
+
+app.post("/api/agents/streaming", authAgent, (req, res) => {
+  const machine = (req as express.Request & { machine: MachineRow }).machine;
+  const {
+    rentalId,
+    status,
+    localIp,
+    publicIp,
+    port,
+    httpsPort,
+    pin,
+    message,
+    sunshineInstalled,
+  } = req.body as {
+    rentalId?: string;
+    status?: string;
+    localIp?: string;
+    publicIp?: string;
+    port?: number;
+    httpsPort?: number;
+    pin?: string;
+    message?: string;
+    sunshineInstalled?: boolean;
+  };
+
+  if (!rentalId) {
+    res.status(400).json({ error: "rentalId required" });
+    return;
+  }
+
+  const rental = db
+    .prepare(
+      "SELECT * FROM rentals WHERE id = ? AND machine_id = ? AND status = 'active'"
+    )
+    .get(rentalId, machine.id) as RentalRow | undefined;
+  if (!rental) {
+    res.status(404).json({ error: "Active rental not found" });
+    return;
+  }
+
+  db.prepare(
+    `UPDATE rentals SET
+      stream_status = ?,
+      stream_local_ip = ?,
+      stream_public_ip = ?,
+      stream_port = ?,
+      stream_https_port = ?,
+      stream_pin = ?,
+      stream_message = ?,
+      stream_sunshine_installed = ?,
+      stream_updated_at = ?
+    WHERE id = ?`
+  ).run(
+    status ?? "pending",
+    localIp ?? null,
+    publicIp ?? null,
+    port ?? 47989,
+    httpsPort ?? 47990,
+    pin ?? null,
+    message ?? null,
+    sunshineInstalled ? 1 : 0,
+    nowIso(),
+    rentalId
+  );
+
+  res.json({ ok: true });
 });
 
 app.get("/api/agents/session", authAgent, (req, res) => {
