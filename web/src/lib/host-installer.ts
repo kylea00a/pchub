@@ -20,6 +20,20 @@ export function buildConfigJson(config: HostInstallerConfig) {
   );
 }
 
+export function buildWindowsBundleDownloadUrl(config: HostInstallerConfig) {
+  const base = config.apiUrl.replace(/\/$/, "");
+  const params = new URLSearchParams({
+    code: config.pairingCode,
+    machineName: config.machineName ?? "My Gaming PC",
+    machineCity: config.machineCity ?? "Manila",
+    apiUrl: base,
+  });
+  if (config.priceCents != null) {
+    params.set("priceCents", String(config.priceCents));
+  }
+  return `${base}/api/host/windows-bundle?${params.toString()}`;
+}
+
 export function buildReadme(config: HostInstallerConfig) {
   return `SkyPC Host Agent — quick setup
 ================================
@@ -52,30 +66,5 @@ export function downloadTextFile(filename: string, content: string, mime = "text
   a.href = url;
   a.download = filename;
   a.click();
-  URL.revokeObjectURL(url);
-}
-
-export async function downloadWindowsAgentBundle(config: HostInstallerConfig) {
-  const res = await fetch(`${config.apiUrl.replace(/\/$/, "")}/api/host/windows-bundle`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      code: config.pairingCode,
-      machineName: config.machineName ?? "My PC",
-      machineCity: config.machineCity ?? "Manila",
-      priceCents: config.priceCents ?? 50,
-      apiUrl: config.apiUrl,
-    }),
-  });
-  if (!res.ok) {
-    const data = (await res.json().catch(() => ({}))) as { error?: string };
-    throw new Error(data.error ?? `Download failed (${res.status})`);
-  }
-  const blob = await res.blob();
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "SkyPC-Host-Agent.zip";
-  a.click();
-  URL.revokeObjectURL(url);
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }

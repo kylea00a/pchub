@@ -13,7 +13,7 @@ import {
 } from "./auth.js";
 import { db, type InventoryRow, type MachineRow, type RenterProfileRow, type RentalRow } from "./db.js";
 import { requireAdmin, requireAuth, type AuthedRequest } from "./middleware.js";
-import { streamWindowsAgentBundle } from "./host-bundle.js";
+import { resolveWindowsBundleConfig, streamWindowsAgentBundle } from "./host-bundle.js";
 import { formatConnectInfo } from "./streaming.js";
 import {
   ensureRustDeskPassword,
@@ -364,6 +364,52 @@ app.post("/api/pairing-codes", (_req, res) => {
   res.json({ code, expiresAt, expiresInMinutes: 30 });
 });
 
+function serveWindowsBundle(
+  res: express.Response,
+  code: string,
+  opts: {
+    machineName?: string;
+    machineCity?: string;
+    priceCents?: number;
+    apiUrl?: string;
+  }
+) {
+  const pairing = db
+    .prepare("SELECT * FROM pairing_codes WHERE code = ?")
+    .get(code.trim().toUpperCase()) as
+    | { code: string; used: number; expires_at: string }
+    | undefined;
+
+  const resolved = resolveWindowsBundleConfig(pairing, {
+    ...opts,
+    defaultApiUrl:
+      process.env.PUBLIC_API_URL?.replace(/\/$/, "") || `http://localhost:${PORT}`,
+  });
+
+  if ("error" in resolved) {
+    res.status(resolved.status).json({ error: resolved.error });
+    return;
+  }
+
+  streamWindowsAgentBundle(res, resolved);
+}
+
+app.get("/api/host/windows-bundle", (req, res) => {
+  const code = (req.query.code as string | undefined)?.trim();
+  if (!code) {
+    res.status(400).json({ error: "code is required" });
+    return;
+  }
+
+  const priceCents = Number(req.query.priceCents);
+  serveWindowsBundle(res, code, {
+    machineName: req.query.machineName as string | undefined,
+    machineCity: req.query.machineCity as string | undefined,
+    priceCents: Number.isFinite(priceCents) ? priceCents : undefined,
+    apiUrl: req.query.apiUrl as string | undefined,
+  });
+});
+
 app.post("/api/host/windows-bundle", (req, res) => {
   const { code, machineName, machineCity, priceCents, apiUrl } = req.body as {
     code?: string;
@@ -378,37 +424,7 @@ app.post("/api/host/windows-bundle", (req, res) => {
     return;
   }
 
-  const pairing = db
-    .prepare("SELECT * FROM pairing_codes WHERE code = ?")
-    .get(code.trim().toUpperCase()) as
-    | { code: string; used: number; expires_at: string }
-    | undefined;
-
-  if (!pairing) {
-    res.status(404).json({ error: "Invalid pairing code" });
-    return;
-  }
-  if (pairing.used === 1) {
-    res.status(409).json({ error: "Pairing code already used — generate a new one" });
-    return;
-  }
-  if (new Date(pairing.expires_at).getTime() < Date.now()) {
-    res.status(410).json({ error: "Pairing code expired" });
-    return;
-  }
-
-  const baseUrl =
-    apiUrl?.replace(/\/$/, "") ||
-    process.env.PUBLIC_API_URL?.replace(/\/$/, "") ||
-    `http://localhost:${PORT}`;
-
-  streamWindowsAgentBundle(res, {
-    apiUrl: baseUrl,
-    pairingCode: pairing.code,
-    machineName: machineName?.trim() || "My Gaming PC",
-    machineCity: machineCity?.trim() || "Manila",
-    priceCents: Number.isFinite(priceCents) ? Math.max(1, Math.round(priceCents!)) : 50,
-  });
+  serveWindowsBundle(res, code, { machineName, machineCity, priceCents, apiUrl });
 });
 
 app.post("/api/agents/register", (req, res) => {

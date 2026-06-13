@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { createPairingCode, getApiUrl } from "@/lib/api";
-import { downloadWindowsAgentBundle } from "@/lib/host-installer";
+import { buildWindowsBundleDownloadUrl } from "@/lib/host-installer";
 
 export default function HostPage() {
   const [code, setCode] = useState<string | null>(null);
@@ -11,7 +11,6 @@ export default function HostPage() {
   const [machineName, setMachineName] = useState("My Gaming PC");
   const [machineCity, setMachineCity] = useState("Manila");
   const [loading, setLoading] = useState(false);
-  const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function generateCode() {
@@ -28,23 +27,14 @@ export default function HostPage() {
     }
   }
 
-  async function downloadInstaller() {
-    if (!code) return;
-    setDownloading(true);
-    setError(null);
-    try {
-      await downloadWindowsAgentBundle({
+  const downloadUrl = code
+    ? buildWindowsBundleDownloadUrl({
         apiUrl: getApiUrl(),
         pairingCode: code,
         machineName,
         machineCity,
-      });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Download failed");
-    } finally {
-      setDownloading(false);
-    }
-  }
+      })
+    : null;
 
   return (
     <div className="min-h-screen bg-background">
@@ -138,16 +128,15 @@ export default function HostPage() {
                   Expires {new Date(expiresAt).toLocaleString()}
                 </p>
               )}
-              <button
-                type="button"
-                onClick={downloadInstaller}
-                disabled={downloading}
-                className="mt-4 pchub-btn-primary px-5 py-2.5 text-sm font-medium text-background disabled:opacity-50"
+              <a
+                href={downloadUrl ?? "#"}
+                className="mt-4 inline-block pchub-btn-primary px-5 py-2.5 text-sm font-medium text-background"
               >
-                {downloading ? "Preparing zip…" : "Download Windows agent (.zip)"}
-              </button>
+                Download Windows agent (.zip)
+              </a>
               <p className="mt-2 text-xs text-muted">
                 Includes your pairing code in config.json — no copy/paste needed.
+                If the download fails, right-click the button and choose &quot;Save link as…&quot;
               </p>
             </div>
           )}

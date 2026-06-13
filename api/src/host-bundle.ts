@@ -18,6 +18,45 @@ export type BundleConfig = {
   priceCents?: number;
 };
 
+export type PairingRow = {
+  code: string;
+  used: number;
+  expires_at: string;
+};
+
+export function resolveWindowsBundleConfig(
+  pairing: PairingRow | undefined,
+  opts: {
+    machineName?: string;
+    machineCity?: string;
+    priceCents?: number;
+    apiUrl?: string;
+    defaultApiUrl: string;
+  }
+): BundleConfig | { error: string; status: number } {
+  if (!pairing) {
+    return { error: "Invalid pairing code", status: 404 };
+  }
+  if (new Date(pairing.expires_at).getTime() < Date.now()) {
+    return { error: "Pairing code expired — generate a new one", status: 410 };
+  }
+
+  const baseUrl =
+    opts.apiUrl?.replace(/\/$/, "") ||
+    opts.defaultApiUrl.replace(/\/$/, "") ||
+    "http://localhost:4000";
+
+  return {
+    apiUrl: baseUrl,
+    pairingCode: pairing.code,
+    machineName: opts.machineName?.trim() || "My Gaming PC",
+    machineCity: opts.machineCity?.trim() || "Manila",
+    priceCents: Number.isFinite(opts.priceCents)
+      ? Math.max(1, Math.round(opts.priceCents!))
+      : 50,
+  };
+}
+
 function buildConfigJson(config: BundleConfig) {
   return JSON.stringify(
     {
