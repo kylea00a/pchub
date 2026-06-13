@@ -138,6 +138,14 @@ export function streamWindowsAgentBundle(res: Response, config: BundleConfig) {
 
   const packaged = fs.existsSync(BUNDLE_PATH) && fs.existsSync(NODE_EXE_PATH);
 
+  if (!packaged) {
+    res.status(503).json({
+      error:
+        "Host agent not built on server yet. Wait 2 minutes after deploy, then try again.",
+    });
+    return;
+  }
+
   const archive = archiver("zip", { zlib: { level: 9 } });
   res.setHeader("Content-Type", "application/zip");
   res.setHeader(
@@ -149,11 +157,7 @@ export function streamWindowsAgentBundle(res: Response, config: BundleConfig) {
   });
   archive.pipe(res);
 
-  if (packaged) {
-    streamProductionBundle(archive, config);
-  } else {
-    streamDevBundle(archive, config);
-  }
+  streamProductionBundle(archive, config);
 
   archive.finalize();
 }

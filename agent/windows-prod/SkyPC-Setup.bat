@@ -23,7 +23,17 @@ if not exist runtime\node.exe (
 
 if not exist agent.cjs (
   echo.
-  echo agent.cjs not found. Re-download from https://pchub.cloud/host
+  echo agent.cjs not found in:
+  echo   %CD%
+  echo.
+  echo This folder should contain agent.cjs, runtime\, and SkyPC-Setup.bat together.
+  echo.
+  echo What we see here:
+  dir /b
+  echo.
+  echo Fix: re-download from https://pchub.cloud/host
+  echo      Extract All ^(not Run^) ^> open the SkyPC-Host-Agent folder ^> run setup again.
+  echo      If download fails, wait 2 min after a deploy and retry.
   echo.
   pause
   exit /b 1
