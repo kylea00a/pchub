@@ -184,6 +184,7 @@ async function main() {
 
   await postInventory(state.agentToken, speeds);
   await heartbeat(state.agentToken);
+  console.log(`Heartbeat OK — ${new Date().toLocaleTimeString()}`);
   await handleStorageSync(state.agentToken).catch((err) => {
     console.error("Storage sync:", err instanceof Error ? err.message : err);
   });

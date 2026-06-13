@@ -25,7 +25,7 @@ import {
 } from "./storage/index.js";
 
 const PORT = Number(process.env.PORT ?? 4000);
-const ONLINE_WINDOW_MS = 60_000;
+const ONLINE_WINDOW_MS = 90_000;
 
 const app = express();
 app.use(cors());

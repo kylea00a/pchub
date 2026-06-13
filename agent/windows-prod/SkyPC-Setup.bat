@@ -39,12 +39,12 @@ if errorlevel 1 (
 )
 
 echo.
-echo Starting background agent (minimized window — keep this PC awake)...
-start "" /MIN "%~dp0run-agent.bat"
+echo Starting agent + system tray icon...
+call "%~dp0Start PCHUB Agent.bat"
 
 echo.
-echo Done. Your PC should show as Online on pchub.cloud within a minute.
-echo If it shows Offline later, double-click run-agent.bat or SkyPC-Setup.bat again.
+echo Done. Look for the PCHUB icon near the clock (system tray).
+echo Your PC should show Online on pchub.cloud within a minute.
 echo Logs: %CD%\agent.log
 echo.
 pause

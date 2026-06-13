@@ -166,12 +166,14 @@ export default function HostPage() {
             </li>
           </ol>
           <p className="mt-4 text-sm text-muted">
-            Setup detects CPU, GPU, RAM, disk, runs a 2 MB upload/download speed test, registers
-            with PCHUB, and starts the agent in the background (no terminal left open).
+            Setup detects hardware, registers with PCHUB, then runs a{" "}
+            <strong className="text-foreground">system tray icon</strong> near the Windows clock
+            so you can see Online / Connecting / Stopped without opening the website.
           </p>
           <p className="mt-2 text-xs text-muted">
-            Optional: <code className="text-foreground">add-to-startup.bat</code> to run on Windows
-            login · Logs: <code className="text-foreground">agent.log</code>
+            Right-click tray icon → open fleet, logs, restart, or exit · Optional:{" "}
+            <code className="text-foreground">add-to-startup.bat</code> · Logs:{" "}
+            <code className="text-foreground">agent.log</code>
           </p>
         </div>
 

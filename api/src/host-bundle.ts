@@ -43,7 +43,12 @@ function buildReadme(config: BundleConfig, packaged: boolean) {
 
 2. Double-click SkyPC-Setup.bat
 
-3. Your PC should show Online at https://pchub.cloud within a minute.
+3. A PCHUB icon appears in the Windows system tray (near the clock).
+   Green/blue = Online on pchub.cloud · Yellow = connecting · Red = stopped
+
+4. Your PC should show Online at https://pchub.cloud within a minute.
+
+Right-click the tray icon: open fleet, view logs, restart, or exit.
 
 Optional: add-to-startup.bat — runs agent when Windows starts
 Logs: agent.log (same folder)
@@ -92,8 +97,10 @@ function streamProductionBundle(
 
   for (const script of [
     "SkyPC-Setup.bat",
+    "Start PCHUB Agent.bat",
     "run-agent.bat",
-    "Start PCHUB Agent.vbs",
+    "stop-agent.bat",
+    "tray-status.ps1",
     "add-to-startup.bat",
   ]) {
     const full = path.join(PROD_SCRIPTS, script);
