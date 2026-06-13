@@ -83,10 +83,10 @@ export default function HostPage() {
             </li>
           </ul>
           <p className="mt-3">
-            <strong className="text-foreground">Download:</strong> a small zip with a native
-            Windows agent (PowerShell). Run{" "}
-            <code className="text-foreground">allow-windows-defender.bat</code> as Admin first so
-            Windows does not delete files, then <code className="text-foreground">SkyPC-Setup.bat</code>.
+            <strong className="text-foreground">One click:</strong> extract zip → double-click{" "}
+            <code className="text-foreground">SkyPC-Setup.bat</code> → click{" "}
+            <strong className="text-foreground">Yes</strong> on the one-time Windows admin prompt.
+            Defender exclusion, registration, and background agent all run automatically.
           </p>
         </div>
 
@@ -156,14 +156,13 @@ export default function HostPage() {
           <h2 className="font-medium">Step 2 — Windows PC (one double-click)</h2>
           <ol className="mt-4 list-decimal space-y-3 pl-5 text-sm text-muted">
             <li>
-              <strong className="text-foreground">Extract All</strong> the zip to a folder (e.g. Desktop
-              → <code className="text-foreground">SkyPC-Host-Agent</code>). If Windows asks{" "}
-              <em>Extract</em> or <em>Run</em>, choose <strong className="text-foreground">Extract</strong>{" "}
-              — running from inside the zip will fail.
+              <strong className="text-foreground">Extract All</strong> to{" "}
+              <code className="text-foreground">C:\PCHUB-Host</code> (choose Extract, not Run)
             </li>
             <li>
-              Double-click{" "}
-              <code className="text-foreground">SkyPC-Setup.bat</code> in that folder (no Node.js needed)
+              Double-click <code className="text-foreground">SkyPC-Setup.bat</code> once — click{" "}
+              <strong className="text-foreground">Yes</strong> when Windows asks for administrator
+              (one-time Defender fix)
             </li>
           </ol>
           <p className="mt-4 text-sm text-muted">

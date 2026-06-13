@@ -33,22 +33,19 @@ function buildConfigJson(config: BundleConfig) {
 }
 
 function buildReadme(config: BundleConfig) {
-  return `PCHUB Host Agent
-================
+  return `PCHUB Host Agent — one-click setup
+========================================
 
 1. Extract this zip to C:\\PCHUB-Host (Extract All — not Run)
 
-2. RIGHT-CLICK allow-windows-defender.bat -> Run as administrator
-   (stops Windows from deleting agent files)
+2. Double-click SkyPC-Setup.bat ONCE
+   - Click YES on the Windows administrator prompt (one time only)
+   - Defender exclusion, registration, and agent start all run automatically
 
-3. Double-click SkyPC-Setup.bat
-
-4. "PCHUB Host Status" window appears on your taskbar (Online / Offline)
+3. "PCHUB Host Status" appears on your taskbar (Online / Offline)
 
 API: ${config.apiUrl}
 Pairing code is in config.json (~30 min validity).
-
-No Node.js required.
 `;
 }
 
