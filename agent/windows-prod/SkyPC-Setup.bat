@@ -1,5 +1,5 @@
 @echo off
-title PCHUB — one-click setup
+title PCHUB - one-click setup
 setlocal EnableExtensions
 
 :: One UAC prompt — re-launch as Administrator for Defender exclusion
@@ -33,7 +33,7 @@ if not exist pchub-host.ps1 (
 
 echo.
 echo [1/4] Adding Windows Defender exclusion for this folder...
-powershell -NoProfile -Command "try { Add-MpPreference -ExclusionPath '%AGENT_DIR%' -ErrorAction Stop; Write-Host '      OK — Defender will not delete PCHUB files here.' } catch { Write-Host '      Warning: Defender exclusion failed. Setup continues anyway.' }"
+powershell -NoProfile -Command "try { Add-MpPreference -ExclusionPath '%AGENT_DIR%' -ErrorAction Stop; Write-Host '      OK - Defender will not delete PCHUB files here.' } catch { Write-Host '      Warning: Defender exclusion failed. Setup continues anyway.' }"
 
 echo.
 echo [2/4] Stopping any old agent...
@@ -58,7 +58,7 @@ powershell -NoProfile -Command "$s=(New-Object -COM WScript.Shell).CreateShortcu
 
 echo.
 echo ========================================
-echo   DONE — your PC is being listed now
+echo   DONE - your PC is being listed now
 echo ========================================
 echo.
 echo   Taskbar: look for "PCHUB Host Status"

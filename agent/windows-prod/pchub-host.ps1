@@ -1,4 +1,4 @@
-# PCHUB Windows host agent (PowerShell — no Node.js, avoids Defender deleting .js bundles)
+# PCHUB Windows host agent (PowerShell - no Node.js)
 param([switch]$Once)
 
 $Root = $PSScriptRoot
@@ -102,7 +102,7 @@ function Get-Inventory {
   $memGb = [int][Math]::Round($cs.TotalPhysicalMemory / 1GB)
   $hasGpu = [bool]$gpu
   $mhz = if ($cpu.MaxClockSpeed) { $cpu.MaxClockSpeed } else { 0 }
-  $cpuLabel = "$($cpu.Name) ${mhz}MHz · $($cpu.NumberOfLogicalProcessors)c/$($cpu.NumberOfCores)p"
+  $cpuLabel = "$($cpu.Name) ${mhz}MHz - $($cpu.NumberOfLogicalProcessors)c/$($cpu.NumberOfCores)p"
   $ramLabel = "$memGb GB"
   $gpuLabel = if ($gpu) {
     if ($gpu.AdapterRAM -and $gpu.AdapterRAM -gt 0) {
@@ -127,7 +127,7 @@ function Get-Inventory {
 function Send-Inventory($Config, $State) {
   $inventory = Get-Inventory
   Invoke-PchubApi -ApiRoot $Config.apiUrl -Path "/api/agents/inventory" -Method "POST" -Body $inventory -Token $State.agentToken | Out-Null
-  Write-Log "Inventory updated — $($inventory.cpu) | $($inventory.ram) | $($inventory.gpu) | score $($inventory.benchScore)"
+  Write-Log ("Inventory updated - {0} / {1} / {2} / score {3}" -f $inventory.cpu, $inventory.ram, $inventory.gpu, $inventory.benchScore)
 }
 
 function Send-Heartbeat($Config, $State) {
