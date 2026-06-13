@@ -8,6 +8,14 @@ SECRETS_FILE="${APP_DIR}/deploy/.production-secrets"
 
 cd "$APP_DIR"
 
+LOCK_FILE="/var/lock/pchub-deploy.lock"
+mkdir -p /var/lock
+exec 9>"$LOCK_FILE"
+if ! flock -n 9; then
+  echo "Another deploy is running — waiting..."
+  flock 9
+fi
+
 if [ -f "$SECRETS_FILE" ]; then
   # shellcheck disable=SC1090
   source "$SECRETS_FILE"
