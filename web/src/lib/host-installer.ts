@@ -21,17 +21,17 @@ export function buildConfigJson(config: HostInstallerConfig) {
 }
 
 export function buildWindowsBundleDownloadUrl(config: HostInstallerConfig) {
-  const base = config.apiUrl.replace(/\/$/, "");
   const params = new URLSearchParams({
     code: config.pairingCode,
     machineName: config.machineName ?? "My Gaming PC",
     machineCity: config.machineCity ?? "Manila",
-    apiUrl: base,
+    apiUrl: config.apiUrl.replace(/\/$/, ""),
   });
   if (config.priceCents != null) {
     params.set("priceCents", String(config.priceCents));
   }
-  return `${base}/api/host/windows-bundle?${params.toString()}`;
+  // Same-origin relative URL — avoids cross-subdomain download blocks in browsers.
+  return `/api/host/windows-bundle?${params.toString()}`;
 }
 
 export function buildReadme(config: HostInstallerConfig) {

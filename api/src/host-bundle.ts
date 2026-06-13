@@ -172,7 +172,7 @@ export function streamWindowsAgentBundle(res: Response, config: BundleConfig) {
   res.setHeader("Content-Type", "application/zip");
   res.setHeader(
     "Content-Disposition",
-    'attachment; filename="SkyPC-Host-Agent.zip"'
+    'attachment; filename="PCHUB-Host-Agent.zip"'
   );
   archive.on("error", (err) => {
     if (!res.headersSent) res.status(500).json({ error: err.message });

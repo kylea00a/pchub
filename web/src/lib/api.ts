@@ -5,6 +5,10 @@ const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000").rep
   ""
 );
 
+const AGENT_API_URL = (
+  process.env.NEXT_PUBLIC_AGENT_API_URL ?? API_URL
+).replace(/\/$/, "");
+
 export type Machine = {
   id: string;
   name: string;
@@ -133,6 +137,10 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
 
 export function getApiUrl() {
   return API_URL;
+}
+
+export function getAgentApiUrl() {
+  return AGENT_API_URL;
 }
 
 export async function login(email: string, password: string) {

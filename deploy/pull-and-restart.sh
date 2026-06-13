@@ -3,7 +3,8 @@
 set -euo pipefail
 
 APP_DIR="/var/www/pchub"
-API_URL="${API_URL:-https://api.pchub.cloud}"
+WEB_API_URL="${WEB_API_URL:-https://pchub.cloud}"
+AGENT_API_URL="${AGENT_API_URL:-https://api.pchub.cloud}"
 SECRETS_FILE="${APP_DIR}/deploy/.production-secrets"
 
 cd "$APP_DIR"
@@ -30,8 +31,9 @@ if [ -n "$RUSTDESK_PUBLIC_KEY" ]; then
 fi
 chmod 600 "$SECRETS_FILE"
 
-echo "NEXT_PUBLIC_API_URL=${API_URL}" > web/.env.local
-echo "NEXT_PUBLIC_API_URL=${API_URL}" > admin/.env.local
+echo "NEXT_PUBLIC_API_URL=${WEB_API_URL}" > web/.env.local
+echo "NEXT_PUBLIC_AGENT_API_URL=${AGENT_API_URL}" >> web/.env.local
+echo "NEXT_PUBLIC_API_URL=${AGENT_API_URL}" > admin/.env.local
 
 npm install
 command -v unzip >/dev/null 2>&1 || apt-get install -y unzip
@@ -56,7 +58,7 @@ module.exports = {
         NODE_ENV: "production",
         PORT: "4000",
         JWT_SECRET: "${JWT_SECRET}",
-        PUBLIC_API_URL: "${API_URL}",
+        PUBLIC_API_URL: "${AGENT_API_URL}",
         RUSTDESK_RELAY_HOST: "${RUSTDESK_RELAY_HOST:-relay.pchub.cloud}",
         RUSTDESK_PUBLIC_KEY: "${RUSTDESK_PUBLIC_KEY:-}",
       },

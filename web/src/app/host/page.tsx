@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { createPairingCode, getApiUrl } from "@/lib/api";
+import { createPairingCode, getAgentApiUrl, getApiUrl } from "@/lib/api";
 import { buildWindowsBundleDownloadUrl } from "@/lib/host-installer";
 
 export default function HostPage() {
@@ -29,12 +29,13 @@ export default function HostPage() {
 
   const downloadUrl = code
     ? buildWindowsBundleDownloadUrl({
-        apiUrl: getApiUrl(),
+        apiUrl: getAgentApiUrl(),
         pairingCode: code,
         machineName,
         machineCity,
       })
     : null;
+  const downloadUrlAbsolute = downloadUrl ? `${getApiUrl()}${downloadUrl}` : null;
 
   return (
     <div className="min-h-screen bg-background">
@@ -130,13 +131,26 @@ export default function HostPage() {
               )}
               <a
                 href={downloadUrl ?? "#"}
+                download="PCHUB-Host-Agent.zip"
                 className="mt-4 inline-block pchub-btn-primary px-5 py-2.5 text-sm font-medium text-background"
               >
                 Download Windows agent (.zip)
               </a>
+              {downloadUrlAbsolute && (
+                <p className="mt-3 break-all font-mono text-[11px] text-muted">
+                  Direct link:{" "}
+                  <a
+                    href={downloadUrlAbsolute}
+                    className="text-accent hover:underline"
+                    download="PCHUB-Host-Agent.zip"
+                  >
+                    {downloadUrlAbsolute}
+                  </a>
+                </p>
+              )}
               <p className="mt-2 text-xs text-muted">
                 Includes your pairing code in config.json — no copy/paste needed.
-                If the download fails, right-click the button and choose &quot;Save link as…&quot;
+                If the button fails, copy the direct link above into your browser address bar.
               </p>
             </div>
           )}
