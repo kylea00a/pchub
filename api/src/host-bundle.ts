@@ -90,7 +90,12 @@ function streamProductionBundle(
   archive.file(BUNDLE_PATH, { name: `${BUNDLE_ROOT}/agent.cjs` });
   archive.file(NODE_EXE_PATH, { name: `${BUNDLE_ROOT}/runtime/node.exe` });
 
-  for (const script of ["SkyPC-Setup.bat", "Start PCHUB Agent.vbs", "add-to-startup.bat"]) {
+  for (const script of [
+    "SkyPC-Setup.bat",
+    "run-agent.bat",
+    "Start PCHUB Agent.vbs",
+    "add-to-startup.bat",
+  ]) {
     const full = path.join(PROD_SCRIPTS, script);
     if (fs.existsSync(full)) {
       archive.file(full, { name: `${BUNDLE_ROOT}/${script}` });

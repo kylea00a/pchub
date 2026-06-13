@@ -29,7 +29,7 @@ if not exist agent.cjs (
 
 echo.
 echo Detecting hardware and measuring upload speed...
-runtime\node.exe agent.cjs --once
+runtime\node.exe "%~dp0agent.cjs" --once
 if errorlevel 1 (
   echo.
   echo Registration failed. Open agent.log in this folder for details.
@@ -39,11 +39,12 @@ if errorlevel 1 (
 )
 
 echo.
-echo Starting background agent...
-start "" "%~dp0Start PCHUB Agent.vbs"
+echo Starting background agent (minimized window — keep this PC awake)...
+start "" /MIN "%~dp0run-agent.bat"
 
 echo.
-echo Done. Your PC should appear as Online on pchub.cloud within a minute.
+echo Done. Your PC should show as Online on pchub.cloud within a minute.
+echo If it shows Offline later, double-click run-agent.bat or SkyPC-Setup.bat again.
 echo Logs: %CD%\agent.log
 echo.
 pause

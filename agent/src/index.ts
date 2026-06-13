@@ -163,7 +163,8 @@ async function heartbeat(token: string) {
 }
 
 async function main() {
-  console.log(`SkyPC agent → ${config.apiUrl}`);
+  const root = getAgentRoot();
+  console.log(`SkyPC agent → ${config.apiUrl} (root: ${root})`);
 
   let state = loadState();
   if (!state) {
