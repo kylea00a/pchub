@@ -166,14 +166,14 @@ export default function HostPage() {
             </li>
           </ol>
           <p className="mt-4 text-sm text-muted">
-            Setup detects hardware, registers with PCHUB, then runs a{" "}
-            <strong className="text-foreground">system tray icon</strong> near the Windows clock
-            so you can see Online / Connecting / Stopped without opening the website.
+            Setup registers your PC, then opens a{" "}
+            <strong className="text-foreground">PCHUB Host Status</strong> window on the
+            taskbar — shows Online / Offline on your PC without opening the browser.
           </p>
           <p className="mt-2 text-xs text-muted">
-            Right-click tray icon → open fleet, logs, restart, or exit · Optional:{" "}
-            <code className="text-foreground">add-to-startup.bat</code> · Logs:{" "}
-            <code className="text-foreground">agent.log</code>
+            Re-running setup creates a new listing — ignore older ghost entries on the fleet
+            page · Desktop shortcut <strong className="text-foreground">PCHUB Host</strong>{" "}
+            restarts the agent · Logs: <code className="text-foreground">agent.log</code>
           </p>
         </div>
 
