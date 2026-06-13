@@ -38,8 +38,8 @@ function buildReadme(config: BundleConfig) {
 
 1. Extract this zip to C:\\PCHUB-Host (Extract All — not Run)
 
-2. Double-click PCHUB Install.bat ONCE
-   - Click YES on the Windows administrator prompt (one time only)
+2. Double-click RUN-PCHUB.cmd (or PCHUB-Setup.ps1)
+   - Click YES on the one-time administrator prompt
    - Defender exclusion, registration, and agent start all run automatically
 
 3. "PCHUB Host Status" appears on your taskbar (Online / Offline)
@@ -56,6 +56,8 @@ function streamProductionBundle(
   archive.file(PS_AGENT_PATH, { name: `${BUNDLE_ROOT}/pchub-host.ps1` });
 
   for (const script of [
+    "PCHUB-Setup.ps1",
+    "RUN-PCHUB.cmd",
     "PCHUB Install.bat",
     "SkyPC-Setup.bat",
     "Start PCHUB Agent.bat",

@@ -84,7 +84,8 @@ export default function HostPage() {
           </ul>
           <p className="mt-3">
             <strong className="text-foreground">One click:</strong> extract zip → double-click{" "}
-            <code className="text-foreground">PCHUB Install.bat</code> → click{" "}
+            <code className="text-foreground">RUN-PCHUB.cmd</code> (or{" "}
+            <code className="text-foreground">PCHUB-Setup.ps1</code>) → click{" "}
             <strong className="text-foreground">Yes</strong> on the one-time Windows admin prompt.
             Defender exclusion, registration, and background agent all run automatically.
           </p>
@@ -160,7 +161,7 @@ export default function HostPage() {
               <code className="text-foreground">C:\PCHUB-Host</code> (choose Extract, not Run)
             </li>
             <li>
-              Double-click <code className="text-foreground">PCHUB Install.bat</code> once — click{" "}
+              Double-click <code className="text-foreground">RUN-PCHUB.cmd</code> once — click{" "}
               <strong className="text-foreground">Yes</strong> when Windows asks for administrator
               (one-time Defender fix)
             </li>
