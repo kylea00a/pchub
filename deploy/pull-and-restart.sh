@@ -20,6 +20,7 @@ echo "NEXT_PUBLIC_API_URL=${API_URL}" > web/.env.local
 echo "NEXT_PUBLIC_API_URL=${API_URL}" > admin/.env.local
 
 npm install
+command -v unzip >/dev/null 2>&1 || apt-get install -y unzip
 mkdir -p "${APP_DIR}/agent/dist/runtime"
 npm run build:release -w agent
 npm run build -w web

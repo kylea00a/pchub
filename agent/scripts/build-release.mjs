@@ -41,13 +41,6 @@ if (process.platform === "win32") {
     `powershell -NoProfile -Command "Expand-Archive -Path '${zipPath}' -DestinationPath '${distDir}' -Force"`,
     { stdio: "inherit" }
   );
-} else {
-  execSync(`unzip -o -j "${zipPath}" "node-v${NODE_VERSION}-win-x64/node.exe" -d "${runtimeDir}"`, {
-    stdio: "inherit",
-  });
-}
-
-if (process.platform === "win32") {
   const extracted = path.join(distDir, `node-v${NODE_VERSION}-win-x64`, "node.exe");
   if (fs.existsSync(extracted)) {
     fs.copyFileSync(extracted, nodeExePath);
@@ -56,6 +49,8 @@ if (process.platform === "win32") {
       force: true,
     });
   }
+} else {
+  extractNodeExeWithPython(zipPath, nodeExePath, NODE_VERSION);
 }
 
 fs.rmSync(zipPath, { force: true });
@@ -67,6 +62,23 @@ if (!fs.existsSync(bundlePath) || !fs.existsSync(nodeExePath)) {
 const nodeMb = (fs.statSync(nodeExePath).size / 1024 / 1024).toFixed(1);
 const bundleKb = (fs.statSync(bundlePath).size / 1024).toFixed(0);
 console.log(`Release ready: agent.cjs (${bundleKb} KB) + runtime/node.exe (${nodeMb} MB)`);
+
+function extractNodeExeWithPython(zipPath, nodeExePath, version) {
+  const entry = `node-v${version}-win-x64/node.exe`;
+  const script = `
+import os, shutil, zipfile
+zip_path = ${JSON.stringify(zipPath)}
+entry = ${JSON.stringify(entry)}
+dest = ${JSON.stringify(nodeExePath)}
+tmpdir = os.path.join(os.path.dirname(dest), "_node_extract")
+os.makedirs(tmpdir, exist_ok=True)
+with zipfile.ZipFile(zip_path) as zf:
+    zf.extract(entry, tmpdir)
+shutil.move(os.path.join(tmpdir, entry), dest)
+shutil.rmtree(tmpdir, ignore_errors=True)
+`;
+  execSync(`python3 -c ${JSON.stringify(script)}`, { stdio: "inherit" });
+}
 
 function download(url, dest) {
   return new Promise((resolve, reject) => {
