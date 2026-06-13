@@ -76,9 +76,13 @@ Write-Host ""
 Write-Host "[4/4] Results"
 Write-Host "-------------"
 Write-Host ("Sunshine installed: {0}" -f $ready.Installed)
-Write-Host ("Service ({0}): {1}" -f ($ready.ServiceName ?? "none"), $(if ($ready.ServiceRunning) { "RUNNING" } else { "STOPPED" }))
-Write-Host ("Port 47989 (localhost): {0}" -f $(if ($ready.PortOpen) { "OPEN" } else { "CLOSED" }))
-Write-Host ("Port 47989 (LAN $localIp): {0}" -f $(if ($ready.LanPortOpen) { "OPEN" } else { "CLOSED" }))
+$svcLabel = if ($ready.ServiceName) { $ready.ServiceName } else { "none" }
+$runLabel = if ($ready.ServiceRunning) { "RUNNING" } else { "STOPPED" }
+$portLocal = if ($ready.PortOpen) { "OPEN" } else { "CLOSED" }
+$portLan = if ($ready.LanPortOpen) { "OPEN" } else { "CLOSED" }
+Write-Host ("Service ({0}): {1}" -f $svcLabel, $runLabel)
+Write-Host ("Port 47989 (localhost): {0}" -f $portLocal)
+Write-Host ("Port 47989 (LAN {0}): {1}" -f $localIp, $portLan)
 Write-Host ""
 Write-Host "Use this IP in Moonlight (no :port): $localIp"
 Write-Host ""
