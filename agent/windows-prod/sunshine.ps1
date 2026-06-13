@@ -67,24 +67,33 @@ function Get-SunshineService {
 }
 
 function Start-SunshineProcess {
-  $exe = Get-SunshineExe
-  if (-not $exe) { return }
+  Enable-StreamingFirewall
 
   $svc = Get-SunshineService
-  if ($svc -and $svc.Status -ne "Running") {
+  if ($svc) {
     try {
       Set-Service -Name $svc.Name -StartupType Automatic -ErrorAction SilentlyContinue
-      Start-Service -Name $svc.Name -ErrorAction Stop
-    } catch { }
+      if ($svc.Status -ne "Running") {
+        Start-Service -Name $svc.Name -ErrorAction Stop
+      }
+    } catch {
+      & sc.exe start $svc.Name 2>&1 | Out-Null
+    }
   }
 
-  Start-Sleep -Seconds 3
+  Start-Sleep -Seconds 4
   $ready = Test-SunshineReady
-  if (-not $ready.PortOpen) {
-    $existing = Get-CimInstance Win32_Process -Filter "Name='sunshine.exe'" -ErrorAction SilentlyContinue
-    if (-not $existing) {
-      Start-Process -FilePath $exe -WindowStyle Hidden -ErrorAction SilentlyContinue
-      Start-Sleep -Seconds 5
+  if ($ready.PortOpen) { return }
+
+  foreach ($path in @(
+    "${env:ProgramFiles}\Sunshine\sunshinesvc.exe",
+    (Get-SunshineExe)
+  )) {
+    if ($path -and (Test-Path $path)) {
+      Start-Process -FilePath $path -WindowStyle Hidden -ErrorAction SilentlyContinue
+      Start-Sleep -Seconds 6
+      $ready = Test-SunshineReady
+      if ($ready.PortOpen) { return }
     }
   }
 }
@@ -139,18 +148,26 @@ function Clear-SunshineClients {
 function Enable-StreamingFirewall {
   $tcpRule = "PCHUB GameStream TCP"
   $udpRule = "PCHUB GameStream UDP"
-  $appRule = "PCHUB Sunshine"
 
   if (-not (Get-NetFirewallRule -DisplayName $tcpRule -ErrorAction SilentlyContinue)) {
-    New-NetFirewallRule -DisplayName $tcpRule -Direction Inbound -Action Allow -Protocol TCP -LocalPort 47984,47989,48010 | Out-Null
+    New-NetFirewallRule -DisplayName $tcpRule -Direction Inbound -Action Allow -Protocol TCP -LocalPort 47984,47989,48010 -Profile Any | Out-Null
   }
   if (-not (Get-NetFirewallRule -DisplayName $udpRule -ErrorAction SilentlyContinue)) {
-    New-NetFirewallRule -DisplayName $udpRule -Direction Inbound -Action Allow -Protocol UDP -LocalPort 5353,47998-48010 | Out-Null
+    New-NetFirewallRule -DisplayName $udpRule -Direction Inbound -Action Allow -Protocol UDP -LocalPort 5353,47998-48010 -Profile Any | Out-Null
   }
 
-  $exe = Get-SunshineExe
-  if ($exe -and -not (Get-NetFirewallRule -DisplayName $appRule -ErrorAction SilentlyContinue)) {
-    New-NetFirewallRule -DisplayName $appRule -Direction Inbound -Action Allow -Program $exe | Out-Null
+  foreach ($label in @("PCHUB Sunshine", "PCHUB Sunshine Service")) {
+    if (Get-NetFirewallRule -DisplayName $label -ErrorAction SilentlyContinue) { continue }
+    foreach ($path in @(
+      "${env:ProgramFiles}\Sunshine\sunshine.exe",
+      "${env:ProgramFiles}\Sunshine\sunshinesvc.exe",
+      "${env:ProgramFiles(x86)}\Sunshine\sunshine.exe"
+    )) {
+      if (Test-Path $path) {
+        New-NetFirewallRule -DisplayName $label -Direction Inbound -Action Allow -Program $path -Profile Any | Out-Null
+        break
+      }
+    }
   }
 }
 
@@ -169,17 +186,23 @@ function Enable-SunshineUpnp {
 function Test-SunshineReady {
   $svc = Get-SunshineService
   $serviceRunning = $svc -and $svc.Status -eq "Running"
-  $portOpen = $false
-  if ($serviceRunning) {
-    $portOpen = (Test-NetConnection -ComputerName 127.0.0.1 -Port 47989 -WarningAction SilentlyContinue).TcpTestSucceeded
+  $localIp = (Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+    Where-Object { $_.IPAddress -notlike "127.*" -and $_.IPAddress -notlike "169.254.*" } |
+    Select-Object -First 1).IPAddress
+  $portOpen = (Test-NetConnection -ComputerName 127.0.0.1 -Port 47989 -WarningAction SilentlyContinue).TcpTestSucceeded
+  $lanPortOpen = $false
+  if ($localIp) {
+    $lanPortOpen = (Test-NetConnection -ComputerName $localIp -Port 47989 -WarningAction SilentlyContinue).TcpTestSucceeded
   }
-  if (-not $portOpen) {
-    $portOpen = (Test-NetConnection -ComputerName 127.0.0.1 -Port 47989 -WarningAction SilentlyContinue).TcpTestSucceeded
+  if ($portOpen -and -not $serviceRunning) {
+    $serviceRunning = $true
   }
   return @{
     Installed = [bool](Get-SunshineExe)
     ServiceRunning = $serviceRunning
     PortOpen = $portOpen
+    LanPortOpen = $lanPortOpen
+    LocalIp = $localIp
     ServiceName = if ($svc) { $svc.Name } else { $null }
   }
 }

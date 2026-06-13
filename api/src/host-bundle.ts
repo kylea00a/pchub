@@ -93,6 +93,8 @@ function streamProductionBundle(
     "RUN-INSTALL-SUNSHINE.cmd",
     "PCHUB-Setup.ps1",
     "RUN-PCHUB.cmd",
+    "RUN-REPAIR-STREAMING.cmd",
+    "repair-streaming.ps1",
     "PCHUB Install.bat",
     "SkyPC-Setup.bat",
     "Start PCHUB Agent.bat",

@@ -54,15 +54,15 @@ function Get-StreamingStatus {
     }
   }
 
-  if (-not $Ready.ServiceRunning) {
+  if (-not $Ready.ServiceRunning -and -not $Ready.PortOpen) {
     return @{
       status = "sunshine_stopped"
-      message = "Sunshine is installed but not running. Re-run RUN-PCHUB.cmd on the host PC."
+      message = "Sunshine is not running. On the host PC run RUN-REPAIR-STREAMING.cmd from C:\PCHUB-Host."
       connectMode = "unavailable"
     }
   }
 
-  if (-not $Ready.PortOpen) {
+  if (-not $Ready.PortOpen -and -not $Ready.LanPortOpen) {
     return @{
       status = "firewall_blocked"
       message = "Sunshine is running but port 47989 is blocked. Re-run RUN-PCHUB.cmd to fix firewall rules."
