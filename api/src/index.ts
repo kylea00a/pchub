@@ -914,6 +914,9 @@ app.post("/api/agents/streaming", authAgent, (req, res) => {
     pin,
     message,
     sunshineInstalled,
+    sunshineRunning,
+    portsOpen,
+    connectMode,
     pairStatus,
     pairMessage,
   } = req.body as {
@@ -926,6 +929,9 @@ app.post("/api/agents/streaming", authAgent, (req, res) => {
     pin?: string;
     message?: string;
     sunshineInstalled?: boolean;
+    sunshineRunning?: boolean;
+    portsOpen?: boolean;
+    connectMode?: string;
     pairStatus?: string;
     pairMessage?: string | null;
   };
@@ -955,6 +961,9 @@ app.post("/api/agents/streaming", authAgent, (req, res) => {
       stream_pin = ?,
       stream_message = ?,
       stream_sunshine_installed = ?,
+      stream_sunshine_running = ?,
+      stream_ports_open = ?,
+      stream_connect_mode = ?,
       stream_updated_at = ?,
       stream_pair_status = COALESCE(?, stream_pair_status),
       stream_pair_message = COALESCE(?, stream_pair_message)
@@ -968,6 +977,9 @@ app.post("/api/agents/streaming", authAgent, (req, res) => {
     pin ?? null,
     message ?? null,
     sunshineInstalled ? 1 : 0,
+    sunshineRunning ? 1 : 0,
+    portsOpen ? 1 : 0,
+    connectMode ?? null,
     nowIso(),
     pairStatus ?? null,
     pairMessage ?? null,

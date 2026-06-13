@@ -145,6 +145,15 @@ if (!rentalColNames.has("stream_pair_status")) {
 if (!rentalColNames.has("stream_pair_message")) {
   db.exec(`ALTER TABLE rentals ADD COLUMN stream_pair_message TEXT`);
 }
+if (!rentalColNames.has("stream_connect_mode")) {
+  db.exec(`ALTER TABLE rentals ADD COLUMN stream_connect_mode TEXT`);
+}
+if (!rentalColNames.has("stream_sunshine_running")) {
+  db.exec(`ALTER TABLE rentals ADD COLUMN stream_sunshine_running INTEGER NOT NULL DEFAULT 0`);
+}
+if (!rentalColNames.has("stream_ports_open")) {
+  db.exec(`ALTER TABLE rentals ADD COLUMN stream_ports_open INTEGER NOT NULL DEFAULT 0`);
+}
 
 const machineColumns = db.prepare("PRAGMA table_info(machines)").all() as { name: string }[];
 const machineColNames = new Set(machineColumns.map((c) => c.name));
@@ -199,6 +208,9 @@ export type RentalRow = {
   stream_pair_client_name: string | null;
   stream_pair_status: string;
   stream_pair_message: string | null;
+  stream_connect_mode: string | null;
+  stream_sunshine_running: number;
+  stream_ports_open: number;
 };
 
 export type MachineRow = {

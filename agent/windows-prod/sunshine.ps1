@@ -107,6 +107,50 @@ function Clear-SunshineClients {
   return Invoke-SunshineCurl -Method "POST" -Path "/api/clients/unpair-all" -Username $Username -Password $Password
 }
 
+function Enable-StreamingFirewall {
+  $tcpRule = "PCHUB GameStream TCP"
+  $udpRule = "PCHUB GameStream UDP"
+  $appRule = "PCHUB Sunshine"
+
+  if (-not (Get-NetFirewallRule -DisplayName $tcpRule -ErrorAction SilentlyContinue)) {
+    New-NetFirewallRule -DisplayName $tcpRule -Direction Inbound -Action Allow -Protocol TCP -LocalPort 47984,47989,48010 | Out-Null
+  }
+  if (-not (Get-NetFirewallRule -DisplayName $udpRule -ErrorAction SilentlyContinue)) {
+    New-NetFirewallRule -DisplayName $udpRule -Direction Inbound -Action Allow -Protocol UDP -LocalPort 5353,47998-48010 | Out-Null
+  }
+
+  $exe = Get-SunshineExe
+  if ($exe -and -not (Get-NetFirewallRule -DisplayName $appRule -ErrorAction SilentlyContinue)) {
+    New-NetFirewallRule -DisplayName $appRule -Direction Inbound -Action Allow -Program $exe | Out-Null
+  }
+}
+
+function Enable-SunshineUpnp {
+  param(
+    [string]$Username,
+    [string]$Password
+  )
+
+  if (-not $Username -or -not $Password) { return $false }
+  $body = '{"upnp":"enabled"}'
+  $result = Invoke-SunshineCurl -Method "POST" -Path "/api/config" -Body $body -Username $Username -Password $Password
+  return $result.ExitCode -eq 0
+}
+
+function Test-SunshineReady {
+  $service = Get-Service -Name "Sunshine" -ErrorAction SilentlyContinue
+  $serviceRunning = $service -and $service.Status -eq "Running"
+  $portOpen = $false
+  if ($serviceRunning) {
+    $portOpen = (Test-NetConnection -ComputerName 127.0.0.1 -Port 47989 -WarningAction SilentlyContinue).TcpTestSucceeded
+  }
+  return @{
+    Installed = [bool](Get-SunshineExe)
+    ServiceRunning = $serviceRunning
+    PortOpen = $portOpen
+  }
+}
+
 function Initialize-PchubSunshine {
   param(
     [string]$Username,
@@ -114,5 +158,7 @@ function Initialize-PchubSunshine {
   )
 
   Set-SunshineCredentials -Username $Username -Password $Password
-  Write-Host "      Sunshine ready (managed by PCHUB - no browser setup needed)."
+  Enable-StreamingFirewall
+  Enable-SunshineUpnp -Username $Username -Password $Password | Out-Null
+  Write-Host "      Sunshine ready (firewall + UPnP configured)."
 }

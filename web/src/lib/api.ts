@@ -79,14 +79,19 @@ export type ConnectInfo = {
   status: string;
   localIp: string | null;
   publicIp: string | null;
+  recommendedIp: string | null;
   host: string | null;
   port: number;
   httpsPort: number;
   message: string | null;
   sunshineInstalled: boolean;
+  sunshineRunning: boolean;
+  portsOpen: boolean;
+  connectMode: string;
   updatedAt: string | null;
   pairStatus: string;
   pairMessage: string | null;
+  internetWarning: string | null;
   moonlightLinks: {
     windows: string;
     android: string;

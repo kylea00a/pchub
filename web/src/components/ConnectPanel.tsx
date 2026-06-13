@@ -6,7 +6,10 @@ import { submitMoonlightPair, type ConnectInfo } from "@/lib/api";
 const STATUS_LABELS: Record<string, string> = {
   pending: "Preparing",
   ready: "Ready to connect",
+  ready_local: "Ready (same WiFi)",
   needs_sunshine: "Installing remote desktop",
+  sunshine_stopped: "Sunshine not running",
+  firewall_blocked: "Firewall blocking",
 };
 
 const PAIR_LABELS: Record<string, string> = {
@@ -32,7 +35,11 @@ export function ConnectPanel({
   const [error, setError] = useState<string | null>(null);
 
   const statusLabel = STATUS_LABELS[connect.status] ?? connect.status;
-  const isReady = connect.status === "ready" && Boolean(connect.host);
+  const isReady =
+    (connect.status === "ready" ||
+      connect.status === "ready_local") &&
+    Boolean(connect.recommendedIp) &&
+    connect.portsOpen;
   const pairLabel = PAIR_LABELS[connect.pairStatus] ?? connect.pairStatus;
   const showPairForm =
     connect.pairStatus !== "paired" &&
@@ -71,6 +78,20 @@ export function ConnectPanel({
 
       {connect.message && (
         <p className="mt-2 text-xs text-muted">{connect.message}</p>
+      )}
+
+      {connect.internetWarning && (
+        <p className="mt-2 border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+          {connect.internetWarning}
+        </p>
+      )}
+
+      {connect.recommendedIp && (
+        <p className="mt-3 font-mono text-sm text-foreground">
+          Moonlight address:{" "}
+          <span className="text-accent">{connect.recommendedIp}</span>
+          <span className="text-muted"> (no :port)</span>
+        </p>
       )}
 
       {(connect.localIp || connect.publicIp) && (
