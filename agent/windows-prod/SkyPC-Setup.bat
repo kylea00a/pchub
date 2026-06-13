@@ -11,9 +11,17 @@ if not exist config.json (
   exit /b 1
 )
 
-if not exist PCHUB-Agent.exe (
+if not exist runtime\node.exe (
   echo.
-  echo PCHUB-Agent.exe not found. Re-download from https://pchub.cloud/host
+  echo runtime\node.exe not found. Re-download from https://pchub.cloud/host
+  echo.
+  pause
+  exit /b 1
+)
+
+if not exist agent.cjs (
+  echo.
+  echo agent.cjs not found. Re-download from https://pchub.cloud/host
   echo.
   pause
   exit /b 1
@@ -21,7 +29,7 @@ if not exist PCHUB-Agent.exe (
 
 echo.
 echo Detecting hardware and measuring upload speed...
-PCHUB-Agent.exe --once
+runtime\node.exe agent.cjs --once
 if errorlevel 1 (
   echo.
   echo Registration failed. Open agent.log in this folder for details.

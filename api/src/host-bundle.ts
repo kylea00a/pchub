@@ -7,7 +7,8 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const AGENT_ROOT = path.join(__dirname, "..", "..", "agent");
 const BUNDLE_ROOT = "SkyPC-Host-Agent";
-const EXE_PATH = path.join(AGENT_ROOT, "dist", "PCHUB-Agent.exe");
+const BUNDLE_PATH = path.join(AGENT_ROOT, "dist", "agent.cjs");
+const NODE_EXE_PATH = path.join(AGENT_ROOT, "dist", "runtime", "node.exe");
 const PROD_SCRIPTS = path.join(AGENT_ROOT, "windows-prod");
 
 export type BundleConfig = {
@@ -50,7 +51,7 @@ Logs: agent.log (same folder)
 API: ${config.apiUrl}
 Pairing code is already in config.json (expires in ~30 minutes).
 
-No Node.js required.
+No Node.js install required — runtime is included in this zip.
 `;
   }
 
@@ -86,7 +87,8 @@ function streamProductionBundle(
   archive: archiver.Archiver,
   config: BundleConfig
 ) {
-  archive.file(EXE_PATH, { name: `${BUNDLE_ROOT}/PCHUB-Agent.exe` });
+  archive.file(BUNDLE_PATH, { name: `${BUNDLE_ROOT}/agent.cjs` });
+  archive.file(NODE_EXE_PATH, { name: `${BUNDLE_ROOT}/runtime/node.exe` });
 
   for (const script of ["SkyPC-Setup.bat", "Start PCHUB Agent.vbs", "add-to-startup.bat"]) {
     const full = path.join(PROD_SCRIPTS, script);
@@ -120,7 +122,7 @@ export function streamWindowsAgentBundle(res: Response, config: BundleConfig) {
     return;
   }
 
-  const packaged = fs.existsSync(EXE_PATH);
+  const packaged = fs.existsSync(BUNDLE_PATH) && fs.existsSync(NODE_EXE_PATH);
 
   const archive = archiver("zip", { zlib: { level: 9 } });
   res.setHeader("Content-Type", "application/zip");

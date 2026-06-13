@@ -21,6 +21,7 @@ agent/agent.log
 agent/.personal-layer/
 agent/dist/PCHUB-Agent.exe
 agent/dist/agent.cjs
+agent/dist/runtime/
 
 # Next.js build output
 web/.next/

@@ -83,9 +83,9 @@ export default function HostPage() {
             </li>
           </ul>
           <p className="mt-3">
-            <strong className="text-foreground">Download:</strong> a zip with{" "}
-            <code className="text-foreground">PCHUB-Agent.exe</code> — no Node.js, no extra installs.
-            Double-click <code className="text-foreground">SkyPC-Setup.bat</code> once.
+            <strong className="text-foreground">Download:</strong> a zip with the agent and a bundled
+            Windows runtime — no Node.js install on your PC. Double-click{" "}
+            <code className="text-foreground">SkyPC-Setup.bat</code> once.
           </p>
         </div>
 
