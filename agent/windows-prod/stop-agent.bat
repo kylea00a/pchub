@@ -1,8 +1,6 @@
 @echo off
-set "PCHUB_AGENT_ROOT=%~dp0"
-if "%PCHUB_AGENT_ROOT:~-1%"=="\" set "PCHUB_AGENT_ROOT=%PCHUB_AGENT_ROOT:~0,-1%"
-
-powershell -NoProfile -Command "$root=$env:PCHUB_AGENT_ROOT; Get-CimInstance Win32_Process -Filter \"Name='powershell.exe'\" | Where-Object { $_.CommandLine -and $_.CommandLine.ToLower().Contains('pchub-host.ps1') -and $_.CommandLine.ToLower().Contains($root.ToLower()) } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -EA SilentlyContinue }"
+:: Fast agent stop - no slow WMI scan of every process
 taskkill /FI "WINDOWTITLE eq PCHUB Agent Loop*" /F >nul 2>&1
 taskkill /FI "WINDOWTITLE eq PCHUB Host Status*" /F >nul 2>&1
+wmic process where "CommandLine like '%%pchub-host.ps1%%'" call terminate >nul 2>&1
 if /i not "%~1"=="quiet" echo PCHUB agent stopped.

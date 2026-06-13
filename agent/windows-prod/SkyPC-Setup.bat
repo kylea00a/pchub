@@ -38,6 +38,7 @@ powershell -NoProfile -Command "try { Add-MpPreference -ExclusionPath '%AGENT_DI
 echo.
 echo [2/4] Stopping any old agent...
 call "%~dp0stop-agent.bat" quiet
+echo       OK
 if exist .agent-state.json del /f /q .agent-state.json
 
 echo.

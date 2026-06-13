@@ -16,7 +16,15 @@ echo.
 wmic process where "name='powershell.exe' and CommandLine like '%%pchub-host.ps1%%'" get ProcessId 2>nul | findstr /r "[0-9]" >nul && (
   echo   Agent: RUNNING
 ) || (
-  echo   Agent: STOPPED  ^<-- double-click Start PCHUB Agent.bat
+  if exist agent.log (
+    powershell -NoProfile -Command "if ((Get-Item 'agent.log').LastWriteTime -gt (Get-Date).AddSeconds(-60)) { exit 0 } else { exit 1 }" >nul 2>&1 && (
+      echo   Agent: RUNNING
+    ) || (
+      echo   Agent: STOPPED  ^<-- double-click Start PCHUB Agent.bat
+    )
+  ) else (
+    echo   Agent: STOPPED  ^<-- double-click Start PCHUB Agent.bat
+  )
 )
 echo.
 echo   This window = your on-PC indicator. Minimize it to the taskbar.
