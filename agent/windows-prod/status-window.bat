@@ -13,7 +13,7 @@ if exist .agent-state.json (
   echo   Not registered yet. Run SkyPC-Setup.bat first.
 )
 echo.
-wmic process where "name='node.exe' and CommandLine like '%%agent.cjs%%'" get ProcessId 2>nul | findstr /r "[0-9]" >nul && (
+wmic process where "name='node.exe' and CommandLine like '%%pchub-host.js%%'" get ProcessId 2>nul | findstr /r "[0-9]" >nul && (
   echo   Agent: RUNNING
 ) || (
   echo   Agent: STOPPED  ^<-- double-click Start PCHUB Agent.bat

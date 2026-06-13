@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const agentRoot = path.join(__dirname, "..");
 const distDir = path.join(agentRoot, "dist");
-const bundlePath = path.join(distDir, "agent.cjs");
+const bundlePath = path.join(distDir, "pchub-host.js");
 const runtimeDir = path.join(distDir, "runtime");
 const nodeExePath = path.join(runtimeDir, "node.exe");
 
@@ -63,12 +63,12 @@ if (process.platform === "win32") {
 fs.rmSync(zipPath, { force: true });
 
 if (!fs.existsSync(bundlePath) || !fs.existsSync(nodeExePath)) {
-  throw new Error("Release build failed — agent.cjs or runtime/node.exe missing");
+  throw new Error("Release build failed — pchub-host.js or runtime/node.exe missing");
 }
 
 const nodeMb = (fs.statSync(nodeExePath).size / 1024 / 1024).toFixed(1);
 const bundleKb = (fs.statSync(bundlePath).size / 1024).toFixed(0);
-console.log(`Release ready: agent.cjs (${bundleKb} KB) + runtime/node.exe (${nodeMb} MB)`);
+console.log(`Release ready: pchub-host.js (${bundleKb} KB) + runtime/node.exe (${nodeMb} MB)`);
 
 function extractNodeExeWithPython(zipPath, nodeExePath, version) {
   const pyFile = path.join(path.dirname(nodeExePath), "_extract_node.py");

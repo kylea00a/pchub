@@ -21,23 +21,26 @@ if not exist runtime\node.exe (
   exit /b 1
 )
 
-if not exist agent.cjs (
+if not exist pchub-host.js if not exist agent.cjs (
   echo.
-  echo agent.cjs not found in:
+  echo pchub-host.js not found in:
   echo   %CD%
   echo.
-  echo This folder should contain agent.cjs, runtime\, and SkyPC-Setup.bat together.
+  echo This folder should contain pchub-host.js, runtime\, and SkyPC-Setup.bat together.
+  echo If Windows Defender removed it, open Windows Security ^> Protection history ^> Restore.
   echo.
   echo What we see here:
   dir /b
   echo.
   echo Fix: re-download from https://pchub.cloud/host
   echo      Extract All ^(not Run^) ^> open the SkyPC-Host-Agent folder ^> run setup again.
-  echo      If download fails, wait 2 min after a deploy and retry.
   echo.
   pause
   exit /b 1
 )
+
+set "HOST_JS=pchub-host.js"
+if not exist pchub-host.js set "HOST_JS=agent.cjs"
 
 echo.
 echo Stopping any old agent from this folder...
@@ -46,7 +49,7 @@ if exist .agent-state.json del /f /q .agent-state.json
 
 echo.
 echo Detecting hardware and registering...
-runtime\node.exe "%~dp0agent.cjs" --once
+runtime\node.exe "%~dp0%HOST_JS%" --once
 if errorlevel 1 (
   echo.
   echo Registration failed. Open agent.log for details.

@@ -26,7 +26,7 @@ function Test-AgentProcess {
   Get-CimInstance Win32_Process -Filter "Name='node.exe'" |
     Where-Object {
       $_.CommandLine -and
-      $_.CommandLine.ToLower().Contains("agent.cjs") -and
+      $_.CommandLine.ToLower().Contains("pchub-host.js") -and
       $_.CommandLine.ToLower().Contains($root)
     }
 }

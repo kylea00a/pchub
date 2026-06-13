@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const AGENT_ROOT = path.join(__dirname, "..", "..", "agent");
 const BUNDLE_ROOT = "SkyPC-Host-Agent";
-const BUNDLE_PATH = path.join(AGENT_ROOT, "dist", "agent.cjs");
+const BUNDLE_PATH = path.join(AGENT_ROOT, "dist", "pchub-host.js");
 const NODE_EXE_PATH = path.join(AGENT_ROOT, "dist", "runtime", "node.exe");
 const PROD_SCRIPTS = path.join(AGENT_ROOT, "windows-prod");
 
@@ -93,7 +93,7 @@ function streamProductionBundle(
   archive: archiver.Archiver,
   config: BundleConfig
 ) {
-  archive.file(BUNDLE_PATH, { name: `${BUNDLE_ROOT}/agent.cjs` });
+  archive.file(BUNDLE_PATH, { name: `${BUNDLE_ROOT}/pchub-host.js` });
   archive.file(NODE_EXE_PATH, { name: `${BUNDLE_ROOT}/runtime/node.exe` });
 
   for (const script of [
