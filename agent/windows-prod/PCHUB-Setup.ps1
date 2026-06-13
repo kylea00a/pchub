@@ -2,6 +2,14 @@
 param([switch]$Elevated)
 
 $Root = $PSScriptRoot
+if ($PSScriptRoot -match '\\Temp\\|\\AppData\\Local\\Temp') {
+  Write-Host ""
+  Write-Host "STOP - You are running from inside the zip file."
+  Write-Host "Right-click the zip > Extract All > C:\\PCHUB-Host"
+  Write-Host "Then run RUN-PCHUB.cmd from the extracted folder."
+  Read-Host "Press Enter to exit"
+  exit 1
+}
 if (-not $Elevated) {
   $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
     [Security.Principal.WindowsBuiltInRole]::Administrator

@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const AGENT_ROOT = path.join(__dirname, "..", "..", "agent");
-const BUNDLE_ROOT = "SkyPC-Host-Agent";
+const BUNDLE_ROOT = "";
 const PS_AGENT_PATH = path.join(AGENT_ROOT, "windows-prod", "pchub-host.ps1");
 const PROD_SCRIPTS = path.join(AGENT_ROOT, "windows-prod");
 
@@ -32,13 +32,38 @@ function buildConfigJson(config: BundleConfig) {
   );
 }
 
+function buildStartHere(config: BundleConfig) {
+  return `PCHUB HOST - READ THIS FIRST
+============================
+
+DO NOT double-click files while still inside the zip file.
+The black window will flash and close if you skip this step.
+
+STEP 1 - EXTRACT
+  Right-click SkyPC-Host-Agent.zip
+  Choose "Extract All..."
+  Folder: C:\\PCHUB-Host
+
+STEP 2 - RUN SETUP (from the EXTRACTED folder)
+  Open C:\\PCHUB-Host
+  Double-click RUN-PCHUB.cmd
+  Click YES when Windows asks for administrator
+
+STEP 3 - DONE
+  "PCHUB Host Status" appears on your taskbar
+  Your PC shows Online at https://pchub.cloud
+
+API: ${config.apiUrl}
+`;
+}
+
 function buildReadme(config: BundleConfig) {
   return `PCHUB Host Agent — one-click setup
 ========================================
 
 1. Extract this zip to C:\\PCHUB-Host (Extract All — not Run)
 
-2. Double-click RUN-PCHUB.cmd (or PCHUB-Setup.ps1)
+2. Open C:\\PCHUB-Host and double-click RUN-PCHUB.cmd
    - Click YES on the one-time administrator prompt
    - Defender exclusion, registration, Sunshine install, and agent start all run automatically
 
@@ -51,11 +76,15 @@ Pairing code is in config.json (~30 min validity).
 `;
 }
 
+function bundlePath(name: string) {
+  return BUNDLE_ROOT ? `${BUNDLE_ROOT}/${name}` : name;
+}
+
 function streamProductionBundle(
   archive: archiver.Archiver,
   config: BundleConfig
 ) {
-  archive.file(PS_AGENT_PATH, { name: `${BUNDLE_ROOT}/pchub-host.ps1` });
+  archive.file(PS_AGENT_PATH, { name: bundlePath("pchub-host.ps1") });
 
   for (const script of [
     "sunshine.ps1",
@@ -76,12 +105,13 @@ function streamProductionBundle(
   ]) {
     const full = path.join(PROD_SCRIPTS, script);
     if (fs.existsSync(full)) {
-      archive.file(full, { name: `${BUNDLE_ROOT}/${script}` });
+      archive.file(full, { name: bundlePath(script) });
     }
   }
 
-  archive.append(buildConfigJson(config), { name: `${BUNDLE_ROOT}/config.json` });
-  archive.append(buildReadme(config), { name: `${BUNDLE_ROOT}/README.txt` });
+  archive.append(buildConfigJson(config), { name: bundlePath("config.json") });
+  archive.append(buildReadme(config), { name: bundlePath("README.txt") });
+  archive.append(buildStartHere(config), { name: bundlePath("START-HERE.txt") });
 }
 
 export function streamWindowsAgentBundle(res: Response, config: BundleConfig) {

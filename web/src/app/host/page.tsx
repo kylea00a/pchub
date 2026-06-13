@@ -155,6 +155,12 @@ export default function HostPage() {
 
         <div className="mt-6 pchub-panel p-6">
           <h2 className="font-medium">Step 2 — Windows PC (one double-click)</h2>
+          <p className="mt-4 text-sm text-amber-200/90 border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+            <strong className="text-foreground">Important:</strong> Do not double-click{" "}
+            <code className="text-foreground">RUN-PCHUB.cmd</code> while still inside the zip.
+            The window will flash and close. Use <strong>Extract All</strong> first, then open{" "}
+            <code className="text-foreground">C:\PCHUB-Host</code> and run it from there.
+          </p>
           <ol className="mt-4 list-decimal space-y-3 pl-5 text-sm text-muted">
             <li>
               <strong className="text-foreground">Extract All</strong> to{" "}
