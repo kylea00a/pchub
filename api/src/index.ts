@@ -14,7 +14,7 @@ import {
 import { db, type InventoryRow, type MachineRow, type RenterProfileRow, type RentalRow } from "./db.js";
 import { requireAdmin, requireAuth, type AuthedRequest } from "./middleware.js";
 import { streamWindowsAgentBundle } from "./host-bundle.js";
-import { formatConnectInfo } from "./streaming.js";
+import { formatConnectInfo, ensureSunshineCredentials } from "./streaming.js";
 import {
   STORAGE_PLANS,
   getPlan,
@@ -178,8 +178,8 @@ function startRentalLogic(
     `INSERT INTO rentals (
       id, machine_id, status, price_per_minute_cents, started_at, minutes_billed,
       renter_profile_id, personal_storage, sync_status, sync_message,
-      stream_status, stream_message
-    ) VALUES (?, ?, 'active', ?, ?, 0, ?, ?, ?, ?, 'pending', ?)`
+      stream_status, stream_message, stream_pair_status
+    ) VALUES (?, ?, 'active', ?, ?, 0, ?, ?, ?, ?, 'pending', ?, 'idle')`
   ).run(
     rentalId,
     machine.id,
@@ -440,6 +440,8 @@ app.post("/api/agents/register", (req, res) => {
 
   const id = nanoid(12);
   const agentToken = nanoid(32);
+  const sunshineUsername = `pchub-${id.slice(0, 8)}`;
+  const sunshinePassword = nanoid(24);
   const displayName = name?.trim() || hostname?.trim() || `PC-${id.slice(0, 6)}`;
   const machineCity = city?.trim() || "Manila";
   const priceCents = Number.isFinite(pricePerMinuteCents)
@@ -449,8 +451,9 @@ app.post("/api/agents/register", (req, res) => {
   db.prepare(
     `INSERT INTO machines (
       id, agent_token, name, hostname, city, price_per_minute_cents,
-      verified, status, last_seen_at, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, 0, 'online', ?, ?)`
+      verified, status, last_seen_at, created_at,
+      sunshine_username, sunshine_password
+    ) VALUES (?, ?, ?, ?, ?, ?, 0, 'online', ?, ?, ?, ?)`
   ).run(
     id,
     agentToken,
@@ -459,7 +462,9 @@ app.post("/api/agents/register", (req, res) => {
     machineCity,
     priceCents,
     nowIso(),
-    nowIso()
+    nowIso(),
+    sunshineUsername,
+    sunshinePassword
   );
 
   db.prepare(
@@ -472,6 +477,8 @@ app.post("/api/agents/register", (req, res) => {
     name: displayName,
     city: machineCity,
     pricePerMinuteCents: priceCents,
+    sunshineUsername,
+    sunshinePassword,
   });
 });
 
@@ -851,6 +858,50 @@ app.get("/api/me/rentals/:id/connect", requireAuth, (req, res) => {
   res.json(formatConnectInfo(rental));
 });
 
+app.post("/api/me/rentals/:id/pair", requireAuth, (req, res) => {
+  const user = (req as AuthedRequest).user;
+  const profile = profileForUser(user.id);
+  const { pin, clientName } = req.body as { pin?: string; clientName?: string };
+
+  const cleanedPin = pin?.trim().replace(/\D/g, "");
+  if (!cleanedPin || cleanedPin.length !== 4) {
+    res.status(400).json({ error: "Enter the 4-digit PIN shown in Moonlight." });
+    return;
+  }
+
+  const rental = db
+    .prepare("SELECT * FROM rentals WHERE id = ? AND renter_profile_id = ?")
+    .get(req.params.id, profile.id) as RentalRow | undefined;
+  if (!rental || rental.status !== "active") {
+    res.status(404).json({ error: "Active rental not found" });
+    return;
+  }
+
+  const name = clientName?.trim() || profile.display_name || "PCHUB renter";
+  db.prepare(
+    `UPDATE rentals SET
+      stream_pair_pin = ?,
+      stream_pair_client_name = ?,
+      stream_pair_status = 'pending',
+      stream_pair_message = 'Sending PIN to host PC…'
+    WHERE id = ?`
+  ).run(cleanedPin, name, rental.id);
+
+  const updated = db
+    .prepare("SELECT * FROM rentals WHERE id = ?")
+    .get(rental.id) as RentalRow;
+  res.json(formatConnectInfo(updated));
+});
+
+app.get("/api/agents/streaming/config", authAgent, (req, res) => {
+  const machine = (req as express.Request & { machine: MachineRow }).machine;
+  const creds = ensureSunshineCredentials(machine);
+  res.json({
+    sunshineUsername: creds.username,
+    sunshinePassword: creds.password,
+  });
+});
+
 app.post("/api/agents/streaming", authAgent, (req, res) => {
   const machine = (req as express.Request & { machine: MachineRow }).machine;
   const {
@@ -863,6 +914,8 @@ app.post("/api/agents/streaming", authAgent, (req, res) => {
     pin,
     message,
     sunshineInstalled,
+    pairStatus,
+    pairMessage,
   } = req.body as {
     rentalId?: string;
     status?: string;
@@ -873,6 +926,8 @@ app.post("/api/agents/streaming", authAgent, (req, res) => {
     pin?: string;
     message?: string;
     sunshineInstalled?: boolean;
+    pairStatus?: string;
+    pairMessage?: string | null;
   };
 
   if (!rentalId) {
@@ -900,7 +955,9 @@ app.post("/api/agents/streaming", authAgent, (req, res) => {
       stream_pin = ?,
       stream_message = ?,
       stream_sunshine_installed = ?,
-      stream_updated_at = ?
+      stream_updated_at = ?,
+      stream_pair_status = COALESCE(?, stream_pair_status),
+      stream_pair_message = COALESCE(?, stream_pair_message)
     WHERE id = ?`
   ).run(
     status ?? "pending",
@@ -912,8 +969,16 @@ app.post("/api/agents/streaming", authAgent, (req, res) => {
     message ?? null,
     sunshineInstalled ? 1 : 0,
     nowIso(),
+    pairStatus ?? null,
+    pairMessage ?? null,
     rentalId
   );
+
+  if (pairStatus === "paired") {
+    db.prepare(
+      `UPDATE rentals SET stream_pair_pin = NULL, stream_pair_client_name = NULL WHERE id = ?`
+    ).run(rentalId);
+  }
 
   res.json({ ok: true });
 });
@@ -931,6 +996,15 @@ app.get("/api/agents/session", authAgent, (req, res) => {
     return;
   }
 
+  const creds = ensureSunshineCredentials(machine);
+  const pairRequest =
+    rental.stream_pair_status === "pending" && rental.stream_pair_pin
+      ? {
+          pin: rental.stream_pair_pin,
+          clientName: rental.stream_pair_client_name ?? "PCHUB renter",
+        }
+      : null;
+
   res.json({
     active: true,
     rentalId: rental.id,
@@ -938,6 +1012,9 @@ app.get("/api/agents/session", authAgent, (req, res) => {
     syncStatus: rental.sync_status,
     syncMessage: rental.sync_message,
     renterProfileId: rental.renter_profile_id,
+    sunshineUsername: creds.username,
+    sunshinePassword: creds.password,
+    pairRequest,
   });
 });
 

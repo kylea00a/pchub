@@ -77,6 +77,9 @@ function Register-Machine($Config) {
     machineId = $result.machineId
     agentToken = $result.agentToken
     name = $result.name
+    sunshineUsername = $result.sunshineUsername
+    sunshinePassword = $result.sunshinePassword
+    lastRentalId = $null
   }
   Save-State $state
   Write-Log "Registered machine `"$($state.name)`" ($($state.machineId))"
@@ -144,7 +147,11 @@ function Handle-ActiveSession($Config, $State) {
   try {
     $session = Get-AgentSession $Config $State
     if ($session.active) {
-      Update-StreamingSession -Config $Config -State $State -Session $session
+      $updated = Update-StreamingSession -Config $Config -State $State -Session $session
+      if ($updated.lastRentalId -ne $State.lastRentalId) {
+        $State.lastRentalId = $updated.lastRentalId
+        Save-State $State
+      }
     }
   } catch {
     Write-Log "Session check failed: $($_.Exception.Message)"

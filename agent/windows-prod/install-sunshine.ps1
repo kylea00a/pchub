@@ -1,31 +1,18 @@
-# Install Sunshine (Moonlight host) on Windows - run once on the gaming PC
-Write-Host ""
-Write-Host "PCHUB - Install Sunshine (remote desktop host)"
-Write-Host "=============================================="
-Write-Host ""
+# Repair Sunshine install (normally handled by RUN-PCHUB.cmd one-click setup)
+. "$PSScriptRoot\sunshine.ps1"
 
-if (Test-Path "${env:ProgramFiles}\Sunshine\sunshine.exe") {
-  Write-Host "Sunshine is already installed."
-  try { Start-Service -Name "Sunshine" -ErrorAction SilentlyContinue } catch { }
-  Read-Host "Press Enter to close"
-  exit 0
-}
-
-Write-Host "Installing via winget (may take a few minutes)..."
-$winget = Get-Command winget -ErrorAction SilentlyContinue
-if (-not $winget) {
-  Write-Host "winget not found. Download Sunshine manually:"
-  Write-Host "  https://github.com/LizardByte/Sunshine/releases"
+$statePath = Join-Path $PSScriptRoot ".agent-state.json"
+if (-not (Test-Path $statePath)) {
+  Write-Host "Run RUN-PCHUB.cmd first to register this PC."
   Read-Host "Press Enter to close"
   exit 1
 }
 
-& winget install --id LizardByte.Sunshine -e --accept-source-agreements --accept-package-agreements
-
-Write-Host ""
-Write-Host "After install:"
-Write-Host "  1. Open https://localhost:47990 and set a Sunshine username/password"
-Write-Host "  2. Power on a rental from pchub.cloud"
-Write-Host "  3. Connect with Moonlight using the IP shown on your dashboard"
-Write-Host ""
+$state = Get-Content $statePath -Raw | ConvertFrom-Json
+try {
+  Initialize-PchubSunshine -Username $state.sunshineUsername -Password $state.sunshinePassword
+  Write-Host "Sunshine repaired."
+} catch {
+  Write-Host "Failed: $($_.Exception.Message)"
+}
 Read-Host "Press Enter to close"

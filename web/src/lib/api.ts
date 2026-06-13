@@ -82,10 +82,11 @@ export type ConnectInfo = {
   host: string | null;
   port: number;
   httpsPort: number;
-  pin: string | null;
   message: string | null;
   sunshineInstalled: boolean;
   updatedAt: string | null;
+  pairStatus: string;
+  pairMessage: string | null;
   moonlightLinks: {
     windows: string;
     android: string;
@@ -197,6 +198,17 @@ export async function powerOff(rentalId: string) {
   }>("/api/me/power/off", {
     method: "POST",
     body: JSON.stringify({ rentalId }),
+  });
+}
+
+export async function submitMoonlightPair(
+  rentalId: string,
+  pin: string,
+  clientName?: string
+) {
+  return apiFetch<ConnectInfo>(`/api/me/rentals/${rentalId}/pair`, {
+    method: "POST",
+    body: JSON.stringify({ pin, clientName }),
   });
 }
 

@@ -187,7 +187,13 @@ export default function DashboardPage() {
                       {session.syncMessage && (
                         <p className="mt-2 text-xs text-muted">{session.syncMessage}</p>
                       )}
-                      {session.connect && <ConnectPanel connect={session.connect} />}
+                      {session.connect && (
+                        <ConnectPanel
+                          rentalId={session.rentalId}
+                          connect={session.connect}
+                          onPaired={load}
+                        />
+                      )}
                       <p className="mt-3 text-sm">
                         Running{" "}
                         {session.elapsedSeconds != null

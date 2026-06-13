@@ -163,13 +163,13 @@ export default function HostPage() {
             <li>
               Double-click <code className="text-foreground">RUN-PCHUB.cmd</code> once — click{" "}
               <strong className="text-foreground">Yes</strong> when Windows asks for administrator
-              (one-time Defender fix)
+              (one-time Defender fix + Sunshine install)
             </li>
           </ol>
           <p className="mt-4 text-sm text-muted">
-            Setup registers your PC, then opens a{" "}
+            Setup registers your PC, installs remote desktop (Sunshine), then opens a{" "}
             <strong className="text-foreground">PCHUB Host Status</strong> window on the
-            taskbar — shows Online / Offline on your PC without opening the browser.
+            taskbar. Renters pair Moonlight from pchub.cloud — you never open localhost.
           </p>
           <p className="mt-2 text-xs text-muted">
             Re-running setup creates a new listing — ignore older ghost entries on the fleet
@@ -188,26 +188,7 @@ npm run agent`}
         </div>
 
         <div className="mt-6 pchub-panel p-6">
-          <h2 className="font-medium">Step 3 — Remote desktop (Sunshine, one time)</h2>
-          <p className="mt-2 text-sm text-muted">
-            Renters connect with <strong className="text-foreground">Moonlight</strong> while a
-            session is powered on. Install the host app once:
-          </p>
-          <ol className="mt-4 list-decimal space-y-3 pl-5 text-sm text-muted">
-            <li>
-              In <code className="text-foreground">C:\PCHUB-Host</code>, double-click{" "}
-              <code className="text-foreground">RUN-INSTALL-SUNSHINE.cmd</code>
-            </li>
-            <li>
-              Open <code className="text-foreground">https://localhost:47990</code> and set a
-              Sunshine username/password
-            </li>
-            <li>Keep the PCHUB agent running — it reports the IP renters need on the dashboard</li>
-          </ol>
-        </div>
-
-        <div className="mt-6 pchub-panel p-6">
-          <h2 className="font-medium">Step 4 — Check listings</h2>
+          <h2 className="font-medium">Step 3 — Check listings</h2>
           <p className="mt-2 text-sm text-muted">
             Your PC should show as <strong className="text-emerald-400">Online</strong> with real
             specs and ↑ upload Mbps within a minute.

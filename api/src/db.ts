@@ -133,6 +133,27 @@ if (!rentalColNames.has("stream_sunshine_installed")) {
 if (!rentalColNames.has("stream_updated_at")) {
   db.exec(`ALTER TABLE rentals ADD COLUMN stream_updated_at TEXT`);
 }
+if (!rentalColNames.has("stream_pair_pin")) {
+  db.exec(`ALTER TABLE rentals ADD COLUMN stream_pair_pin TEXT`);
+}
+if (!rentalColNames.has("stream_pair_client_name")) {
+  db.exec(`ALTER TABLE rentals ADD COLUMN stream_pair_client_name TEXT`);
+}
+if (!rentalColNames.has("stream_pair_status")) {
+  db.exec(`ALTER TABLE rentals ADD COLUMN stream_pair_status TEXT NOT NULL DEFAULT 'idle'`);
+}
+if (!rentalColNames.has("stream_pair_message")) {
+  db.exec(`ALTER TABLE rentals ADD COLUMN stream_pair_message TEXT`);
+}
+
+const machineColumns = db.prepare("PRAGMA table_info(machines)").all() as { name: string }[];
+const machineColNames = new Set(machineColumns.map((c) => c.name));
+if (!machineColNames.has("sunshine_username")) {
+  db.exec(`ALTER TABLE machines ADD COLUMN sunshine_username TEXT`);
+}
+if (!machineColNames.has("sunshine_password")) {
+  db.exec(`ALTER TABLE machines ADD COLUMN sunshine_password TEXT`);
+}
 
 export type RenterProfileRow = {
   id: string;
@@ -174,6 +195,10 @@ export type RentalRow = {
   stream_message: string | null;
   stream_sunshine_installed: number;
   stream_updated_at: string | null;
+  stream_pair_pin: string | null;
+  stream_pair_client_name: string | null;
+  stream_pair_status: string;
+  stream_pair_message: string | null;
 };
 
 export type MachineRow = {
@@ -188,6 +213,8 @@ export type MachineRow = {
   status: string;
   last_seen_at: string | null;
   created_at: string;
+  sunshine_username: string | null;
+  sunshine_password: string | null;
 };
 
 export type InventoryRow = {

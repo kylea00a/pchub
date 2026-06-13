@@ -40,11 +40,11 @@ function buildReadme(config: BundleConfig) {
 
 2. Double-click RUN-PCHUB.cmd (or PCHUB-Setup.ps1)
    - Click YES on the one-time administrator prompt
-   - Defender exclusion, registration, and agent start all run automatically
+   - Defender exclusion, registration, Sunshine install, and agent start all run automatically
 
 3. "PCHUB Host Status" appears on your taskbar (Online / Offline)
 
-4. One-time: run RUN-INSTALL-SUNSHINE.cmd for remote desktop (Moonlight)
+Renters pair Moonlight from pchub.cloud — no localhost setup on your PC.
 
 API: ${config.apiUrl}
 Pairing code is in config.json (~30 min validity).
@@ -58,6 +58,7 @@ function streamProductionBundle(
   archive.file(PS_AGENT_PATH, { name: `${BUNDLE_ROOT}/pchub-host.ps1` });
 
   for (const script of [
+    "sunshine.ps1",
     "streaming.ps1",
     "install-sunshine.ps1",
     "RUN-INSTALL-SUNSHINE.cmd",
