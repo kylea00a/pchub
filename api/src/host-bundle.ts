@@ -93,6 +93,8 @@ function streamProductionBundle(
     "RUN-INSTALL-SUNSHINE.cmd",
     "PCHUB-Setup.ps1",
     "RUN-PCHUB.cmd",
+    "rustdesk.ps1",
+    "remote.ps1",
     "RUN-REPAIR-STREAMING.cmd",
     "repair-streaming.ps1",
     "PCHUB Install.bat",

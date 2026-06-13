@@ -27,9 +27,9 @@ wmic process where "name='powershell.exe' and CommandLine like '%%pchub-host.ps1
   )
 )
 echo.
-powershell -NoProfile -Command "$svc=$null; foreach ($n in 'SunshineService','Sunshine','sunshine') { $svc=Get-Service -Name $n -EA SilentlyContinue; if ($svc) { break } }; if ($svc -and $svc.Status -eq 'Running') { Write-Host '   Sunshine: RUNNING (Moonlight can connect)' -ForegroundColor Green } elseif (Test-Path \"$env:ProgramFiles\Sunshine\sunshine.exe\") { Write-Host '   Sunshine: STOPPED (re-run RUN-PCHUB.cmd)' -ForegroundColor Yellow } else { Write-Host '   Sunshine: NOT INSTALLED' -ForegroundColor Red }"
+powershell -NoProfile -Command "$svc=Get-Process -Name rustdesk -ErrorAction SilentlyContinue; if ($svc) { Write-Host '   Remote: RUNNING (PCHUB relay)' -ForegroundColor Green } elseif (Test-Path \"$env:ProgramFiles\RustDesk\rustdesk.exe\") { Write-Host '   Remote: STOPPED (re-run RUN-PCHUB.cmd)' -ForegroundColor Yellow } else { Write-Host '   Remote: NOT INSTALLED' -ForegroundColor Red }"
 echo.
-echo   Agent online = listed on pchub.cloud. Sunshine = remote desktop for renters.
+echo   Agent online = listed on pchub.cloud. Remote = RustDesk via PCHUB relay.
 echo   Minimize this window to the taskbar.
 echo.
 timeout /t 15 /nobreak >nul

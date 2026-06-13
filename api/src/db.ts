@@ -163,6 +163,15 @@ if (!machineColNames.has("sunshine_username")) {
 if (!machineColNames.has("sunshine_password")) {
   db.exec(`ALTER TABLE machines ADD COLUMN sunshine_password TEXT`);
 }
+if (!machineColNames.has("rustdesk_id")) {
+  db.exec(`ALTER TABLE machines ADD COLUMN rustdesk_id TEXT`);
+}
+if (!machineColNames.has("rustdesk_password")) {
+  db.exec(`ALTER TABLE machines ADD COLUMN rustdesk_password TEXT`);
+}
+if (!rentalColNames.has("connect_password")) {
+  db.exec(`ALTER TABLE rentals ADD COLUMN connect_password TEXT`);
+}
 
 export type RenterProfileRow = {
   id: string;
@@ -211,6 +220,7 @@ export type RentalRow = {
   stream_connect_mode: string | null;
   stream_sunshine_running: number;
   stream_ports_open: number;
+  connect_password: string | null;
 };
 
 export type MachineRow = {
@@ -227,6 +237,8 @@ export type MachineRow = {
   created_at: string;
   sunshine_username: string | null;
   sunshine_password: string | null;
+  rustdesk_id: string | null;
+  rustdesk_password: string | null;
 };
 
 export type InventoryRow = {

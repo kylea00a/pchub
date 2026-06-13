@@ -2,7 +2,7 @@
 param([switch]$Once)
 
 $Root = $PSScriptRoot
-. (Join-Path $Root "streaming.ps1")
+. (Join-Path $Root "remote.ps1")
 $ConfigPath = Join-Path $Root "config.json"
 $StatePath = Join-Path $Root ".agent-state.json"
 $LogPath = Join-Path $Root "agent.log"
@@ -92,8 +92,8 @@ function Register-Machine($Config) {
     machineId = $result.machineId
     agentToken = $result.agentToken
     name = $result.name
-    sunshineUsername = $result.sunshineUsername
-    sunshinePassword = $result.sunshinePassword
+    rustdeskPassword = $result.rustdeskPassword
+    rustdeskId = $null
     lastRentalId = $null
   }
   Save-State $state
@@ -166,9 +166,9 @@ function Handle-ActiveSession($Config, $State) {
   try {
     $session = Get-AgentSession $Config $State
     if ($session.active) {
-      $updated = Update-StreamingSession -Config $Config -State $State -Session $session
-      if ($updated.lastRentalId -ne $State.lastRentalId) {
-        $State.lastRentalId = $updated.lastRentalId
+      $updated = Update-RemoteSession -Config $Config -State $State -Session $session
+      if ($updated.rustdeskId -and $updated.rustdeskId -ne $State.rustdeskId) {
+        $State.rustdeskId = $updated.rustdeskId
         Save-State $State
       }
     }
@@ -186,10 +186,9 @@ try {
     $state = Register-Machine $config
   } else {
     Write-Log "Using saved machine `"$($state.name)`" ($($state.machineId))"
-    if (-not $state.sunshineUsername -or -not $state.sunshinePassword) {
-      $remote = Invoke-PchubApi -ApiRoot $config.apiUrl -Path "/api/agents/streaming/config" -Method "GET" -Token $state.agentToken
-      $state.sunshineUsername = $remote.sunshineUsername
-      $state.sunshinePassword = $remote.sunshinePassword
+    if (-not $state.rustdeskPassword) {
+      $remote = Invoke-PchubApi -ApiRoot $config.apiUrl -Path "/api/agents/rustdesk/config" -Method "GET" -Token $state.agentToken
+      $state.rustdeskPassword = $remote.password
       Save-State $state
     }
   }

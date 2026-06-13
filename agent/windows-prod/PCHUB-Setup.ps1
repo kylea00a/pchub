@@ -29,7 +29,7 @@ if (-not $Elevated) {
 
 Set-Location $Root
 $hostPs1 = Join-Path $Root "pchub-host.ps1"
-$sunshinePs1 = Join-Path $Root "sunshine.ps1"
+$rustdeskPs1 = Join-Path $Root "rustdesk.ps1"
 $statePath = Join-Path $Root ".agent-state.json"
 
 if (-not (Test-Path (Join-Path $Root "config.json"))) {
@@ -72,39 +72,34 @@ if ($hadState) {
 if ($LASTEXITCODE -ne 0) {
   Write-Host ""
   Write-Host "Setup failed. Open agent.log in this folder."
-  if (-not $hadState) {
-    Write-Host "If you see 'pairing code already used', download a fresh zip from pchub.cloud/host"
-    Write-Host "or re-run after deploy - rejoin support will restore this PC automatically."
-  }
   Read-Host "Press Enter to exit"
   exit 1
 }
 
 Write-Host ""
-Write-Host "[4/5] Installing / repairing remote desktop (Sunshine)..."
-if (Test-Path $sunshinePs1) {
-  . $sunshinePs1
+Write-Host "[4/5] Installing PCHUB remote desktop (relay)..."
+if (Test-Path $rustdeskPs1) {
+  . $rustdeskPs1
   $state = Get-Content $statePath -Raw | ConvertFrom-Json
+  $config = Get-Content (Join-Path $Root "config.json") -Raw | ConvertFrom-Json
   try {
-    if (-not $state.sunshineUsername -or -not $state.sunshinePassword) {
-      Write-Host "      Fetching Sunshine credentials from PCHUB..."
-      $config = Get-Content (Join-Path $Root "config.json") -Raw | ConvertFrom-Json
-      $headers = @{
-        "Content-Type" = "application/json"
-        "Authorization" = "Bearer $($state.agentToken)"
-      }
-      $remote = Invoke-RestMethod -Uri "$($config.apiUrl.TrimEnd('/'))/api/agents/streaming/config" -Headers $headers -Method GET
-      $state.sunshineUsername = $remote.sunshineUsername
-      $state.sunshinePassword = $remote.sunshinePassword
-      $state | ConvertTo-Json | Set-Content $statePath -Encoding UTF8
+    $headers = @{
+      "Content-Type" = "application/json"
+      "Authorization" = "Bearer $($state.agentToken)"
     }
-    Initialize-PchubSunshine -Username $state.sunshineUsername -Password $state.sunshinePassword
+    $remote = Invoke-RestMethod -Uri "$($config.apiUrl.TrimEnd('/'))/api/agents/rustdesk/config" -Headers $headers -Method GET
+    if (-not $state.rustdeskPassword) { $state.rustdeskPassword = $remote.password }
+    $id = Initialize-PchubRustDesk -RelayHost $remote.relayHost -PublicKey $remote.publicKey -Password $state.rustdeskPassword
+    $state.rustdeskId = $id
+    $body = (@{ rustdeskId = $id } | ConvertTo-Json -Compress)
+    Invoke-RestMethod -Uri "$($config.apiUrl.TrimEnd('/'))/api/agents/rustdesk/id" -Headers $headers -Method POST -Body $body | Out-Null
+    $state | ConvertTo-Json | Set-Content $statePath -Encoding UTF8
   } catch {
-    Write-Host "      Warning: Sunshine setup issue - $($_.Exception.Message)"
-    Write-Host "      Agent will retry on next session."
+    Write-Host "      Warning: Remote desktop setup - $($_.Exception.Message)"
+    Write-Host "      Agent will retry when a renter powers on."
   }
 } else {
-  Write-Host "      sunshine.ps1 missing - re-download bundle from pchub.cloud/host"
+  Write-Host "      rustdesk.ps1 missing - re-download bundle from pchub.cloud/host"
 }
 
 Write-Host ""
@@ -122,12 +117,11 @@ try {
 
 Write-Host ""
 Write-Host "========================================"
-Write-Host "  DONE - PC listed + remote desktop ready"
+Write-Host "  DONE - PC listed on pchub.cloud"
 Write-Host "========================================"
 Write-Host ""
-Write-Host "  Taskbar: PCHUB Host Status (Online within ~30s)"
-Write-Host "  Website: https://pchub.cloud"
-Write-Host "  Re-running this setup repairs Sunshine without a new pairing code."
+Write-Host "  Remote desktop uses PCHUB relay - no router setup for owners."
+Write-Host "  Taskbar: PCHUB Host Status"
 Write-Host "  Logs:    $Root\agent.log"
 Write-Host ""
 Read-Host "Press Enter to close"

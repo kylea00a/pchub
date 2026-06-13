@@ -1,0 +1,27 @@
+# PCHUB RustDesk relay (run on droplet: deploy/rustdesk-setup.sh)
+services:
+  hbbr:
+    container_name: pchub-hbbr
+    image: rustdesk/rustdesk-server:latest
+    command: hbbr
+    ports:
+      - "21117:21117"
+      - "21119:21119"
+    volumes:
+      - ./rustdesk-data/hbbr:/root
+    restart: unless-stopped
+
+  hbbs:
+    container_name: pchub-hbbs
+    image: rustdesk/rustdesk-server:latest
+    command: hbbs -r relay.pchub.cloud:21117
+    ports:
+      - "21115:21115"
+      - "21116:21116"
+      - "21116:21116/udp"
+      - "21118:21118"
+    volumes:
+      - ./rustdesk-data/hbbs:/root
+    depends_on:
+      - hbbr
+    restart: unless-stopped

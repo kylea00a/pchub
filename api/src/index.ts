@@ -14,7 +14,11 @@ import {
 import { db, type InventoryRow, type MachineRow, type RenterProfileRow, type RentalRow } from "./db.js";
 import { requireAdmin, requireAuth, type AuthedRequest } from "./middleware.js";
 import { streamWindowsAgentBundle } from "./host-bundle.js";
-import { formatConnectInfo, ensureSunshineCredentials } from "./streaming.js";
+import { formatConnectInfo } from "./streaming.js";
+import {
+  ensureRustDeskPassword,
+  getRustDeskServerConfig,
+} from "./rustdesk.js";
 import {
   STORAGE_PLANS,
   getPlan,
@@ -174,12 +178,13 @@ function startRentalLogic(
   }
 
   const rentalId = nanoid(12);
+  const connectPassword = nanoid(12);
   db.prepare(
     `INSERT INTO rentals (
       id, machine_id, status, price_per_minute_cents, started_at, minutes_billed,
       renter_profile_id, personal_storage, sync_status, sync_message,
-      stream_status, stream_message, stream_pair_status
-    ) VALUES (?, ?, 'active', ?, ?, 0, ?, ?, ?, ?, 'pending', ?, 'idle')`
+      stream_status, stream_message, stream_pair_status, connect_password
+    ) VALUES (?, ?, 'active', ?, ?, 0, ?, ?, ?, ?, 'pending', ?, 'idle', ?)`
   ).run(
     rentalId,
     machine.id,
@@ -189,7 +194,8 @@ function startRentalLogic(
     personalStorage ? 1 : 0,
     syncStatus,
     syncMessage,
-    "Waiting for host to prepare remote desktop…"
+    "Preparing your remote desktop session…",
+    connectPassword
   );
   db.prepare(`UPDATE machines SET status = 'rented' WHERE id = ?`).run(machine.id);
 
@@ -442,6 +448,7 @@ app.post("/api/agents/register", (req, res) => {
   const agentToken = nanoid(32);
   const sunshineUsername = `pchub-${id.slice(0, 8)}`;
   const sunshinePassword = nanoid(24);
+  const rustdeskPassword = nanoid(16);
   const displayName = name?.trim() || hostname?.trim() || `PC-${id.slice(0, 6)}`;
   const machineCity = city?.trim() || "Manila";
   const priceCents = Number.isFinite(pricePerMinuteCents)
@@ -452,8 +459,8 @@ app.post("/api/agents/register", (req, res) => {
     `INSERT INTO machines (
       id, agent_token, name, hostname, city, price_per_minute_cents,
       verified, status, last_seen_at, created_at,
-      sunshine_username, sunshine_password
-    ) VALUES (?, ?, ?, ?, ?, ?, 0, 'online', ?, ?, ?, ?)`
+      sunshine_username, sunshine_password, rustdesk_password
+    ) VALUES (?, ?, ?, ?, ?, ?, 0, 'online', ?, ?, ?, ?, ?)`
   ).run(
     id,
     agentToken,
@@ -464,7 +471,8 @@ app.post("/api/agents/register", (req, res) => {
     nowIso(),
     nowIso(),
     sunshineUsername,
-    sunshinePassword
+    sunshinePassword,
+    rustdeskPassword
   );
 
   db.prepare(
@@ -479,6 +487,7 @@ app.post("/api/agents/register", (req, res) => {
     pricePerMinuteCents: priceCents,
     sunshineUsername,
     sunshinePassword,
+    rustdeskPassword,
   });
 });
 
@@ -523,7 +532,7 @@ app.post("/api/agents/rejoin", (req, res) => {
     return;
   }
 
-  const creds = ensureSunshineCredentials(machine);
+  const rustdeskPassword = ensureRustDeskPassword(machine);
   db.prepare(`UPDATE machines SET last_seen_at = ?, status = 'online' WHERE id = ?`).run(
     nowIso(),
     machine.id
@@ -535,8 +544,7 @@ app.post("/api/agents/rejoin", (req, res) => {
     name: machine.name,
     city: machine.city,
     pricePerMinuteCents: machine.price_per_minute_cents,
-    sunshineUsername: creds.username,
-    sunshinePassword: creds.password,
+    rustdeskPassword,
     restored: true,
   });
 });
@@ -952,13 +960,72 @@ app.post("/api/me/rentals/:id/pair", requireAuth, (req, res) => {
   res.json(formatConnectInfo(updated));
 });
 
+app.get("/api/agents/rustdesk/config", authAgent, (req, res) => {
+  const machine = (req as express.Request & { machine: MachineRow }).machine;
+  const password = ensureRustDeskPassword(machine);
+  const { relayHost, publicKey, configured } = getRustDeskServerConfig();
+  res.json({ relayHost, publicKey, password, configured });
+});
+
+app.post("/api/agents/remote", authAgent, (req, res) => {
+  const machine = (req as express.Request & { machine: MachineRow }).machine;
+  const { rentalId, status, message, rustdeskId } = req.body as {
+    rentalId?: string;
+    status?: string;
+    message?: string;
+    rustdeskId?: string;
+  };
+
+  if (!rentalId) {
+    res.status(400).json({ error: "rentalId required" });
+    return;
+  }
+
+  const rental = db
+    .prepare(
+      "SELECT * FROM rentals WHERE id = ? AND machine_id = ? AND status = 'active'"
+    )
+    .get(rentalId, machine.id) as RentalRow | undefined;
+  if (!rental) {
+    res.status(404).json({ error: "Active rental not found" });
+    return;
+  }
+
+  if (rustdeskId?.trim()) {
+    db.prepare(`UPDATE machines SET rustdesk_id = ? WHERE id = ?`).run(
+      rustdeskId.trim(),
+      machine.id
+    );
+  }
+
+  db.prepare(
+    `UPDATE rentals SET
+      stream_status = ?,
+      stream_message = ?,
+      stream_updated_at = ?,
+      stream_connect_mode = 'relay'
+    WHERE id = ?`
+  ).run(status ?? "pending", message ?? null, nowIso(), rentalId);
+
+  res.json({ ok: true });
+});
+
+app.post("/api/agents/rustdesk/id", authAgent, (req, res) => {
+  const machine = (req as express.Request & { machine: MachineRow }).machine;
+  const { rustdeskId } = req.body as { rustdeskId?: string };
+  if (!rustdeskId?.trim()) {
+    res.status(400).json({ error: "rustdeskId required" });
+    return;
+  }
+  db.prepare(`UPDATE machines SET rustdesk_id = ? WHERE id = ?`).run(rustdeskId.trim(), machine.id);
+  res.json({ ok: true });
+});
+
 app.get("/api/agents/streaming/config", authAgent, (req, res) => {
   const machine = (req as express.Request & { machine: MachineRow }).machine;
-  const creds = ensureSunshineCredentials(machine);
-  res.json({
-    sunshineUsername: creds.username,
-    sunshinePassword: creds.password,
-  });
+  const password = ensureRustDeskPassword(machine);
+  const { relayHost, publicKey, configured } = getRustDeskServerConfig();
+  res.json({ relayHost, publicKey, password, configured });
 });
 
 app.post("/api/agents/streaming", authAgent, (req, res) => {
@@ -1067,15 +1134,6 @@ app.get("/api/agents/session", authAgent, (req, res) => {
     return;
   }
 
-  const creds = ensureSunshineCredentials(machine);
-  const pairRequest =
-    rental.stream_pair_status === "pending" && rental.stream_pair_pin
-      ? {
-          pin: rental.stream_pair_pin,
-          clientName: rental.stream_pair_client_name ?? "PCHUB renter",
-        }
-      : null;
-
   res.json({
     active: true,
     rentalId: rental.id,
@@ -1083,9 +1141,7 @@ app.get("/api/agents/session", authAgent, (req, res) => {
     syncStatus: rental.sync_status,
     syncMessage: rental.sync_message,
     renterProfileId: rental.renter_profile_id,
-    sunshineUsername: creds.username,
-    sunshinePassword: creds.password,
-    pairRequest,
+    connectPassword: rental.connect_password,
   });
 });
 

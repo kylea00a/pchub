@@ -14,6 +14,12 @@ if [ -f "$SECRETS_FILE" ]; then
 fi
 JWT_SECRET="${JWT_SECRET:-$(openssl rand -hex 32)}"
 echo "JWT_SECRET=${JWT_SECRET}" > "$SECRETS_FILE"
+RUSTDESK_RELAY_HOST="${RUSTDESK_RELAY_HOST:-relay.pchub.cloud}"
+RUSTDESK_PUBLIC_KEY="${RUSTDESK_PUBLIC_KEY:-}"
+if [ -n "$RUSTDESK_PUBLIC_KEY" ]; then
+  echo "RUSTDESK_RELAY_HOST=${RUSTDESK_RELAY_HOST}" >> "$SECRETS_FILE"
+  echo "RUSTDESK_PUBLIC_KEY=${RUSTDESK_PUBLIC_KEY}" >> "$SECRETS_FILE"
+fi
 chmod 600 "$SECRETS_FILE"
 
 echo "NEXT_PUBLIC_API_URL=${API_URL}" > web/.env.local
@@ -43,6 +49,8 @@ module.exports = {
         PORT: "4000",
         JWT_SECRET: "${JWT_SECRET}",
         PUBLIC_API_URL: "${API_URL}",
+        RUSTDESK_RELAY_HOST: "${RUSTDESK_RELAY_HOST:-relay.pchub.cloud}",
+        RUSTDESK_PUBLIC_KEY: "${RUSTDESK_PUBLIC_KEY:-}",
       },
     },
     {

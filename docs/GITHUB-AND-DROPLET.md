@@ -75,6 +75,7 @@ Delete parking / forwarding records. Add:
 | A | `www` | `165.22.242.51` | 600 |
 | A | `api` | `165.22.242.51` | 600 |
 | A | `admin` | `165.22.242.51` | 600 |
+| A | `relay` | `165.22.242.51` | 600 |
 
 Wait 5–30 minutes, then on the Droplet:
 

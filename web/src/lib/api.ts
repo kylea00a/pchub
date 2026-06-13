@@ -76,27 +76,20 @@ export type Rental = {
 };
 
 export type ConnectInfo = {
+  provider: "rustdesk";
   status: string;
-  localIp: string | null;
-  publicIp: string | null;
-  recommendedIp: string | null;
-  host: string | null;
-  port: number;
-  httpsPort: number;
+  rustdeskId: string | null;
+  password: string | null;
+  relayHost: string;
   message: string | null;
-  sunshineInstalled: boolean;
-  sunshineRunning: boolean;
-  portsOpen: boolean;
-  connectMode: string;
+  ready: boolean;
   updatedAt: string | null;
-  pairStatus: string;
-  pairMessage: string | null;
-  internetWarning: string | null;
-  moonlightLinks: {
+  downloadLinks: {
+    web: string;
     windows: string;
+    mac: string;
     android: string;
     ios: string;
-    mac: string;
   };
   steps: string[];
 };
