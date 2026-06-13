@@ -2,14 +2,13 @@ import "dotenv/config";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import si from "systeminformation";
 import { loadAgentConfig } from "./config.js";
+import { getAgentRoot } from "./paths.js";
 import { measureNetworkSpeed } from "./speedtest.js";
 import { handleStorageSync } from "./sync.js";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const STATE_PATH = path.join(__dirname, "..", ".agent-state.json");
+const STATE_PATH = path.join(getAgentRoot(), ".agent-state.json");
 
 const config = loadAgentConfig();
 const ONCE = process.argv.includes("--once");

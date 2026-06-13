@@ -83,9 +83,9 @@ export default function HostPage() {
             </li>
           </ul>
           <p className="mt-3">
-            <strong className="text-foreground">Today:</strong> zip + Node.js agent (dev).{" "}
-            <strong className="text-foreground">Shipped product:</strong> single{" "}
-            <code className="text-foreground">.exe</code> installer, no Node required.
+            <strong className="text-foreground">Download:</strong> a zip with{" "}
+            <code className="text-foreground">PCHUB-Agent.exe</code> — no Node.js, no extra installs.
+            Double-click <code className="text-foreground">SkyPC-Setup.bat</code> once.
           </p>
         </div>
 
@@ -154,31 +154,24 @@ export default function HostPage() {
         <div className="mt-6 pchub-panel p-6">
           <h2 className="font-medium">Step 2 — Windows PC (one double-click)</h2>
           <ol className="mt-4 list-decimal space-y-3 pl-5 text-sm text-muted">
-            <li>Extract the zip anywhere (e.g. Desktop)</li>
             <li>
-              Install Node.js LTS from{" "}
-              <a
-                href="https://nodejs.org"
-                className="text-accent hover:underline"
-                target="_blank"
-                rel="noreferrer"
-              >
-                nodejs.org
-              </a>{" "}
-              if prompted (dev only — production uses .exe)
+              <strong className="text-foreground">Extract All</strong> the zip to a folder (e.g. Desktop
+              → <code className="text-foreground">SkyPC-Host-Agent</code>). If Windows asks{" "}
+              <em>Extract</em> or <em>Run</em>, choose <strong className="text-foreground">Extract</strong>{" "}
+              — running from inside the zip will fail.
             </li>
             <li>
               Double-click{" "}
-              <code className="text-foreground">windows\SkyPC-Setup.bat</code>
+              <code className="text-foreground">SkyPC-Setup.bat</code> in that folder (no Node.js needed)
             </li>
           </ol>
           <p className="mt-4 text-sm text-muted">
-            The agent will detect CPU, GPU, RAM, disk, run a 2 MB upload/download speed test,
-            register with SkyPC, and start in the background (no terminal window).
+            Setup detects CPU, GPU, RAM, disk, runs a 2 MB upload/download speed test, registers
+            with PCHUB, and starts the agent in the background (no terminal left open).
           </p>
           <p className="mt-2 text-xs text-muted">
-            Optional: <code className="text-foreground">windows\add-to-startup.bat</code> to run
-            on Windows login · Logs: <code className="text-foreground">agent.log</code>
+            Optional: <code className="text-foreground">add-to-startup.bat</code> to run on Windows
+            login · Logs: <code className="text-foreground">agent.log</code>
           </p>
         </div>
 

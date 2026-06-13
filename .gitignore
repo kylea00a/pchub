@@ -19,6 +19,8 @@ api/data/
 agent/.agent-state.json
 agent/agent.log
 agent/.personal-layer/
+agent/dist/PCHUB-Agent.exe
+agent/dist/agent.cjs
 
 # Next.js build output
 web/.next/

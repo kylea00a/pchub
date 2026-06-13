@@ -14,7 +14,8 @@
     "dev:admin": "npm run dev -w admin",
     "tunnel": "cloudflared tunnel --config scripts/tunnel/pchub.cloud.yml run",
     "agent": "npm run start -w agent",
-    "agent:once": "npm run once -w agent"
+    "agent:once": "npm run once -w agent",
+    "agent:build:win": "npm run build:win -w agent"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

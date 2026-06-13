@@ -7,6 +7,8 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const AGENT_ROOT = path.join(__dirname, "..", "..", "agent");
 const BUNDLE_ROOT = "SkyPC-Host-Agent";
+const EXE_PATH = path.join(AGENT_ROOT, "dist", "PCHUB-Agent.exe");
+const PROD_SCRIPTS = path.join(AGENT_ROOT, "windows-prod");
 
 export type BundleConfig = {
   apiUrl: string;
@@ -15,6 +17,54 @@ export type BundleConfig = {
   machineCity: string;
   priceCents?: number;
 };
+
+function buildConfigJson(config: BundleConfig) {
+  return JSON.stringify(
+    {
+      apiUrl: config.apiUrl,
+      pairingCode: config.pairingCode,
+      machineName: config.machineName,
+      machineCity: config.machineCity,
+      priceCents: config.priceCents ?? 50,
+    },
+    null,
+    2
+  );
+}
+
+function buildReadme(config: BundleConfig, packaged: boolean) {
+  if (packaged) {
+    return `PCHUB Host Agent
+================
+
+1. Extract this zip to a folder (e.g. Desktop\\SkyPC-Host-Agent)
+   If Windows asks Extract or Run — choose Extract.
+
+2. Double-click SkyPC-Setup.bat
+
+3. Your PC should show Online at https://pchub.cloud within a minute.
+
+Optional: add-to-startup.bat — runs agent when Windows starts
+Logs: agent.log (same folder)
+
+API: ${config.apiUrl}
+Pairing code is already in config.json (expires in ~30 minutes).
+
+No Node.js required.
+`;
+  }
+
+  return `PCHUB Host Agent (developer build)
+==================================
+
+Node.js LTS required: https://nodejs.org
+
+Extract zip → run windows\\SkyPC-Setup.bat
+
+API: ${config.apiUrl}
+Pairing code: ${config.pairingCode}
+`;
+}
 
 function addDir(archive: archiver.Archiver, dir: string, zipPath: string) {
   if (!fs.existsSync(dir)) return;
@@ -32,11 +82,45 @@ function addDir(archive: archiver.Archiver, dir: string, zipPath: string) {
   }
 }
 
+function streamProductionBundle(
+  archive: archiver.Archiver,
+  config: BundleConfig
+) {
+  archive.file(EXE_PATH, { name: `${BUNDLE_ROOT}/PCHUB-Agent.exe` });
+
+  for (const script of ["SkyPC-Setup.bat", "Start PCHUB Agent.vbs", "add-to-startup.bat"]) {
+    const full = path.join(PROD_SCRIPTS, script);
+    if (fs.existsSync(full)) {
+      archive.file(full, { name: `${BUNDLE_ROOT}/${script}` });
+    }
+  }
+
+  archive.append(buildConfigJson(config), { name: `${BUNDLE_ROOT}/config.json` });
+  archive.append(buildReadme(config, true), { name: `${BUNDLE_ROOT}/README.txt` });
+}
+
+function streamDevBundle(archive: archiver.Archiver, config: BundleConfig) {
+  addDir(archive, path.join(AGENT_ROOT, "src"), `${BUNDLE_ROOT}/src`);
+  addDir(archive, path.join(AGENT_ROOT, "windows"), `${BUNDLE_ROOT}/windows`);
+
+  for (const file of ["package.json", "tsconfig.json", "config.example.json"]) {
+    const full = path.join(AGENT_ROOT, file);
+    if (fs.existsSync(full)) {
+      archive.file(full, { name: `${BUNDLE_ROOT}/${file}` });
+    }
+  }
+
+  archive.append(buildConfigJson(config), { name: `${BUNDLE_ROOT}/config.json` });
+  archive.append(buildReadme(config, false), { name: `${BUNDLE_ROOT}/README.txt` });
+}
+
 export function streamWindowsAgentBundle(res: Response, config: BundleConfig) {
   if (!fs.existsSync(AGENT_ROOT)) {
     res.status(500).json({ error: "Agent package not found on server" });
     return;
   }
+
+  const packaged = fs.existsSync(EXE_PATH);
 
   const archive = archiver("zip", { zlib: { level: 9 } });
   res.setHeader("Content-Type", "application/zip");
@@ -49,30 +133,11 @@ export function streamWindowsAgentBundle(res: Response, config: BundleConfig) {
   });
   archive.pipe(res);
 
-  addDir(archive, path.join(AGENT_ROOT, "src"), `${BUNDLE_ROOT}/src`);
-  addDir(archive, path.join(AGENT_ROOT, "windows"), `${BUNDLE_ROOT}/windows`);
-
-  for (const file of ["package.json", "tsconfig.json", "config.example.json"]) {
-    const full = path.join(AGENT_ROOT, file);
-    if (fs.existsSync(full)) {
-      archive.file(full, { name: `${BUNDLE_ROOT}/${file}` });
-    }
+  if (packaged) {
+    streamProductionBundle(archive, config);
+  } else {
+    streamDevBundle(archive, config);
   }
-
-  archive.append(
-    JSON.stringify(
-      {
-        apiUrl: config.apiUrl,
-        pairingCode: config.pairingCode,
-        machineName: config.machineName,
-        machineCity: config.machineCity,
-        priceCents: config.priceCents ?? 50,
-      },
-      null,
-      2
-    ),
-    { name: `${BUNDLE_ROOT}/config.json` }
-  );
 
   archive.finalize();
 }

@@ -1,10 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { loadAgentConfig } from "./config.js";
+import { getAgentRoot } from "./paths.js";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-export const PERSONAL_LAYER_DIR = path.join(__dirname, "..", ".personal-layer");
+export const PERSONAL_LAYER_DIR = path.join(getAgentRoot(), ".personal-layer");
 
 type SessionInfo = {
   active: boolean;

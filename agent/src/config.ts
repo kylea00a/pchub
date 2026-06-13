@@ -1,9 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { getAgentRoot } from "./paths.js";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-export const CONFIG_PATH = path.join(__dirname, "..", "config.json");
+export function getConfigPath() {
+  return path.join(getAgentRoot(), "config.json");
+}
 
 export type AgentConfig = {
   apiUrl: string;
@@ -24,9 +25,10 @@ type FileConfig = {
 };
 
 function readFileConfig(): FileConfig {
-  if (!fs.existsSync(CONFIG_PATH)) return {};
+  const configPath = getConfigPath();
+  if (!fs.existsSync(configPath)) return {};
   try {
-    return JSON.parse(fs.readFileSync(CONFIG_PATH, "utf8")) as FileConfig;
+    return JSON.parse(fs.readFileSync(configPath, "utf8")) as FileConfig;
   } catch {
     return {};
   }

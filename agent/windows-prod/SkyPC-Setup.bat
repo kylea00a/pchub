@@ -1,0 +1,41 @@
+@echo off
+title PCHUB — register this PC
+cd /d "%~dp0"
+
+if not exist config.json (
+  echo.
+  echo config.json not found in this folder.
+  echo Go to https://pchub.cloud/host and download the agent zip again.
+  echo.
+  pause
+  exit /b 1
+)
+
+if not exist PCHUB-Agent.exe (
+  echo.
+  echo PCHUB-Agent.exe not found. Re-download from https://pchub.cloud/host
+  echo.
+  pause
+  exit /b 1
+)
+
+echo.
+echo Detecting hardware and measuring upload speed...
+PCHUB-Agent.exe --once
+if errorlevel 1 (
+  echo.
+  echo Registration failed. Open agent.log in this folder for details.
+  echo.
+  pause
+  exit /b 1
+)
+
+echo.
+echo Starting background agent...
+start "" "%~dp0Start PCHUB Agent.vbs"
+
+echo.
+echo Done. Your PC should appear as Online on pchub.cloud within a minute.
+echo Logs: %CD%\agent.log
+echo.
+pause
