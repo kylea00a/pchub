@@ -50,7 +50,14 @@ if (process.platform === "win32") {
     });
   }
 } else {
-  extractNodeExeWithPython(zipPath, nodeExePath, NODE_VERSION);
+  try {
+    execSync(
+      `unzip -o -j "${zipPath}" "node-v${NODE_VERSION}-win-x64/node.exe" -d "${runtimeDir}"`,
+      { stdio: "inherit" }
+    );
+  } catch {
+    extractNodeExeWithPython(zipPath, nodeExePath, NODE_VERSION);
+  }
 }
 
 fs.rmSync(zipPath, { force: true });
@@ -64,9 +71,12 @@ const bundleKb = (fs.statSync(bundlePath).size / 1024).toFixed(0);
 console.log(`Release ready: agent.cjs (${bundleKb} KB) + runtime/node.exe (${nodeMb} MB)`);
 
 function extractNodeExeWithPython(zipPath, nodeExePath, version) {
+  const pyFile = path.join(path.dirname(nodeExePath), "_extract_node.py");
   const entry = `node-v${version}-win-x64/node.exe`;
-  const script = `
-import os, shutil, zipfile
+  fs.writeFileSync(
+    pyFile,
+    `import os, shutil, zipfile
+
 zip_path = ${JSON.stringify(zipPath)}
 entry = ${JSON.stringify(entry)}
 dest = ${JSON.stringify(nodeExePath)}
@@ -76,8 +86,10 @@ with zipfile.ZipFile(zip_path) as zf:
     zf.extract(entry, tmpdir)
 shutil.move(os.path.join(tmpdir, entry), dest)
 shutil.rmtree(tmpdir, ignore_errors=True)
-`;
-  execSync(`python3 -c ${JSON.stringify(script)}`, { stdio: "inherit" });
+`
+  );
+  execSync(`python3 "${pyFile}"`, { stdio: "inherit" });
+  fs.rmSync(pyFile, { force: true });
 }
 
 function download(url, dest) {
