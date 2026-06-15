@@ -22,16 +22,41 @@ jobs:
           Invoke-WebRequest -Uri "https://files.jrsoftware.org/is/6/innosetup-6.3.3.exe" -OutFile $installer
           $proc = Start-Process -FilePath $installer -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART","/SP-" -PassThru -Wait
           if ($proc.ExitCode -ne 0) { throw "Inno Setup install failed with exit $($proc.ExitCode)" }
-          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
-          if (-not (Test-Path $iscc)) { throw "ISCC not found at $iscc" }
-          Write-Host "Inno Setup ready: $iscc"
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) {
+            throw "ISCC not found after Inno Setup install"
+          }
 
       - name: Compile installer
         shell: pwsh
         run: |
-          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "agent\windows-installer\PCHUB-Host.iss"
-          $exe = Get-Item "agent\windows-installer\output\PCHUB-Host-Setup.exe"
-          Write-Host "Built $($exe.FullName) ($($exe.Length) bytes)"
+          $log = "$env:RUNNER_TEMP\iscc.log"
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "agent\windows-installer\PCHUB-Host.iss" 2>&1 | Tee-Object -FilePath $log
+          if ($LASTEXITCODE -ne 0) {
+            Get-Content $log
+            throw "ISCC failed with exit $LASTEXITCODE"
+          }
+          Get-ChildItem "agent\windows-installer\output"
+
+      - name: Stage for upload
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path staging | Out-Null
+          Copy-Item "agent\windows-installer\output\PCHUB-Host-Setup.exe" "staging\PCHUB-Host-Setup.exe"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PCHUB-Host-Setup
+          path: staging/PCHUB-Host-Setup.exe
+          retention-days: 14
+
+  publish-installer:
+    needs: build-installer
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: PCHUB-Host-Setup
+          path: staging
 
       - name: Upload installer to droplet
         uses: appleboy/scp-action@v0.1.7
@@ -39,13 +64,6 @@ jobs:
           host: ${{ secrets.DROPLET_HOST }}
           username: root
           key: ${{ secrets.DROPLET_SSH_KEY }}
-          source: "agent/windows-installer/output/PCHUB-Host-Setup.exe"
+          source: "staging/PCHUB-Host-Setup.exe"
           target: "/var/www/pchub/deploy/downloads"
-          strip_components: 3
-
-      - name: Upload installer artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: PCHUB-Host-Setup
-          path: agent/windows-installer/output/PCHUB-Host-Setup.exe
-          retention-days: 14
+          strip_components: 1
