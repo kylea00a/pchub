@@ -1,20 +1,30 @@
-# PCHUB Windows installer (Inno Setup)
+# PCHUB Windows host installer
 
-Built automatically on every push to `main` via GitHub Actions (`build-installer.yml`).
+## What owners download
+
+**`PCHUB-Host-Setup.exe`** — one file from [pchub.cloud/host](https://pchub.cloud/host).
+
+1. Generate a pairing code on the website  
+2. Download and run the installer  
+3. Paste the pairing code when asked  
+4. Setup installs to `C:\PCHUB-Host` and registers your PC  
+
+## How it is built
+
+GitHub Actions (`build-installer.yml`) on `windows-latest`:
+
+1. Packages `bootstrap.ps1` with **ps2exe** → `PCHUB-Host-Setup.exe`  
+2. Uploads to the droplet at `/var/www/pchub/deploy/downloads/`  
+
+Live URL: https://pchub.cloud/downloads/PCHUB-Host-Setup.exe
 
 ## Manual build (Windows)
 
-1. Install [Inno Setup 6](https://jrsoftware.org/isinfo.php)
-2. Open `agent/windows-installer/PCHUB-Host.iss` in Inno Setup Compiler, or run:
-
-```bat
-"C:\Program Files (x86)\Inno Setup 6\ISCC.exe" agent\windows-installer\PCHUB-Host.iss
+```powershell
+Install-Module ps2exe -Force
+Invoke-ps2exe -inputFile agent\windows-installer\bootstrap.ps1 -outputFile PCHUB-Host-Setup.exe -requireAdmin
 ```
 
-Output: `agent/windows-installer/output/PCHUB-Host-Setup.exe`
+## Inno Setup (optional)
 
-## Live download
-
-https://pchub.cloud/downloads/PCHUB-Host-Setup.exe
-
-Owners generate a pairing code on `/host`, download the installer, paste the code in the wizard.
+`PCHUB-Host.iss` is kept for a future signed native installer; the ps2exe bootstrap is used in production CI today.

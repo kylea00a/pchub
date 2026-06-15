@@ -15,33 +15,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Inno Setup
+      - name: Build PCHUB-Host-Setup.exe
         shell: pwsh
         run: |
-          $installer = "$env:RUNNER_TEMP\innosetup-installer.exe"
-          Invoke-WebRequest -Uri "https://files.jrsoftware.org/is/6/innosetup-6.3.3.exe" -OutFile $installer
-          $proc = Start-Process -FilePath $installer -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART","/SP-" -PassThru -Wait
-          if ($proc.ExitCode -ne 0) { throw "Inno Setup install failed with exit $($proc.ExitCode)" }
-          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) {
-            throw "ISCC not found after Inno Setup install"
-          }
-
-      - name: Compile installer
-        shell: pwsh
-        run: |
-          $log = "$env:RUNNER_TEMP\iscc.log"
-          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "agent\windows-installer\PCHUB-Host.iss" 2>&1 | Tee-Object -FilePath $log
-          if ($LASTEXITCODE -ne 0) {
-            Get-Content $log
-            throw "ISCC failed with exit $LASTEXITCODE"
-          }
-          Get-ChildItem "agent\windows-installer\output"
-
-      - name: Stage for upload
-        shell: pwsh
-        run: |
+          Set-PSRepository PSGallery -InstallationPolicy Trusted
+          Install-Module ps2exe -Force -Scope CurrentUser -AllowClobber
           New-Item -ItemType Directory -Force -Path staging | Out-Null
-          Copy-Item "agent\windows-installer\output\PCHUB-Host-Setup.exe" "staging\PCHUB-Host-Setup.exe"
+          Invoke-ps2exe `
+            -inputFile "agent\windows-installer\bootstrap.ps1" `
+            -outputFile "staging\PCHUB-Host-Setup.exe" `
+            -title "PCHUB Host Setup" `
+            -description "PCHUB host agent installer" `
+            -company "PCHUB" `
+            -product "PCHUB Host" `
+            -copyright "PCHUB" `
+            -requireAdmin
+          Get-Item "staging\PCHUB-Host-Setup.exe" | Format-List Name, Length
 
       - uses: actions/upload-artifact@v4
         with:
