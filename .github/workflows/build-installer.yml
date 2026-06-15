@@ -19,16 +19,18 @@ jobs:
         run: |
           mkdir -p staging
           cp agent/windows-installer/setup-wizard.ps1 staging/PCHUB-Host-Setup.ps1
+          cp agent/windows-installer/launcher.ps1 staging/PCHUB-Host-Setup-launcher.ps1
           cp agent/windows-installer/bootstrap-launcher.ps1 staging/PCHUB-Host-Setup-bootstrap.ps1
           cp deploy/downloads/PCHUB-Host-Setup.cmd staging/PCHUB-Host-Setup.cmd
           cp deploy/downloads/PCHUB-Host-Setup.vbs staging/PCHUB-Host-Setup.vbs
+          cp deploy/downloads/PCHUB-Diagnose.cmd staging/PCHUB-Diagnose.cmd
 
       - uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.DROPLET_HOST }}
           username: root
           key: ${{ secrets.DROPLET_SSH_KEY }}
-          source: "staging/PCHUB-Host-Setup.ps1,staging/PCHUB-Host-Setup-bootstrap.ps1,staging/PCHUB-Host-Setup.cmd,staging/PCHUB-Host-Setup.vbs"
+          source: "staging/PCHUB-Host-Setup.ps1,staging/PCHUB-Host-Setup-launcher.ps1,staging/PCHUB-Host-Setup-bootstrap.ps1,staging/PCHUB-Host-Setup.cmd,staging/PCHUB-Host-Setup.vbs,staging/PCHUB-Diagnose.cmd"
           target: "/var/www/pchub/deploy/downloads"
           strip_components: 1
 
@@ -48,7 +50,6 @@ jobs:
             -outputFile "staging\PCHUB-Host-Setup.exe" `
             -title "PCHUB Host Setup" `
             -sta `
-            -noConsole `
             -requireAdmin
           Invoke-ps2exe `
             -inputFile "agent\windows-installer\status-app.ps1" `

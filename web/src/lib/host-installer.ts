@@ -7,9 +7,10 @@ export type HostInstallerConfig = {
 };
 
 /** One-file setup — same for every host. Pairing code entered when you run it. */
-export const HOST_INSTALLER_CMD = "/downloads/PCHUB-Host-Setup.cmd";
+export const HOST_INSTALLER_CMD = "/downloads/PCHUB-Host-Setup.cmd?v=2026.06.10.7";
+export const HOST_INSTALLER_EXE = "/downloads/PCHUB-Host-Setup.exe?v=2026.06.10.7";
+export const HOST_INSTALLER_DIAG = "/downloads/PCHUB-Diagnose.cmd?v=2026.06.10.7";
 export const HOST_INSTALLER_PS1 = "/downloads/PCHUB-Host-Setup.ps1";
-export const HOST_INSTALLER_EXE = "/downloads/PCHUB-Host-Setup.exe";
 
 export function buildHostConfigQuery(config: HostInstallerConfig) {
   const params = new URLSearchParams({

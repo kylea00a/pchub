@@ -1,11 +1,19 @@
 # PCHUB Host Setup — graphical wizard (packaged as PCHUB-Host-Setup.exe)
+$script:SetupLog = Join-Path $env:USERPROFILE "Desktop\PCHUB-Setup-Log.txt"
+function Write-WizardLog([string]$Message) {
+  $line = "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') [wizard] $Message"
+  try { Add-Content -Path $script:SetupLog -Value $line -ErrorAction SilentlyContinue } catch { }
+}
+
+try {
+Write-WizardLog "Loading wizard..."
 $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 [System.Windows.Forms.Application]::EnableVisualStyles()
 [System.Windows.Forms.Application]::SetCompatibleTextRenderingDefault($false)
 
-$script:InstallerBuild = "2026.06.10.6"
+$script:InstallerBuild = "2026.06.10.7"
 $script:SiteUrl = "https://pchub.cloud"
 $script:ApiUrl = "https://api.pchub.cloud"
 $script:Dest = "C:\PCHUB-Host"
@@ -411,7 +419,9 @@ $form.Add_Shown({
 
 try {
 [void][System.Windows.Forms.Application]::Run($form)
+Write-WizardLog "Wizard closed normally."
 } catch {
+  Write-WizardLog "Wizard error: $($_.Exception.Message)"
   try {
     [void][System.Windows.Forms.MessageBox]::Show(
       $_.Exception.Message,
@@ -421,6 +431,24 @@ try {
     )
   } catch {
     Write-Host $_.Exception.Message
+    Read-Host "Press Enter"
+  }
+  exit 1
+}
+
+} catch {
+  Write-WizardLog "FATAL before UI: $($_.Exception.Message)"
+  try {
+    Add-Type -AssemblyName System.Windows.Forms -ErrorAction SilentlyContinue
+    [void][System.Windows.Forms.MessageBox]::Show(
+      "PCHUB setup could not start:`n`n$($_.Exception.Message)`n`nSee Desktop\PCHUB-Setup-Log.txt",
+      "PCHUB Host Setup",
+      [System.Windows.Forms.MessageBoxButtons]::OK,
+      [System.Windows.Forms.MessageBoxIcon]::Error
+    )
+  } catch {
+    Write-Host "PCHUB setup failed: $($_.Exception.Message)"
+    Write-Host "Log: $script:SetupLog"
     Read-Host "Press Enter"
   }
   exit 1
