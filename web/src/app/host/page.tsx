@@ -6,6 +6,7 @@ import { createPairingCode, getAgentApiUrl, getApiUrl } from "@/lib/api";
 import {
   buildWindowsBundleDownloadUrl,
   buildWindowsDownloadCommand,
+  HOST_INSTALLER_EXE,
   type HostInstallerConfig,
 } from "@/lib/host-installer";
 
@@ -45,7 +46,7 @@ export default function HostPage() {
   }
 
   const installer = code ? installerConfig(code, machineName, machineCity) : null;
-  const downloadUrl = installer ? buildWindowsBundleDownloadUrl(installer) : null;
+  const zipFallbackUrl = installer ? buildWindowsBundleDownloadUrl(installer) : null;
   const windowsCommand = installer
     ? buildWindowsDownloadCommand("https://pchub.cloud", installer)
     : null;
@@ -65,9 +66,8 @@ export default function HostPage() {
         <p className="eyebrow">Supply node</p>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight">Register hardware</h1>
         <p className="mt-4 text-muted leading-relaxed">
-          The website handles pairing and downloads. A small{" "}
-          <strong className="text-foreground">Windows agent</strong> runs on your PC to detect
-          hardware, measure upload speed, and stay online for renters.
+          Generate a pairing code, download the Windows installer, paste the code when asked.
+          One <strong className="text-foreground">.exe</strong> — no zip, no extract step.
         </p>
 
         <div className="mt-6 pchub-panel p-5 text-sm text-muted">
@@ -82,17 +82,10 @@ export default function HostPage() {
               JavaScript.
             </li>
             <li>
-              Renters need an always-on daemon (like Steam) for heartbeats, storage sync, and
-              remote desktop via the PCHUB relay.
+              Renters need an always-on daemon for heartbeats, storage sync, and remote desktop
+              via the PCHUB relay.
             </li>
           </ul>
-          <p className="mt-3">
-            <strong className="text-foreground">One click:</strong> extract zip → double-click{" "}
-            <code className="text-foreground">RUN-PCHUB.cmd</code> (or{" "}
-            <code className="text-foreground">PCHUB-Setup.ps1</code>) → click{" "}
-            <strong className="text-foreground">Yes</strong> on the one-time Windows admin prompt.
-            Defender exclusion, registration, and background agent all run automatically.
-          </p>
         </div>
 
         <div className="mt-10 pchub-panel p-6">
@@ -101,7 +94,7 @@ export default function HostPage() {
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <label className="block text-sm">
-              <span className="text-muted">PC name</span>
+              <span className="text-muted">PC name (for installer)</span>
               <input
                 type="text"
                 value={machineName}
@@ -110,7 +103,7 @@ export default function HostPage() {
               />
             </label>
             <label className="block text-sm">
-              <span className="text-muted">City</span>
+              <span className="text-muted">City (for installer)</span>
               <input
                 type="text"
                 value={machineCity}
@@ -133,34 +126,49 @@ export default function HostPage() {
 
           {code && (
             <div className="mt-6 border border-accent/40 bg-accent/5 p-4">
-              <p className="text-xs uppercase tracking-wider text-muted">Your code</p>
+              <p className="text-xs uppercase tracking-wider text-muted">Your code — paste in installer</p>
               <p className="mt-1 font-mono text-3xl font-semibold tracking-widest text-accent">
                 {code}
               </p>
+              <button
+                type="button"
+                onClick={() => navigator.clipboard.writeText(code)}
+                className="mt-2 border border-border px-3 py-1 font-mono text-[10px] uppercase tracking-widest text-accent hover:bg-accent/10"
+              >
+                Copy code
+              </button>
               {expiresAt && (
                 <p className="mt-2 text-xs text-muted">
                   Expires {new Date(expiresAt).toLocaleString()}
                 </p>
               )}
               <a
-                href={downloadUrl ?? "#"}
+                href={HOST_INSTALLER_EXE}
                 className="mt-4 block w-full pchub-btn-primary px-5 py-2.5 text-center text-sm font-medium text-background"
               >
-                Download Windows agent (.zip)
+                Download PCHUB Host Setup (.exe)
               </a>
               <p className="mt-2 text-xs text-muted">
-                Includes your pairing code in config.json — extract to{" "}
-                <code className="text-foreground">C:\PCHUB-Host</code> and run{" "}
-                <code className="text-foreground">RUN-PCHUB.cmd</code>.
+                Same installer for everyone. Run it on Windows, paste your pairing code when
+                prompted. Installs to <code className="text-foreground">C:\PCHUB-Host</code>.
+              </p>
+              <p className="mt-2 text-xs text-amber-200/90">
+                Windows may show &quot;Unknown publisher&quot; — click <strong>More info</strong>{" "}
+                → <strong>Run anyway</strong> (we will add code signing later).
               </p>
               <details className="mt-3 text-xs text-muted">
-                <summary className="cursor-pointer text-foreground">
-                  Chrome blocked the download?
-                </summary>
+                <summary className="cursor-pointer text-foreground">Installer didn&apos;t download?</summary>
                 <p className="mt-2">
-                  Paste this in Windows Command Prompt (<kbd>Win+R</kbd> →{" "}
+                  Try the zip fallback or paste in Command Prompt (<kbd>Win+R</kbd> →{" "}
                   <code>cmd</code>):
                 </p>
+                {zipFallbackUrl && (
+                  <p className="mt-2 break-all font-mono text-[11px]">
+                    <a href={zipFallbackUrl} className="text-accent hover:underline">
+                      Zip download (fallback)
+                    </a>
+                  </p>
+                )}
                 {windowsCommand && (
                   <>
                     <pre className="mt-2 overflow-x-auto bg-background border border-border p-3 font-mono text-[11px]">
@@ -181,31 +189,26 @@ export default function HostPage() {
         </div>
 
         <div className="mt-6 pchub-panel p-6">
-          <h2 className="font-medium">Step 2 — Windows PC (one double-click)</h2>
-          <p className="mt-4 text-sm text-amber-200/90 border border-amber-500/30 bg-amber-500/10 px-4 py-3">
-            <strong className="text-foreground">Important:</strong> Do not double-click{" "}
-            <code className="text-foreground">RUN-PCHUB.cmd</code> while still inside the zip.
-            The window will flash and close. Use <strong>Extract All</strong> first, then open{" "}
-            <code className="text-foreground">C:\PCHUB-Host</code> and run it from there.
-          </p>
+          <h2 className="font-medium">Step 2 — Windows PC</h2>
           <ol className="mt-4 list-decimal space-y-3 pl-5 text-sm text-muted">
             <li>
-              <strong className="text-foreground">Extract All</strong> to{" "}
-              <code className="text-foreground">C:\PCHUB-Host</code> (choose Extract, not Run)
+              Double-click <code className="text-foreground">PCHUB-Host-Setup.exe</code>
             </li>
             <li>
-              Double-click <code className="text-foreground">RUN-PCHUB.cmd</code> once — click{" "}
-              <strong className="text-foreground">Yes</strong> when Windows asks for administrator
+              Paste your pairing code, PC name, and city → click through the wizard
+            </li>
+            <li>
+              Click <strong className="text-foreground">Yes</strong> if Windows asks for
+              administrator
             </li>
           </ol>
           <p className="mt-4 text-sm text-muted">
-            Setup registers your PC, installs RustDesk via the PCHUB relay, then opens a{" "}
-            <strong className="text-foreground">PCHUB Host Status</strong> window on the taskbar.
+            Setup registers your PC, installs RustDesk via the PCHUB relay, then opens{" "}
+            <strong className="text-foreground">PCHUB Host Status</strong> on the taskbar.
           </p>
           <p className="mt-2 text-xs text-muted">
-            Re-running setup creates a new listing — ignore older ghost entries on the fleet
-            page · Desktop shortcut <strong className="text-foreground">PCHUB Host</strong>{" "}
-            restarts the agent · Logs: <code className="text-foreground">agent.log</code>
+            Desktop shortcut <strong className="text-foreground">PCHUB Host</strong> restarts the
+            agent · Logs: <code className="text-foreground">C:\PCHUB-Host\agent.log</code>
           </p>
         </div>
 
@@ -213,7 +216,7 @@ export default function HostPage() {
           <h2 className="font-medium">Developers (Mac / terminal)</h2>
           <p className="mt-2 text-sm text-muted">API: {getApiUrl()}</p>
           <pre className="mt-3 overflow-x-auto bg-background border border-border p-4 font-mono text-xs">
-            {`# Place config.json in agent/ with your pairing code, then:
+            {`# Dev agent:
 npm run agent`}
           </pre>
         </div>

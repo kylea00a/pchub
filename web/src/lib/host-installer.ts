@@ -6,6 +6,9 @@ export type HostInstallerConfig = {
   priceCents?: number;
 };
 
+/** Same file for every host — pairing code is entered in the installer wizard. */
+export const HOST_INSTALLER_EXE = "/downloads/PCHUB-Host-Setup.exe";
+
 export function buildHostConfigQuery(config: HostInstallerConfig) {
   const params = new URLSearchParams({
     code: config.pairingCode,

@@ -1,5 +1,5 @@
 # PCHUB one-click host setup (PowerShell - survives Windows Defender better than .bat)
-param([switch]$Elevated)
+param([switch]$Elevated, [switch]$Silent)
 
 $Root = $PSScriptRoot
 if ($PSScriptRoot -match '\\Temp\\|\\AppData\\Local\\Temp') {
@@ -7,7 +7,7 @@ if ($PSScriptRoot -match '\\Temp\\|\\AppData\\Local\\Temp') {
   Write-Host "STOP - You are running from inside the zip file."
   Write-Host "Right-click the zip > Extract All > C:\\PCHUB-Host"
   Write-Host "Then run RUN-PCHUB.cmd from the extracted folder."
-  Read-Host "Press Enter to exit"
+  if (-not $Silent) { Read-Host "Press Enter to exit" }
   exit 1
 }
 if (-not $Elevated) {
@@ -34,12 +34,12 @@ $statePath = Join-Path $Root ".agent-state.json"
 
 if (-not (Test-Path (Join-Path $Root "config.json"))) {
   Write-Host "config.json not found. Download from https://pchub.cloud/host"
-  Read-Host "Press Enter to exit"
+  if (-not $Silent) { Read-Host "Press Enter to exit" }
   exit 1
 }
 if (-not (Test-Path $hostPs1)) {
   Write-Host "pchub-host.ps1 not found. Re-download from https://pchub.cloud/host"
-  Read-Host "Press Enter to exit"
+  if (-not $Silent) { Read-Host "Press Enter to exit" }
   exit 1
 }
 
@@ -72,7 +72,7 @@ if ($hadState) {
 if ($LASTEXITCODE -ne 0) {
   Write-Host ""
   Write-Host "Setup failed. Open agent.log in this folder."
-  Read-Host "Press Enter to exit"
+  if (-not $Silent) { Read-Host "Press Enter to exit" }
   exit 1
 }
 
@@ -124,4 +124,4 @@ Write-Host "  Remote desktop uses PCHUB relay - no router setup for owners."
 Write-Host "  Taskbar: PCHUB Host Status"
 Write-Host "  Logs:    $Root\agent.log"
 Write-Host ""
-Read-Host "Press Enter to close"
+if (-not $Silent) { Read-Host "Press Enter to close" }

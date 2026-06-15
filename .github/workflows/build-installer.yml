@@ -1,0 +1,41 @@
+name: Build Windows Installer
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: windows-installer
+  cancel-in-progress: false
+
+jobs:
+  build-installer:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Inno Setup
+        run: choco install innosetup -y --no-progress
+
+      - name: Compile installer
+        run: |
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "agent\windows-installer\PCHUB-Host.iss"
+          Get-Item "agent\windows-installer\output\PCHUB-Host-Setup.exe" | Format-List Name, Length
+
+      - name: Upload installer to droplet
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.DROPLET_HOST }}
+          username: root
+          key: ${{ secrets.DROPLET_SSH_KEY }}
+          source: "agent/windows-installer/output/PCHUB-Host-Setup.exe"
+          target: "/var/www/pchub/deploy/downloads"
+          strip_components: 3
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PCHUB-Host-Setup
+          path: agent/windows-installer/output/PCHUB-Host-Setup.exe
+          retention-days: 14
