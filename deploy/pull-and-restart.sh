@@ -25,6 +25,14 @@ JWT_SECRET="${JWT_SECRET:-$(openssl rand -hex 32)}"
 echo "JWT_SECRET=${JWT_SECRET}" > "$SECRETS_FILE"
 RUSTDESK_RELAY_HOST="${RUSTDESK_RELAY_HOST:-relay.pchub.cloud}"
 RUSTDESK_PUBLIC_KEY="${RUSTDESK_PUBLIC_KEY:-}"
+STREAM_RELAY_HOST="${STREAM_RELAY_HOST:-165.22.242.51}"
+WG_SERVER_PUBLIC_KEY="${WG_SERVER_PUBLIC_KEY:-}"
+WG_ENDPOINT="${WG_ENDPOINT:-${STREAM_RELAY_HOST}:51820}"
+if [ -f "${APP_DIR}/deploy/wireguard-setup.sh" ]; then
+  bash "${APP_DIR}/deploy/wireguard-setup.sh" "$SECRETS_FILE" || echo "WireGuard setup skipped (may need root)"
+  # shellcheck disable=SC1090
+  source "$SECRETS_FILE"
+fi
 if [ -n "$RUSTDESK_PUBLIC_KEY" ]; then
   echo "RUSTDESK_RELAY_HOST=${RUSTDESK_RELAY_HOST}" >> "$SECRETS_FILE"
   echo "RUSTDESK_PUBLIC_KEY=${RUSTDESK_PUBLIC_KEY}" >> "$SECRETS_FILE"
@@ -64,6 +72,9 @@ module.exports = {
         PUBLIC_API_URL: "${AGENT_API_URL}",
         RUSTDESK_RELAY_HOST: "${RUSTDESK_RELAY_HOST:-relay.pchub.cloud}",
         RUSTDESK_PUBLIC_KEY: "${RUSTDESK_PUBLIC_KEY:-}",
+        STREAM_RELAY_HOST: "${STREAM_RELAY_HOST:-165.22.242.51}",
+        WG_SERVER_PUBLIC_KEY: "${WG_SERVER_PUBLIC_KEY:-}",
+        WG_ENDPOINT: "${WG_ENDPOINT:-${STREAM_RELAY_HOST:-165.22.242.51}:51820}",
       },
     },
     {

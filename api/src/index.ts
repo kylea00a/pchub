@@ -20,6 +20,14 @@ import {
 } from "./host-bundle.js";
 import { formatConnectInfo } from "./streaming.js";
 import {
+  applyTunnelPeer,
+  buildClientTunnelConfig,
+  enableStreamRelay,
+  ensureMachineTunnel,
+  getStreamRelayHost,
+  recordTunnelHandshake,
+} from "./tunnel.js";
+import {
   ensureRustDeskPassword,
   getRustDeskServerConfig,
 } from "./rustdesk.js";
@@ -545,6 +553,10 @@ app.post("/api/agents/register", (req, res) => {
     `UPDATE pairing_codes SET used = 1, machine_id = ? WHERE code = ?`
   ).run(id, pairing.code);
 
+  const machine = db.prepare("SELECT * FROM machines WHERE id = ?").get(id) as MachineRow;
+  ensureMachineTunnel(machine);
+  applyTunnelPeer(machine);
+
   res.status(201).json({
     machineId: id,
     agentToken,
@@ -599,6 +611,8 @@ app.post("/api/agents/rejoin", (req, res) => {
   }
 
   const rustdeskPassword = ensureRustDeskPassword(machine);
+  ensureMachineTunnel(machine);
+  applyTunnelPeer(machine);
   db.prepare(`UPDATE machines SET last_seen_at = ?, status = 'online' WHERE id = ?`).run(
     nowIso(),
     machine.id
@@ -610,6 +624,8 @@ app.post("/api/agents/rejoin", (req, res) => {
     name: machine.name,
     city: machine.city,
     pricePerMinuteCents: machine.price_per_minute_cents,
+    sunshineUsername: machine.sunshine_username,
+    sunshinePassword: machine.sunshine_password,
     rustdeskPassword,
     restored: true,
   });
@@ -1089,9 +1105,37 @@ app.post("/api/agents/rustdesk/id", authAgent, (req, res) => {
 
 app.get("/api/agents/streaming/config", authAgent, (req, res) => {
   const machine = (req as express.Request & { machine: MachineRow }).machine;
-  const password = ensureRustDeskPassword(machine);
-  const { relayHost, publicKey, configured } = getRustDeskServerConfig();
-  res.json({ relayHost, publicKey, password, configured });
+  res.json({
+    sunshineUsername: machine.sunshine_username,
+    sunshinePassword: machine.sunshine_password,
+    relayHost: getStreamRelayHost(),
+    configured: Boolean(machine.sunshine_username && machine.sunshine_password),
+  });
+});
+
+app.get("/api/agents/tunnel/config", authAgent, (req, res) => {
+  const machine = (req as express.Request & { machine: MachineRow }).machine;
+  const fresh = db.prepare("SELECT * FROM machines WHERE id = ?").get(machine.id) as MachineRow;
+  ensureMachineTunnel(fresh);
+  applyTunnelPeer(fresh);
+  const config = buildClientTunnelConfig(fresh);
+  res.json({
+    configured: Boolean(config),
+    relayHost: getStreamRelayHost(),
+    tunnelIp: fresh.wg_tunnel_ip,
+    config: config ?? null,
+  });
+});
+
+app.post("/api/agents/tunnel/heartbeat", authAgent, (req, res) => {
+  const machine = (req as express.Request & { machine: MachineRow }).machine;
+  const { connected } = req.body as { connected?: boolean };
+  if (connected) {
+    recordTunnelHandshake(machine.id);
+    const fresh = db.prepare("SELECT * FROM machines WHERE id = ?").get(machine.id) as MachineRow;
+    enableStreamRelay(fresh);
+  }
+  res.json({ ok: true });
 });
 
 app.post("/api/agents/streaming", authAgent, (req, res) => {
@@ -1184,6 +1228,11 @@ app.post("/api/agents/streaming", authAgent, (req, res) => {
     ).run(rentalId);
   }
 
+  if (connectMode === "relay") {
+    const fresh = db.prepare("SELECT * FROM machines WHERE id = ?").get(machine.id) as MachineRow;
+    enableStreamRelay(fresh);
+  }
+
   res.json({ ok: true });
 });
 
@@ -1200,6 +1249,14 @@ app.get("/api/agents/session", authAgent, (req, res) => {
     return;
   }
 
+  const pairRequest =
+    rental.stream_pair_pin && rental.stream_pair_status === "pending"
+      ? {
+          pin: rental.stream_pair_pin,
+          clientName: rental.stream_pair_client_name || "PCHUB renter",
+        }
+      : null;
+
   res.json({
     active: true,
     rentalId: rental.id,
@@ -1208,6 +1265,9 @@ app.get("/api/agents/session", authAgent, (req, res) => {
     syncMessage: rental.sync_message,
     renterProfileId: rental.renter_profile_id,
     connectPassword: rental.connect_password,
+    sunshineUsername: machine.sunshine_username,
+    sunshinePassword: machine.sunshine_password,
+    pairRequest,
   });
 });
 

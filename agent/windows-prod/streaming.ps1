@@ -1,4 +1,5 @@
 . (Join-Path $PSScriptRoot "sunshine.ps1")
+. (Join-Path $PSScriptRoot "tunnel.ps1")
 
 function Get-LocalIPv4 {
   $addrs = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
@@ -43,13 +44,14 @@ function Get-StreamingStatus {
   param(
     [object]$Ready,
     [string]$LocalIp,
-    [string]$PublicIp
+    [string]$PublicIp,
+    [bool]$TunnelUp
   )
 
   if (-not $Ready.Installed) {
     return @{
       status = "needs_sunshine"
-      message = "Re-run RUN-PCHUB.cmd on the host PC to install remote desktop."
+      message = "Re-run RUN-PCHUB.cmd on the host PC to install Sunshine."
       connectMode = "unavailable"
     }
   }
@@ -57,7 +59,7 @@ function Get-StreamingStatus {
   if (-not $Ready.ServiceRunning -and -not $Ready.PortOpen) {
     return @{
       status = "sunshine_stopped"
-      message = "Sunshine is not running. On the host PC run RUN-REPAIR-STREAMING.cmd from C:\PCHUB-Host."
+      message = "Sunshine is not running. Re-run RUN-PCHUB.cmd from C:\PCHUB-Host."
       connectMode = "unavailable"
     }
   }
@@ -70,10 +72,18 @@ function Get-StreamingStatus {
     }
   }
 
-  if ($LocalIp) {
+  if ($TunnelUp) {
+    return @{
+      status = "ready_relay"
+      message = "Use the PCHUB relay IP in Moonlight (IP only, no :port). No router setup needed."
+      connectMode = "relay"
+    }
+  }
+
+  if ($LocalIp -and $Ready.LanPortOpen) {
     return @{
       status = "ready_local"
-      message = "On the same WiFi as the host PC, use $LocalIp in Moonlight (IP only, no :port). Internet access may need router port forwarding."
+      message = "Same WiFi: use $LocalIp in Moonlight. For internet, wait for PCHUB relay."
       connectMode = "local"
     }
   }
@@ -94,6 +104,16 @@ function Update-StreamingSession {
 
   if (-not $Session.active -or -not $Session.rentalId) { return $State }
 
+  $tunnelUp = $false
+  try {
+    $tunnelUp = Test-PchubTunnel -Config $Config -State $State
+    if (-not $tunnelUp) {
+      $tunnelUp = Initialize-PchubTunnel -Config $Config -State $State
+    }
+  } catch {
+    Write-Log "Tunnel warn: $($_.Exception.Message)"
+  }
+
   $creds = Get-SunshineCredsFromSession -Session $Session -State $State -Config $Config
   if ($creds.Username -and $creds.Password) {
     Enable-StreamingFirewall
@@ -104,7 +124,7 @@ function Update-StreamingSession {
   $ready = Test-SunshineReady
   $localIp = Get-LocalIPv4
   $publicIp = Get-PublicIPv4
-  $stream = Get-StreamingStatus -Ready $ready -LocalIp $localIp -PublicIp $publicIp
+  $stream = Get-StreamingStatus -Ready $ready -LocalIp $localIp -PublicIp $publicIp -TunnelUp $tunnelUp
   $pairStatus = $null
   $pairMessage = $null
 

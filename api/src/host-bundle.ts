@@ -36,8 +36,10 @@ const HOST_SCRIPTS = [
   "PCHUB-Setup.ps1",
   "RUN-PCHUB.cmd",
   "pchub-host.ps1",
-  "rustdesk.ps1",
-  "remote.ps1",
+  "pchub-api.ps1",
+  "sunshine.ps1",
+  "streaming.ps1",
+  "tunnel.ps1",
   "Start PCHUB Agent.bat",
   "status-window.bat",
   "run-agent.bat",
@@ -130,7 +132,7 @@ function buildReadmeBundled() {
 3. "PCHUB Host Status" appears on your taskbar (Online / Offline)
 
 config.json with your pairing code is already included.
-Remote desktop uses PCHUB relay — no router setup needed.
+Moonlight streaming via PCHUB relay — no router setup needed.
 `;
 }
 

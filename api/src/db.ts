@@ -169,6 +169,18 @@ if (!machineColNames.has("rustdesk_id")) {
 if (!machineColNames.has("rustdesk_password")) {
   db.exec(`ALTER TABLE machines ADD COLUMN rustdesk_password TEXT`);
 }
+if (!machineColNames.has("wg_private_key")) {
+  db.exec(`ALTER TABLE machines ADD COLUMN wg_private_key TEXT`);
+}
+if (!machineColNames.has("wg_public_key")) {
+  db.exec(`ALTER TABLE machines ADD COLUMN wg_public_key TEXT`);
+}
+if (!machineColNames.has("wg_tunnel_ip")) {
+  db.exec(`ALTER TABLE machines ADD COLUMN wg_tunnel_ip TEXT`);
+}
+if (!machineColNames.has("wg_last_handshake_at")) {
+  db.exec(`ALTER TABLE machines ADD COLUMN wg_last_handshake_at TEXT`);
+}
 if (!rentalColNames.has("connect_password")) {
   db.exec(`ALTER TABLE rentals ADD COLUMN connect_password TEXT`);
 }
@@ -239,6 +251,10 @@ export type MachineRow = {
   sunshine_password: string | null;
   rustdesk_id: string | null;
   rustdesk_password: string | null;
+  wg_private_key: string | null;
+  wg_public_key: string | null;
+  wg_tunnel_ip: string | null;
+  wg_last_handshake_at: string | null;
 };
 
 export type InventoryRow = {

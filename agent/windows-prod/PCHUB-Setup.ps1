@@ -29,7 +29,8 @@ if (-not $Elevated) {
 
 Set-Location $Root
 $hostPs1 = Join-Path $Root "pchub-host.ps1"
-$rustdeskPs1 = Join-Path $Root "rustdesk.ps1"
+$sunshinePs1 = Join-Path $Root "sunshine.ps1"
+$tunnelPs1 = Join-Path $Root "tunnel.ps1"
 $statePath = Join-Path $Root ".agent-state.json"
 
 if (-not (Test-Path (Join-Path $Root "config.json"))) {
@@ -84,29 +85,33 @@ if ($agentExit -ne 0) {
 }
 
 Write-Host ""
-Write-Host "[4/5] Installing PCHUB remote desktop (relay)..."
-if (Test-Path $rustdeskPs1) {
-  . $rustdeskPs1
+Write-Host "[4/5] Installing Sunshine + PCHUB relay tunnel..."
+if ((Test-Path $sunshinePs1) -and (Test-Path $tunnelPs1)) {
+  . (Join-Path $Root "pchub-api.ps1")
+  . $sunshinePs1
+  . $tunnelPs1
   $state = Get-Content $statePath -Raw | ConvertFrom-Json
   $config = Get-Content (Join-Path $Root "config.json") -Raw | ConvertFrom-Json
   try {
-    $headers = @{
-      "Content-Type" = "application/json"
-      "Authorization" = "Bearer $($state.agentToken)"
+    if (-not $state.sunshineUsername -or -not $state.sunshinePassword) {
+      $headers = @{
+        "Content-Type" = "application/json"
+        "Authorization" = "Bearer $($state.agentToken)"
+      }
+      $remote = Invoke-RestMethod -Uri "$($config.apiUrl.TrimEnd('/'))/api/agents/streaming/config" -Headers $headers -Method GET
+      $state.sunshineUsername = $remote.sunshineUsername
+      $state.sunshinePassword = $remote.sunshinePassword
     }
-    $remote = Invoke-RestMethod -Uri "$($config.apiUrl.TrimEnd('/'))/api/agents/rustdesk/config" -Headers $headers -Method GET
-    if (-not $state.rustdeskPassword) { $state.rustdeskPassword = $remote.password }
-    $id = Initialize-PchubRustDesk -RelayHost $remote.relayHost -PublicKey $remote.publicKey -Password $state.rustdeskPassword
-    $state.rustdeskId = $id
-    $body = (@{ rustdeskId = $id } | ConvertTo-Json -Compress)
-    Invoke-RestMethod -Uri "$($config.apiUrl.TrimEnd('/'))/api/agents/rustdesk/id" -Headers $headers -Method POST -Body $body | Out-Null
+    Initialize-PchubSunshine -Username $state.sunshineUsername -Password $state.sunshinePassword
+    Initialize-PchubTunnel -Config $config -State $state | Out-Null
     $state | ConvertTo-Json | Set-Content $statePath -Encoding UTF8
+    Write-Host "      Sunshine + relay tunnel ready."
   } catch {
-    Write-Host "      Warning: Remote desktop setup - $($_.Exception.Message)"
+    Write-Host "      Warning: Streaming setup - $($_.Exception.Message)"
     Write-Host "      Agent will retry when a renter powers on."
   }
 } else {
-  Write-Host "      rustdesk.ps1 missing - re-download bundle from pchub.cloud/host"
+  Write-Host "      sunshine.ps1 or tunnel.ps1 missing - re-download bundle from pchub.cloud/host"
 }
 
 Write-Host ""
@@ -127,7 +132,7 @@ Write-Host "========================================"
 Write-Host "  DONE - PC listed on pchub.cloud"
 Write-Host "========================================"
 Write-Host ""
-Write-Host "  Remote desktop uses PCHUB relay - no router setup for owners."
+Write-Host "  Moonlight streaming via PCHUB relay — no router setup for owners."
 Write-Host "  Taskbar: PCHUB Host Status"
 Write-Host "  Logs:    $Root\agent.log"
 Write-Host ""

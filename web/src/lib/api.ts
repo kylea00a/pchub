@@ -80,20 +80,28 @@ export type Rental = {
 };
 
 export type ConnectInfo = {
-  provider: "rustdesk";
+  provider: "moonlight";
   status: string;
-  rustdeskId: string | null;
-  password: string | null;
-  relayHost: string;
+  host: string | null;
+  port: number;
+  localIp: string | null;
+  publicIp: string | null;
+  recommendedHost: string | null;
+  connectMode: string;
   message: string | null;
+  sunshineInstalled: boolean;
+  sunshineRunning: boolean;
+  portsOpen: boolean;
+  pairStatus: string;
+  pairMessage: string | null;
   ready: boolean;
+  streamReady: boolean;
   updatedAt: string | null;
-  downloadLinks: {
-    web: string;
+  moonlightLinks: {
     windows: string;
-    mac: string;
     android: string;
     ios: string;
+    mac: string;
   };
   steps: string[];
 };

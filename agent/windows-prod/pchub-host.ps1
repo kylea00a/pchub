@@ -2,7 +2,8 @@
 param([switch]$Once)
 
 $Root = $PSScriptRoot
-. (Join-Path $Root "remote.ps1")
+. (Join-Path $Root "pchub-api.ps1")
+. (Join-Path $Root "streaming.ps1")
 $ConfigPath = Join-Path $Root "config.json"
 $StatePath = Join-Path $Root ".agent-state.json"
 $LogPath = Join-Path $Root "agent.log"
@@ -25,41 +26,6 @@ function Get-State {
 
 function Save-State($State) {
   $State | ConvertTo-Json | Set-Content $StatePath -Encoding UTF8
-}
-
-function Invoke-PchubApi {
-  param(
-    [string]$ApiRoot,
-    [string]$Path,
-    [string]$Method = "GET",
-    [object]$Body = $null,
-    [string]$Token = $null
-  )
-  $headers = @{ "Content-Type" = "application/json" }
-  if ($Token) { $headers["Authorization"] = "Bearer $Token" }
-
-  $params = @{
-    Uri = "$($ApiRoot.TrimEnd('/'))$Path"
-    Method = $Method
-    Headers = $headers
-    TimeoutSec = 30
-  }
-  if ($null -ne $Body) {
-    $params["Body"] = ($Body | ConvertTo-Json -Depth 8 -Compress)
-  }
-
-  try {
-    return Invoke-RestMethod @params
-  } catch {
-    $err = $_.ErrorDetails.Message
-    if ($err) {
-      $parsed = $err | ConvertFrom-Json -ErrorAction SilentlyContinue
-      if ($parsed -and $parsed.error) {
-        throw $parsed.error
-      }
-    }
-    throw $_.Exception.Message
-  }
 }
 
 function Register-Machine($Config) {
@@ -92,8 +58,8 @@ function Register-Machine($Config) {
     machineId = $result.machineId
     agentToken = $result.agentToken
     name = $result.name
-    rustdeskPassword = $result.rustdeskPassword
-    rustdeskId = $null
+    sunshineUsername = $result.sunshineUsername
+    sunshinePassword = $result.sunshinePassword
     lastRentalId = $null
   }
   Save-State $state
@@ -166,15 +132,13 @@ function Handle-ActiveSession($Config, $State) {
   try {
     $session = Get-AgentSession $Config $State
     if ($session.active) {
-      $updated = Update-RemoteSession -Config $Config -State $State -Session $session
-      if ($updated.rustdeskId -and $updated.rustdeskId -ne $State.rustdeskId) {
-        $State.rustdeskId = $updated.rustdeskId
-        Save-State $State
-      }
+      $State = Update-StreamingSession -Config $Config -State $State -Session $session
+      Save-State $State
     }
   } catch {
     Write-Log "Session check failed: $($_.Exception.Message)"
   }
+  return $State
 }
 
 $config = Get-Config
@@ -186,16 +150,17 @@ try {
     $state = Register-Machine $config
   } else {
     Write-Log "Using saved machine `"$($state.name)`" ($($state.machineId))"
-    if (-not $state.rustdeskPassword) {
-      $remote = Invoke-PchubApi -ApiRoot $config.apiUrl -Path "/api/agents/rustdesk/config" -Method "GET" -Token $state.agentToken
-      $state.rustdeskPassword = $remote.password
+    if (-not $state.sunshineUsername -or -not $state.sunshinePassword) {
+      $remote = Invoke-PchubApi -ApiRoot $config.apiUrl -Path "/api/agents/streaming/config" -Method "GET" -Token $state.agentToken
+      $state.sunshineUsername = $remote.sunshineUsername
+      $state.sunshinePassword = $remote.sunshinePassword
       Save-State $state
     }
   }
 
   try { Send-Inventory $config $state } catch { Write-Log "Inventory warn: $($_.Exception.Message)" }
   Send-Heartbeat $config $state
-  Handle-ActiveSession $config $state
+  $state = Handle-ActiveSession $config $state
 
   if ($Once) {
     Write-Log "Single run complete (-Once)."
@@ -209,7 +174,7 @@ try {
     Start-Sleep -Milliseconds $interval
     try {
       Send-Heartbeat $config $state
-      Handle-ActiveSession $config $state
+      $state = Handle-ActiveSession $config $state
     } catch {
       Write-Log "Heartbeat failed: $($_.Exception.Message)"
     }

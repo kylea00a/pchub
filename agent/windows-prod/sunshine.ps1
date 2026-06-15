@@ -12,18 +12,28 @@ function Get-SunshineExe {
 function Install-SunshineIfNeeded {
   if (Get-SunshineExe) { return Get-SunshineExe }
 
-  Write-Host "      Installing Sunshine (remote desktop host)..."
-  $winget = Get-Command winget -ErrorAction SilentlyContinue
-  if (-not $winget) {
-    throw "winget not found. Install App Installer from Microsoft Store, then re-run setup."
+  Write-Host "      Installing Sunshine (low-latency game streaming host)..."
+  $installer = Join-Path $env:TEMP "sunshine-windows-installer.exe"
+  $url = "https://github.com/LizardByte/Sunshine/releases/latest/download/sunshine-windows-installer.exe"
+
+  try {
+    Invoke-WebRequest -Uri $url -OutFile $installer -UseBasicParsing
+    $proc = Start-Process -FilePath $installer -ArgumentList "/S" -Wait -PassThru
+    if ($proc.ExitCode -ne 0) {
+      throw "Sunshine installer exit $($proc.ExitCode)"
+    }
+  } catch {
+    $winget = Get-Command winget -ErrorAction SilentlyContinue
+    if (-not $winget) {
+      throw "Sunshine install failed and winget is not available. $($_.Exception.Message)"
+    }
+    & winget install --id LizardByte.Sunshine -e --accept-source-agreements --accept-package-agreements | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+      throw "Sunshine install failed (winget exit $LASTEXITCODE)."
+    }
   }
 
-  & winget install --id LizardByte.Sunshine -e --accept-source-agreements --accept-package-agreements | Out-Null
-  if ($LASTEXITCODE -ne 0) {
-    throw "Sunshine install failed (winget exit $LASTEXITCODE)."
-  }
-
-  Start-Sleep -Seconds 3
+  Start-Sleep -Seconds 5
   $exe = Get-SunshineExe
   if (-not $exe) { throw "Sunshine installed but sunshine.exe not found." }
   return $exe

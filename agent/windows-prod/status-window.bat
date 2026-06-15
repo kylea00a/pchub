@@ -27,9 +27,11 @@ wmic process where "name='powershell.exe' and CommandLine like '%%pchub-host.ps1
   )
 )
 echo.
-powershell -NoProfile -Command "$svc=Get-Process -Name rustdesk -ErrorAction SilentlyContinue; if ($svc) { Write-Host '   Remote: RUNNING (PCHUB relay)' -ForegroundColor Green } elseif (Test-Path \"$env:ProgramFiles\RustDesk\rustdesk.exe\") { Write-Host '   Remote: STOPPED (re-run RUN-PCHUB.cmd)' -ForegroundColor Yellow } else { Write-Host '   Remote: NOT INSTALLED' -ForegroundColor Red }"
+powershell -NoProfile -Command "$svc=Get-Service -Name SunshineService,Sunshine,sunshine -ErrorAction SilentlyContinue | Select-Object -First 1; $proc=Get-Process -Name sunshine -ErrorAction SilentlyContinue; if (($svc -and $svc.Status -eq 'Running') -or $proc) { Write-Host '   Streaming: SUNSHINE RUNNING (Moonlight)' -ForegroundColor Green } elseif (Test-Path \"$env:ProgramFiles\Sunshine\sunshine.exe\") { Write-Host '   Streaming: STOPPED (re-run RUN-PCHUB.cmd)' -ForegroundColor Yellow } else { Write-Host '   Streaming: NOT INSTALLED' -ForegroundColor Red }"
 echo.
-echo   Agent online = listed on pchub.cloud. Remote = RustDesk via PCHUB relay.
+powershell -NoProfile -Command "$wg=Get-Service -Name 'WireGuardTunnel$pchub-tunnel' -ErrorAction SilentlyContinue; if ($wg -and $wg.Status -eq 'Running') { Write-Host '   Relay tunnel: CONNECTED' -ForegroundColor Green } elseif (Test-Path \"$env:ProgramFiles\WireGuard\wireguard.exe\") { Write-Host '   Relay tunnel: STOPPED' -ForegroundColor Yellow } else { Write-Host '   Relay tunnel: NOT INSTALLED' -ForegroundColor Red }"
+echo.
+echo   Renters install Moonlight only. Host uses Sunshine + PCHUB relay.
 echo   Minimize this window to the taskbar.
 echo.
 timeout /t 15 /nobreak >nul
