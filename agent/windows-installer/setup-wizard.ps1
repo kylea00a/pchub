@@ -5,6 +5,7 @@ Add-Type -AssemblyName System.Drawing
 [System.Windows.Forms.Application]::EnableVisualStyles()
 [System.Windows.Forms.Application]::SetCompatibleTextRenderingDefault($false)
 
+$script:InstallerBuild = "2026.06.10.3"
 $script:SiteUrl = "https://pchub.cloud"
 $script:ApiUrl = "https://api.pchub.cloud"
 $script:Dest = "C:\PCHUB-Host"
@@ -65,6 +66,14 @@ $subtitle.AutoSize = $true
 $subtitle.Location = New-Object System.Drawing.Point(28, 54)
 $subtitle.ForeColor = [System.Drawing.Color]::FromArgb(160, 160, 170)
 $form.Controls.Add($subtitle) | Out-Null
+
+$buildLabel = New-Object System.Windows.Forms.Label
+$buildLabel.Text = "Installer $script:InstallerBuild"
+$buildLabel.AutoSize = $true
+$buildLabel.Location = New-Object System.Drawing.Point(360, 54)
+$buildLabel.Font = New-Object System.Drawing.Font("Segoe UI", 8)
+$buildLabel.ForeColor = [System.Drawing.Color]::FromArgb(100, 100, 110)
+$form.Controls.Add($buildLabel) | Out-Null
 
 $contentTop = 88
 $contentHeight = 248
@@ -302,53 +311,37 @@ function Install-PchubHost {
     Add-InstallLog "Status app download skipped (built-in fallback will be used)."
   }
 
-  $setup = Join-Path $script:Dest "PCHUB-Setup.ps1"
-  if (-not (Test-Path $setup)) {
-    $lblInstall.Text = "Setup files missing in bundle."
+  $core = Join-Path $script:Dest "install-core.ps1"
+  if (-not (Test-Path $core)) {
+    $lblInstall.Text = "install-core.ps1 missing from bundle."
     $script:Installing = $false
     $btnBack.Enabled = $true
     $btnNext.Enabled = $true
     return
   }
 
-  $setupLog = Join-Path $script:Dest "setup.log"
-  Add-InstallLog "Running setup..."
+  Add-InstallLog "Installing (build $script:InstallerBuild)..."
   Set-Location $script:Dest
-  $setupExit = 0
-  try {
-    & $setup -Elevated -Silent
-    if ($null -ne $LASTEXITCODE) { $setupExit = $LASTEXITCODE }
-  } catch {
-    Add-InstallLog "Setup error: $($_.Exception.Message)"
-    $setupExit = 1
+  . $core
+  $result = Invoke-PchubHostInstall -Root $script:Dest -Silent
+
+  $setupLog = Join-Path $script:Dest "setup.log"
+  if (Test-Path $setupLog) {
+    Get-Content $setupLog -Tail 24 | ForEach-Object { Add-InstallLog $_ }
   }
 
   $statePath = Join-Path $script:Dest ".agent-state.json"
-  $registered = $false
-  if (Test-Path $statePath) {
+  $registered = $result.Success
+  if (-not $registered -and (Test-Path $statePath)) {
     try {
       $st = Get-Content $statePath -Raw | ConvertFrom-Json
       $registered = [bool]$st.machineId
     } catch { }
   }
 
-  $logPath = Join-Path $script:Dest "agent.log"
-  if ($setupExit -ne 0 -and -not $registered) {
-    $lblInstall.Text = "Setup reported an error. See log below."
-    Add-InstallLog "Exit code: $setupExit"
-    if (Test-Path $setupLog) {
-      Add-InstallLog "--- setup.log ---"
-      Get-Content $setupLog -Tail 20 | ForEach-Object { Add-InstallLog $_ }
-    } else {
-      Add-InstallLog "(setup.log not found at $setupLog)"
-    }
-    if (Test-Path $logPath) {
-      Add-InstallLog "--- agent.log ---"
-      Get-Content $logPath -Tail 12 | ForEach-Object { Add-InstallLog $_ }
-    } else {
-      Add-InstallLog "(agent.log not found)"
-    }
-    Add-InstallLog "Tip: generate a new code at pchub.cloud/host, or reuse the same code on this PC."
+  if (-not $registered) {
+    $lblInstall.Text = "Setup failed. See log below."
+    Add-InstallLog "Registration did not complete."
     $progress.Visible = $false
     $script:Installing = $false
     $btnBack.Enabled = $true
@@ -357,8 +350,8 @@ function Install-PchubHost {
     return
   }
 
-  if ($setupExit -ne 0) {
-    Add-InstallLog "Setup finished with warnings (exit $setupExit) but PC is registered."
+  if ($result.ExitCode -ne 0) {
+    Add-InstallLog "Finished with warnings — PC is registered."
   }
 
   $progress.Visible = $false

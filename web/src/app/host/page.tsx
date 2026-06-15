@@ -146,19 +146,17 @@ export default function HostPage() {
                 href={HOST_INSTALLER_EXE}
                 className="mt-4 block w-full pchub-btn-primary px-5 py-2.5 text-center text-sm font-medium text-background"
               >
-                Download PCHUB Host Setup
+                Download PCHUB Host Setup (.exe)
+              </a>
+              <a
+                href="/downloads/PCHUB-Host-Setup.cmd"
+                className="mt-2 block w-full border border-border px-5 py-2.5 text-center text-sm text-accent hover:bg-accent/10"
+              >
+                Or use PCHUB-Host-Setup.cmd (always latest)
               </a>
               <p className="mt-2 text-xs text-muted">
-                Double-click <code className="text-foreground">PCHUB-Host-Setup.exe</code> on Windows.
-                Wizard asks for your pairing code, then installs to{" "}
-                <code className="text-foreground">C:\PCHUB-Host</code>.
-              </p>
-              <p className="mt-2 text-xs text-muted">
-                If Windows blocks it: right-click → <strong className="text-foreground">Run as administrator</strong>.
-                Fallback:{" "}
-                <a href="/downloads/PCHUB-Host-Setup.cmd" className="text-accent hover:underline">
-                  PCHUB-Host-Setup.cmd
-                </a>
+                Delete any old <code className="text-foreground">PCHUB-Host-Setup.exe</code> in Downloads first.
+                New installer shows <strong className="text-foreground">Installer 2026.06.10.3</strong> top-right.
               </p>
               <details className="mt-3 text-xs text-muted">
                 <summary className="cursor-pointer text-foreground">Installer didn&apos;t download?</summary>

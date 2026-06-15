@@ -3,15 +3,6 @@ name: Build Windows Installer
 on:
   push:
     branches: [main]
-    paths:
-      - "agent/windows-installer/**"
-      - "agent/windows-prod/status-app.ps1"
-      - "agent/windows-prod/pchub-api.ps1"
-      - "agent/windows-prod/pchub-host.ps1"
-      - "agent/windows-prod/PCHUB-Setup.ps1"
-      - "agent/windows-prod/Start PCHUB Agent.bat"
-      - "deploy/downloads/PCHUB-Host-Setup.cmd"
-      - ".github/workflows/build-installer.yml"
   workflow_dispatch:
 
 concurrency:
@@ -30,8 +21,7 @@ jobs:
           cp agent/windows-installer/setup-wizard.ps1 staging/PCHUB-Host-Setup.ps1
           cp deploy/downloads/PCHUB-Host-Setup.cmd staging/PCHUB-Host-Setup.cmd
 
-      - name: Upload to droplet
-        uses: appleboy/scp-action@v0.1.7
+      - uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.DROPLET_HOST }}
           username: root
@@ -42,7 +32,6 @@ jobs:
 
   build-exe:
     runs-on: windows-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 
@@ -65,7 +54,7 @@ jobs:
             -title "PCHUB Host" `
             -sta `
             -noConsole
-          Get-Item staging\*.exe
+          Get-Item staging\*.exe | Format-List Name, Length, LastWriteTime
 
       - uses: actions/upload-artifact@v4
         with:
@@ -75,7 +64,6 @@ jobs:
 
   publish-exe:
     needs: build-exe
-    if: needs.build-exe.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4

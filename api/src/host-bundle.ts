@@ -33,6 +33,7 @@ export type PairingRow = {
 };
 
 const HOST_SCRIPTS = [
+  "install-core.ps1",
   "PCHUB-Setup.ps1",
   "RUN-PCHUB.cmd",
   "pchub-host.ps1",
