@@ -115,15 +115,30 @@ if ((Test-Path $sunshinePs1) -and (Test-Path $tunnelPs1)) {
 }
 
 Write-Host ""
-Write-Host "[5/5] Starting agent + status window..."
+Write-Host "[5/5] Starting agent + status app..."
+$statusExe = Join-Path $Root "PCHUB-Status.exe"
+$statusPs1 = Join-Path $Root "status-app.ps1"
 & cmd /c "`"$Root\Start PCHUB Agent.bat`""
+Start-Sleep -Seconds 2
+if (Test-Path $statusExe) {
+  Start-Process -FilePath $statusExe -WindowStyle Normal
+} elseif (Test-Path $statusPs1) {
+  Start-Process powershell.exe -ArgumentList @(
+    "-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden",
+    "-File", "`"$statusPs1`""
+  )
+}
 
 try {
   $desktop = [Environment]::GetFolderPath("Desktop")
   $shortcut = (New-Object -COM WScript.Shell).CreateShortcut((Join-Path $desktop "PCHUB Host.lnk"))
-  $shortcut.TargetPath = Join-Path $Root "Start PCHUB Agent.bat"
+  if (Test-Path $statusExe) {
+    $shortcut.TargetPath = $statusExe
+  } else {
+    $shortcut.TargetPath = Join-Path $Root "Start PCHUB Agent.bat"
+  }
   $shortcut.WorkingDirectory = $Root
-  $shortcut.Description = "Restart PCHUB host agent"
+  $shortcut.Description = "PCHUB Host status"
   $shortcut.Save()
 } catch { }
 
@@ -133,7 +148,7 @@ Write-Host "  DONE - PC listed on pchub.cloud"
 Write-Host "========================================"
 Write-Host ""
 Write-Host "  Moonlight streaming via PCHUB relay — no router setup for owners."
-Write-Host "  Taskbar: PCHUB Host Status"
+Write-Host "  Desktop shortcut: PCHUB Host (status app)"
 Write-Host "  Logs:    $Root\agent.log"
 Write-Host ""
 if (-not $Silent) { Read-Host "Press Enter to close" }

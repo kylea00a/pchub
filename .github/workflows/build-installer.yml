@@ -5,6 +5,10 @@ on:
     branches: [main]
     paths:
       - "agent/windows-installer/**"
+      - "agent/windows-prod/status-app.ps1"
+      - "agent/windows-prod/PCHUB-Setup.ps1"
+      - "agent/windows-prod/Start PCHUB Agent.bat"
+      - "deploy/downloads/PCHUB-Host-Setup.cmd"
       - ".github/workflows/build-installer.yml"
   workflow_dispatch:
 
@@ -21,7 +25,7 @@ jobs:
       - name: Stage setup files
         run: |
           mkdir -p staging
-          cp agent/windows-installer/bootstrap.ps1 staging/PCHUB-Host-Setup.ps1
+          cp agent/windows-installer/setup-wizard.ps1 staging/PCHUB-Host-Setup.ps1
           cp deploy/downloads/PCHUB-Host-Setup.cmd staging/PCHUB-Host-Setup.cmd
 
       - name: Upload to droplet
@@ -40,23 +44,29 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build PCHUB-Host-Setup.exe (optional)
+      - name: Build PCHUB-Host-Setup.exe and PCHUB-Status.exe
         shell: pwsh
         run: |
           Set-PSRepository PSGallery -InstallationPolicy Trusted
           Install-Module ps2exe -Force -Scope CurrentUser -AllowClobber
           New-Item -ItemType Directory -Force -Path staging | Out-Null
           Invoke-ps2exe `
-            -inputFile "agent\windows-installer\bootstrap.ps1" `
+            -inputFile "agent\windows-installer\setup-wizard.ps1" `
             -outputFile "staging\PCHUB-Host-Setup.exe" `
             -title "PCHUB Host Setup" `
+            -noConsole `
             -requireAdmin
-          Get-Item "staging\PCHUB-Host-Setup.exe"
+          Invoke-ps2exe `
+            -inputFile "agent\windows-installer\status-app.ps1" `
+            -outputFile "staging\PCHUB-Status.exe" `
+            -title "PCHUB Host" `
+            -noConsole
+          Get-Item staging\*.exe
 
       - uses: actions/upload-artifact@v4
         with:
-          name: PCHUB-Host-Setup-exe
-          path: staging/PCHUB-Host-Setup.exe
+          name: PCHUB-windows-apps
+          path: staging/*.exe
           retention-days: 14
 
   publish-exe:
@@ -66,7 +76,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: PCHUB-Host-Setup-exe
+          name: PCHUB-windows-apps
           path: staging
 
       - uses: appleboy/scp-action@v0.1.7
@@ -74,6 +84,6 @@ jobs:
           host: ${{ secrets.DROPLET_HOST }}
           username: root
           key: ${{ secrets.DROPLET_SSH_KEY }}
-          source: "staging/PCHUB-Host-Setup.exe"
+          source: "staging/PCHUB-Host-Setup.exe,staging/PCHUB-Status.exe"
           target: "/var/www/pchub/deploy/downloads"
           strip_components: 1

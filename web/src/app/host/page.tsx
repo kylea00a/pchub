@@ -6,7 +6,7 @@ import { createPairingCode, getAgentApiUrl, getApiUrl } from "@/lib/api";
 import {
   buildWindowsBundleDownloadUrl,
   buildWindowsDownloadCommand,
-  HOST_INSTALLER_CMD,
+  HOST_INSTALLER_EXE,
   type HostInstallerConfig,
 } from "@/lib/host-installer";
 
@@ -66,8 +66,8 @@ export default function HostPage() {
         <p className="eyebrow">Supply node</p>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight">Register hardware</h1>
         <p className="mt-4 text-muted leading-relaxed">
-          Generate a pairing code, download the Windows installer, paste the code when asked.
-          One <strong className="text-foreground">.exe</strong> — no zip, no extract step.
+          Generate a pairing code, download the Windows app, click through the setup wizard.
+          One installer — <strong className="text-foreground">Next → Next → Finish</strong> — then a small status app stays in your taskbar.
         </p>
 
         <div className="mt-6 pchub-panel p-5 text-sm text-muted">
@@ -143,18 +143,22 @@ export default function HostPage() {
                 </p>
               )}
               <a
-                href={HOST_INSTALLER_CMD}
+                href={HOST_INSTALLER_EXE}
                 className="mt-4 block w-full pchub-btn-primary px-5 py-2.5 text-center text-sm font-medium text-background"
               >
                 Download PCHUB Host Setup
               </a>
               <p className="mt-2 text-xs text-muted">
-                One download — double-click <code className="text-foreground">PCHUB-Host-Setup.cmd</code>{" "}
-                on Windows, paste your pairing code when asked. Installs to{" "}
+                Double-click <code className="text-foreground">PCHUB-Host-Setup.exe</code> on Windows.
+                Wizard asks for your pairing code, then installs to{" "}
                 <code className="text-foreground">C:\PCHUB-Host</code>.
               </p>
               <p className="mt-2 text-xs text-muted">
-                If Windows blocks it: right-click the file → <strong className="text-foreground">Run as administrator</strong>.
+                If Windows blocks it: right-click → <strong className="text-foreground">Run as administrator</strong>.
+                Fallback:{" "}
+                <a href="/downloads/PCHUB-Host-Setup.cmd" className="text-accent hover:underline">
+                  PCHUB-Host-Setup.cmd
+                </a>
               </p>
               <details className="mt-3 text-xs text-muted">
                 <summary className="cursor-pointer text-foreground">Installer didn&apos;t download?</summary>
@@ -192,22 +196,24 @@ export default function HostPage() {
           <h2 className="font-medium">Step 2 — Windows PC</h2>
           <ol className="mt-4 list-decimal space-y-3 pl-5 text-sm text-muted">
             <li>
-              Download <code className="text-foreground">PCHUB-Host-Setup.cmd</code> and double-click it
+              Download and run <code className="text-foreground">PCHUB-Host-Setup.exe</code>
             </li>
             <li>
-              Paste your pairing code, PC name, and city when asked
+              Click <strong className="text-foreground">Next</strong>, enter your pairing code, PC name, and city
             </li>
             <li>
-              Click <strong className="text-foreground">Yes</strong> if Windows asks for administrator
+              Click <strong className="text-foreground">Install</strong> and approve the admin prompt
+            </li>
+            <li>
+              When finished, <strong className="text-foreground">PCHUB Host</strong> opens — keep it running in the taskbar
             </li>
           </ol>
           <p className="mt-4 text-sm text-muted">
-            Setup registers your PC, installs RustDesk via the PCHUB relay, then opens{" "}
-            <strong className="text-foreground">PCHUB Host Status</strong> on the taskbar.
+            Setup installs Sunshine + the PCHUB relay tunnel. Renters connect with Moonlight — no router changes for you.
           </p>
           <p className="mt-2 text-xs text-muted">
-            Desktop shortcut <strong className="text-foreground">PCHUB Host</strong> restarts the
-            agent · Logs: <code className="text-foreground">C:\PCHUB-Host\agent.log</code>
+            Desktop shortcut <strong className="text-foreground">PCHUB Host</strong> reopens the status app · Logs:{" "}
+            <code className="text-foreground">C:\PCHUB-Host\agent.log</code>
           </p>
         </div>
 
