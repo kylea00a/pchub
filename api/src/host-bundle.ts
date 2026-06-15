@@ -94,7 +94,7 @@ export function buildConfigJson(config: BundleConfig) {
   );
 }
 
-function buildStartHere() {
+function buildStartHereBundled() {
   return `PCHUB HOST - READ THIS FIRST
 ============================
 
@@ -106,34 +106,30 @@ STEP 1 - EXTRACT
   Choose "Extract All..."
   Folder: C:\\PCHUB-Host
 
-STEP 2 - ADD YOUR CONFIG
-  From pchub.cloud/host, download config.json for your pairing code.
-  Put config.json inside C:\\PCHUB-Host
-
-STEP 3 - RUN SETUP (from the EXTRACTED folder)
+STEP 2 - RUN SETUP (from the EXTRACTED folder)
   Open C:\\PCHUB-Host
   Double-click RUN-PCHUB.cmd
   Click YES when Windows asks for administrator
 
-STEP 4 - DONE
+STEP 3 - DONE
   "PCHUB Host Status" appears on your taskbar
   Your PC shows Online at https://pchub.cloud
+
+Your pairing code is already in config.json inside this folder.
 `;
 }
 
-function buildReadme() {
+function buildReadmeBundled() {
   return `PCHUB Host Agent — one-click setup
 ========================================
 
 1. Extract this zip to C:\\PCHUB-Host (Extract All — not Run)
 
-2. Download config.json from pchub.cloud/host (same pairing code page)
-   and save it in C:\\PCHUB-Host
+2. Double-click RUN-PCHUB.cmd — click YES on the admin prompt
 
-3. Double-click RUN-PCHUB.cmd — click YES on the admin prompt
+3. "PCHUB Host Status" appears on your taskbar (Online / Offline)
 
-4. "PCHUB Host Status" appears on your taskbar (Online / Offline)
-
+config.json with your pairing code is already included.
 Remote desktop uses PCHUB relay — no router setup needed.
 `;
 }
@@ -172,8 +168,10 @@ export async function buildStaticHostBundle(outputPath = STATIC_BUNDLE_PATH) {
 
   const buffer = await createZipBuffer((archive) => {
     appendHostScripts(archive);
-    archive.append(buildReadme(), { name: bundlePath("README.txt") });
-    archive.append(buildStartHere(), { name: bundlePath("START-HERE.txt") });
+    archive.append(
+      "Get the complete zip (with your pairing code) at https://pchub.cloud/host\n",
+      { name: bundlePath("DOWNLOAD-FROM-WEBSITE.txt") }
+    );
   });
 
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
@@ -205,8 +203,8 @@ export async function streamWindowsAgentBundle(res: Response, config: BundleConf
     const buffer = await createZipBuffer((archive) => {
       appendHostScripts(archive);
       archive.append(buildConfigJson(config), { name: bundlePath("config.json") });
-      archive.append(buildReadme(), { name: bundlePath("README.txt") });
-      archive.append(buildStartHere(), { name: bundlePath("START-HERE.txt") });
+      archive.append(buildReadmeBundled(), { name: bundlePath("README.txt") });
+      archive.append(buildStartHereBundled(), { name: bundlePath("START-HERE.txt") });
     });
     sendZipBuffer(res, buffer, "PCHUB-Host-Agent.zip");
   } catch (err) {

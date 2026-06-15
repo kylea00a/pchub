@@ -4,9 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { createPairingCode, getAgentApiUrl, getApiUrl } from "@/lib/api";
 import {
-  buildHostConfigDownloadUrl,
-  buildWindowsDownloadCommands,
-  STATIC_HOST_AGENT_ZIP,
+  buildWindowsBundleDownloadUrl,
+  buildWindowsDownloadCommand,
   type HostInstallerConfig,
 } from "@/lib/host-installer";
 
@@ -46,9 +45,9 @@ export default function HostPage() {
   }
 
   const installer = code ? installerConfig(code, machineName, machineCity) : null;
-  const configDownloadUrl = installer ? buildHostConfigDownloadUrl(installer) : null;
-  const windowsCommands = installer
-    ? buildWindowsDownloadCommands("https://pchub.cloud", installer)
+  const downloadUrl = installer ? buildWindowsBundleDownloadUrl(installer) : null;
+  const windowsCommand = installer
+    ? buildWindowsDownloadCommand("https://pchub.cloud", installer)
     : null;
 
   return (
@@ -143,47 +142,40 @@ export default function HostPage() {
                   Expires {new Date(expiresAt).toLocaleString()}
                 </p>
               )}
-              <div className="mt-4 space-y-3">
-                <a
-                  href={STATIC_HOST_AGENT_ZIP}
-                  className="block w-full pchub-btn-primary px-5 py-2.5 text-center text-sm font-medium text-background"
-                >
-                  1. Download host agent (.zip)
-                </a>
-                <a
-                  href={configDownloadUrl ?? "#"}
-                  className="block w-full border border-accent/40 bg-background px-5 py-2.5 text-center text-sm font-medium text-accent hover:bg-accent/10"
-                >
-                  2. Download your config.json
-                </a>
-              </div>
-              <p className="mt-3 text-xs text-amber-200/90 border border-amber-500/30 bg-amber-500/10 px-3 py-2">
-                Chrome may show <strong className="text-foreground">“Virus scan failed”</strong> on
-                script zips — that is a browser block, not your internet. Use the two downloads
-                above, or the Windows command below.
-              </p>
-              {windowsCommands && (
-                <div className="mt-4">
-                  <p className="text-xs uppercase tracking-wider text-muted">
-                    Windows fallback (Command Prompt)
-                  </p>
-                  <pre className="mt-2 overflow-x-auto bg-background border border-border p-3 font-mono text-[11px] leading-relaxed text-muted">
-                    {windowsCommands}
-                  </pre>
-                  <button
-                    type="button"
-                    onClick={() => navigator.clipboard.writeText(windowsCommands)}
-                    className="mt-2 border border-border px-3 py-1 font-mono text-[10px] uppercase tracking-widest text-accent hover:bg-accent/10"
-                  >
-                    Copy commands
-                  </button>
-                </div>
-              )}
-              <p className="mt-3 text-xs text-muted">
-                Extract the zip to <code className="text-foreground">C:\PCHUB-Host</code>, put{" "}
-                <code className="text-foreground">config.json</code> inside that folder, then run{" "}
+              <a
+                href={downloadUrl ?? "#"}
+                className="mt-4 block w-full pchub-btn-primary px-5 py-2.5 text-center text-sm font-medium text-background"
+              >
+                Download Windows agent (.zip)
+              </a>
+              <p className="mt-2 text-xs text-muted">
+                Includes your pairing code in config.json — extract to{" "}
+                <code className="text-foreground">C:\PCHUB-Host</code> and run{" "}
                 <code className="text-foreground">RUN-PCHUB.cmd</code>.
               </p>
+              <details className="mt-3 text-xs text-muted">
+                <summary className="cursor-pointer text-foreground">
+                  Chrome blocked the download?
+                </summary>
+                <p className="mt-2">
+                  Paste this in Windows Command Prompt (<kbd>Win+R</kbd> →{" "}
+                  <code>cmd</code>):
+                </p>
+                {windowsCommand && (
+                  <>
+                    <pre className="mt-2 overflow-x-auto bg-background border border-border p-3 font-mono text-[11px]">
+                      {windowsCommand}
+                    </pre>
+                    <button
+                      type="button"
+                      onClick={() => navigator.clipboard.writeText(windowsCommand)}
+                      className="mt-2 border border-border px-3 py-1 font-mono text-[10px] uppercase tracking-widest text-accent hover:bg-accent/10"
+                    >
+                      Copy command
+                    </button>
+                  </>
+                )}
+              </details>
             </div>
           )}
         </div>
