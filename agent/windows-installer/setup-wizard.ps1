@@ -11,6 +11,12 @@ $script:Dest = "C:\PCHUB-Host"
 $script:Step = 0
 $script:Installing = $false
 
+try {
+  if ([enum]::GetNames([Net.SecurityProtocolType]) -contains "Tls12") {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+  }
+} catch { }
+
 function New-FieldLabel($text, $parent, $y) {
   $lbl = New-Object System.Windows.Forms.Label
   $lbl.Text = $text
@@ -306,27 +312,41 @@ function Install-PchubHost {
   }
 
   $setupLog = Join-Path $script:Dest "setup.log"
-  Add-InstallLog "Running setup (admin)…"
-  $proc = Start-Process powershell.exe -Verb RunAs -ArgumentList @(
-    "-NoProfile", "-ExecutionPolicy", "Bypass",
-    "-File", "`"$setup`"", "-Elevated", "-Silent"
-  ) -PassThru -WorkingDirectory $script:Dest
-  while (-not $proc.HasExited) {
-    [System.Windows.Forms.Application]::DoEvents()
-    Start-Sleep -Milliseconds 150
+  Add-InstallLog "Running setup..."
+  Set-Location $script:Dest
+  $setupExit = 0
+  try {
+    & $setup -Elevated -Silent
+    if ($null -ne $LASTEXITCODE) { $setupExit = $LASTEXITCODE }
+  } catch {
+    Add-InstallLog "Setup error: $($_.Exception.Message)"
+    $setupExit = 1
+  }
+
+  $statePath = Join-Path $script:Dest ".agent-state.json"
+  $registered = $false
+  if (Test-Path $statePath) {
+    try {
+      $st = Get-Content $statePath -Raw | ConvertFrom-Json
+      $registered = [bool]$st.machineId
+    } catch { }
   }
 
   $logPath = Join-Path $script:Dest "agent.log"
-  if ($proc.ExitCode -ne 0 -and $null -ne $proc.ExitCode) {
+  if ($setupExit -ne 0 -and -not $registered) {
     $lblInstall.Text = "Setup reported an error. See log below."
-    Add-InstallLog "Exit code: $($proc.ExitCode)"
+    Add-InstallLog "Exit code: $setupExit"
     if (Test-Path $setupLog) {
       Add-InstallLog "--- setup.log ---"
-      Get-Content $setupLog -Tail 16 | ForEach-Object { Add-InstallLog $_ }
+      Get-Content $setupLog -Tail 20 | ForEach-Object { Add-InstallLog $_ }
+    } else {
+      Add-InstallLog "(setup.log not found at $setupLog)"
     }
     if (Test-Path $logPath) {
       Add-InstallLog "--- agent.log ---"
       Get-Content $logPath -Tail 12 | ForEach-Object { Add-InstallLog $_ }
+    } else {
+      Add-InstallLog "(agent.log not found)"
     }
     Add-InstallLog "Tip: generate a new code at pchub.cloud/host, or reuse the same code on this PC."
     $progress.Visible = $false
@@ -335,6 +355,10 @@ function Install-PchubHost {
     $btnNext.Enabled = $true
     $btnNext.Text = "Retry"
     return
+  }
+
+  if ($setupExit -ne 0) {
+    Add-InstallLog "Setup finished with warnings (exit $setupExit) but PC is registered."
   }
 
   $progress.Visible = $false

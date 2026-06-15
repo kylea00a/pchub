@@ -2,16 +2,24 @@
 param([switch]$Once)
 
 $Root = $PSScriptRoot
-. (Join-Path $Root "pchub-api.ps1")
-. (Join-Path $Root "streaming.ps1")
 $ConfigPath = Join-Path $Root "config.json"
 $StatePath = Join-Path $Root ".agent-state.json"
 $LogPath = Join-Path $Root "agent.log"
 
 function Write-Log([string]$Message) {
   $line = "[{0}] {1}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"), $Message
-  Add-Content -Path $LogPath -Value $line -Encoding UTF8
+  try { Add-Content -Path $LogPath -Value $line -Encoding UTF8 } catch { }
   Write-Output $line
+}
+
+try { Write-Log "PCHUB agent starting (root: $Root)" } catch { }
+
+try {
+  . (Join-Path $Root "pchub-api.ps1")
+  . (Join-Path $Root "streaming.ps1")
+} catch {
+  Write-Log "Agent load failed: $($_.Exception.Message)"
+  exit 1
 }
 
 function Get-Config {
@@ -142,8 +150,14 @@ function Handle-ActiveSession($Config, $State) {
   return $State
 }
 
-$config = Get-Config
-Write-Log "PCHUB agent -> $($config.apiUrl) (root: $Root)"
+try {
+  $config = Get-Config
+} catch {
+  Write-Log "Agent failed: $($_.Exception.Message)"
+  exit 1
+}
+
+Write-Log "PCHUB agent -> $($config.apiUrl)"
 
 try {
   $state = Get-State

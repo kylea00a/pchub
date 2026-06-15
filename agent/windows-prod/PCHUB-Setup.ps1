@@ -69,9 +69,14 @@ if (Test-Path $statePath) {
   Write-SetupLog "[3/5] Detecting hardware and registering..."
 }
 
-& $hostPs1 -Once
-$agentExit = $LASTEXITCODE
-if ($null -eq $agentExit) { $agentExit = 0 }
+$agentExit = 0
+try {
+  & $hostPs1 -Once
+  if ($null -ne $LASTEXITCODE) { $agentExit = $LASTEXITCODE }
+} catch {
+  Write-SetupLog "Agent script error: $($_.Exception.Message)"
+  $agentExit = 1
+}
 
 $registered = $false
 if (Test-Path $statePath) {

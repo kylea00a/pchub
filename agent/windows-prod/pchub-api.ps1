@@ -6,6 +6,13 @@ function Invoke-PchubApi {
     [object]$Body = $null,
     [string]$Token = $null
   )
+
+  try {
+    if ([enum]::GetNames([Net.SecurityProtocolType]) -contains "Tls12") {
+      [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+    }
+  } catch { }
+
   $headers = @{ "Content-Type" = "application/json" }
   if ($Token) { $headers["Authorization"] = "Bearer $Token" }
 
