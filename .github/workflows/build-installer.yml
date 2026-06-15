@@ -3,6 +3,9 @@ name: Build Windows Installer
 on:
   push:
     branches: [main]
+    paths:
+      - "agent/windows-installer/**"
+      - ".github/workflows/build-installer.yml"
   workflow_dispatch:
 
 concurrency:
@@ -10,12 +13,34 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build-installer:
-    runs-on: windows-latest
+  publish-setup-scripts:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build PCHUB-Host-Setup.exe
+      - name: Stage setup files
+        run: |
+          mkdir -p staging
+          cp agent/windows-installer/bootstrap.ps1 staging/PCHUB-Host-Setup.ps1
+          cp deploy/downloads/PCHUB-Host-Setup.cmd staging/PCHUB-Host-Setup.cmd
+
+      - name: Upload to droplet
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.DROPLET_HOST }}
+          username: root
+          key: ${{ secrets.DROPLET_SSH_KEY }}
+          source: "staging/PCHUB-Host-Setup.ps1,staging/PCHUB-Host-Setup.cmd"
+          target: "/var/www/pchub/deploy/downloads"
+          strip_components: 1
+
+  build-exe:
+    runs-on: windows-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build PCHUB-Host-Setup.exe (optional)
         shell: pwsh
         run: |
           Set-PSRepository PSGallery -InstallationPolicy Trusted
@@ -25,30 +50,26 @@ jobs:
             -inputFile "agent\windows-installer\bootstrap.ps1" `
             -outputFile "staging\PCHUB-Host-Setup.exe" `
             -title "PCHUB Host Setup" `
-            -description "PCHUB host agent installer" `
-            -company "PCHUB" `
-            -product "PCHUB Host" `
-            -copyright "PCHUB" `
             -requireAdmin
-          Get-Item "staging\PCHUB-Host-Setup.exe" | Format-List Name, Length
+          Get-Item "staging\PCHUB-Host-Setup.exe"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: PCHUB-Host-Setup
+          name: PCHUB-Host-Setup-exe
           path: staging/PCHUB-Host-Setup.exe
           retention-days: 14
 
-  publish-installer:
-    needs: build-installer
+  publish-exe:
+    needs: build-exe
+    if: needs.build-exe.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: PCHUB-Host-Setup
+          name: PCHUB-Host-Setup-exe
           path: staging
 
-      - name: Upload installer to droplet
-        uses: appleboy/scp-action@v0.1.7
+      - uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.DROPLET_HOST }}
           username: root

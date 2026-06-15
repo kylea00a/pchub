@@ -6,7 +6,7 @@ import { createPairingCode, getAgentApiUrl, getApiUrl } from "@/lib/api";
 import {
   buildWindowsBundleDownloadUrl,
   buildWindowsDownloadCommand,
-  HOST_INSTALLER_EXE,
+  HOST_INSTALLER_CMD,
   type HostInstallerConfig,
 } from "@/lib/host-installer";
 
@@ -143,18 +143,18 @@ export default function HostPage() {
                 </p>
               )}
               <a
-                href={HOST_INSTALLER_EXE}
+                href={HOST_INSTALLER_CMD}
                 className="mt-4 block w-full pchub-btn-primary px-5 py-2.5 text-center text-sm font-medium text-background"
               >
-                Download PCHUB Host Setup (.exe)
+                Download PCHUB Host Setup
               </a>
               <p className="mt-2 text-xs text-muted">
-                Same installer for everyone. Run it on Windows, paste your pairing code when
-                prompted. Installs to <code className="text-foreground">C:\PCHUB-Host</code>.
+                One download — double-click <code className="text-foreground">PCHUB-Host-Setup.cmd</code>{" "}
+                on Windows, paste your pairing code when asked. Installs to{" "}
+                <code className="text-foreground">C:\PCHUB-Host</code>.
               </p>
-              <p className="mt-2 text-xs text-amber-200/90">
-                Windows may show &quot;Unknown publisher&quot; — click <strong>More info</strong>{" "}
-                → <strong>Run anyway</strong> (we will add code signing later).
+              <p className="mt-2 text-xs text-muted">
+                If Windows blocks it: right-click the file → <strong className="text-foreground">Run as administrator</strong>.
               </p>
               <details className="mt-3 text-xs text-muted">
                 <summary className="cursor-pointer text-foreground">Installer didn&apos;t download?</summary>
@@ -192,14 +192,13 @@ export default function HostPage() {
           <h2 className="font-medium">Step 2 — Windows PC</h2>
           <ol className="mt-4 list-decimal space-y-3 pl-5 text-sm text-muted">
             <li>
-              Double-click <code className="text-foreground">PCHUB-Host-Setup.exe</code>
+              Download <code className="text-foreground">PCHUB-Host-Setup.cmd</code> and double-click it
             </li>
             <li>
-              Paste your pairing code, PC name, and city → click through the wizard
+              Paste your pairing code, PC name, and city when asked
             </li>
             <li>
-              Click <strong className="text-foreground">Yes</strong> if Windows asks for
-              administrator
+              Click <strong className="text-foreground">Yes</strong> if Windows asks for administrator
             </li>
           </ol>
           <p className="mt-4 text-sm text-muted">

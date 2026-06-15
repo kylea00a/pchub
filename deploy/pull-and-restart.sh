@@ -39,6 +39,7 @@ npm install
 command -v unzip >/dev/null 2>&1 || apt-get install -y unzip
 mkdir -p "${APP_DIR}/agent/dist/runtime"
 mkdir -p "${APP_DIR}/deploy/downloads"
+cp -f agent/windows-installer/bootstrap.ps1 deploy/downloads/PCHUB-Host-Setup.ps1
 npm run build:host-bundle -w api
 npm run build:release -w agent
 npm run build -w web
