@@ -5,7 +5,7 @@ Add-Type -AssemblyName System.Drawing
 [System.Windows.Forms.Application]::EnableVisualStyles()
 [System.Windows.Forms.Application]::SetCompatibleTextRenderingDefault($false)
 
-$script:InstallerBuild = "2026.06.10.4"
+$script:InstallerBuild = "2026.06.10.5"
 $script:SiteUrl = "https://pchub.cloud"
 $script:ApiUrl = "https://api.pchub.cloud"
 $script:Dest = "C:\PCHUB-Host"
@@ -409,4 +409,19 @@ $form.Add_Shown({
   if ($script:Step -eq 1) { $txtCode.Focus() }
 })
 
+try {
 [void][System.Windows.Forms.Application]::Run($form)
+} catch {
+  try {
+    [void][System.Windows.Forms.MessageBox]::Show(
+      $_.Exception.Message,
+      "PCHUB Host Setup",
+      [System.Windows.Forms.MessageBoxButtons]::OK,
+      [System.Windows.Forms.MessageBoxIcon]::Error
+    )
+  } catch {
+    Write-Host $_.Exception.Message
+    Read-Host "Press Enter"
+  }
+  exit 1
+}

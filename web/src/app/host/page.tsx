@@ -151,7 +151,7 @@ export default function HostPage() {
               <p className="mt-2 text-xs text-muted">
                 One file — double-click on Windows, paste your pairing code, click Install.
                 Right-click → <strong className="text-foreground">Run as administrator</strong> if prompted.
-                Installer version <strong className="text-foreground">2026.06.10.4</strong> shows top-right.
+                Installer version <strong className="text-foreground">2026.06.10.5</strong> shows top-right.
               </p>
               <details className="mt-3 text-xs text-muted">
                 <summary className="cursor-pointer text-foreground">Installer didn&apos;t download?</summary>

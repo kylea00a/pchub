@@ -1,29 +1,25 @@
 @echo off
 title PCHUB Host Setup
-setlocal
-set PS1=%TEMP%\PCHUB-Host-Setup.ps1
-set EXE=%TEMP%\PCHUB-Host-Setup.exe
+setlocal EnableExtensions
+
 echo.
 echo  PCHUB Host Setup
 echo  ===============
 echo.
-echo  Downloading latest installer...
-curl -fsSL -H "Cache-Control: no-cache" -o "%PS1%" "https://pchub.cloud/downloads/PCHUB-Host-Setup.ps1"
-if not errorlevel 1 (
-  powershell.exe -NoProfile -ExecutionPolicy Bypass -STA -File "%PS1%"
-  set ERR=%ERRORLEVEL%
-  if %ERR% neq 0 pause
-  exit /b %ERR%
-)
-echo  Trying .exe fallback...
-curl -fsSL -H "Cache-Control: no-cache" -o "%EXE%" "https://pchub.cloud/downloads/PCHUB-Host-Setup.exe"
-if not errorlevel 1 (
-  start "" /wait "%EXE%"
-  set ERR=%ERRORLEVEL%
-  if %ERR% neq 0 pause
-  exit /b %ERR%
-)
+echo  Please wait — downloading installer...
 echo.
-echo  Download failed. Open https://pchub.cloud/host in your browser.
-pause
-exit /b 1
+
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -STA -Command ^
+  "$ErrorActionPreference='Stop';" ^
+  "[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12;" ^
+  "$b=Join-Path $env:TEMP 'PCHUB-bootstrap.ps1';" ^
+  "Invoke-WebRequest -Uri 'https://pchub.cloud/downloads/PCHUB-Host-Setup-bootstrap.ps1' -OutFile $b -UseBasicParsing;" ^
+  "& $b"
+
+set ERR=%ERRORLEVEL%
+if %ERR% neq 0 (
+  echo.
+  echo  Setup exited with code %ERR%.
+  pause
+)
+exit /b %ERR%

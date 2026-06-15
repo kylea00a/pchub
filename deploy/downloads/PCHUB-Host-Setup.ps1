@@ -1,100 +1,427 @@
-# PCHUB Host Setup — bootstrap (packaged as PCHUB-Host-Setup.exe)
-# Downloads the host bundle with your pairing code and runs setup.
+# PCHUB Host Setup — graphical wizard (packaged as PCHUB-Host-Setup.exe)
 $ErrorActionPreference = "Stop"
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+[System.Windows.Forms.Application]::EnableVisualStyles()
+[System.Windows.Forms.Application]::SetCompatibleTextRenderingDefault($false)
 
-function Write-Title {
-  Write-Host ""
-  Write-Host "========================================"
-  Write-Host "  PCHUB Host Setup"
-  Write-Host "========================================"
-  Write-Host ""
-}
-
-Write-Title
-Write-Host "Get a pairing code at https://pchub.cloud/host (valid 30 minutes)."
-Write-Host ""
-
-$code = (Read-Host "Pairing code").Trim().ToUpper()
-if (-not $code) {
-  Write-Host "Pairing code is required."
-  Read-Host "Press Enter to exit"
-  exit 1
-}
-
-$name = (Read-Host "PC name [My Gaming PC]").Trim()
-if (-not $name) { $name = "My Gaming PC" }
-
-$city = (Read-Host "City [Manila]").Trim()
-if (-not $city) { $city = "Manila" }
-
-$apiUrl = "https://api.pchub.cloud"
-$siteUrl = "https://pchub.cloud"
-$dest = "C:\PCHUB-Host"
-$zipPath = Join-Path $env:TEMP "PCHUB-Host-Agent.zip"
-
-$query = @{
-  code = $code
-  machineName = $name
-  machineCity = $city
-  apiUrl = $apiUrl
-} | ForEach-Object { $_ } 
-
-$params = @(
-  "code=$([uri]::EscapeDataString($code))"
-  "machineName=$([uri]::EscapeDataString($name))"
-  "machineCity=$([uri]::EscapeDataString($city))"
-  "apiUrl=$([uri]::EscapeDataString($apiUrl))"
-) -join "&"
-
-$bundleUrl = "$siteUrl/api/host/windows-bundle?$params"
-
-Write-Host ""
-Write-Host "Downloading host files..."
-New-Item -ItemType Directory -Force -Path $dest | Out-Null
+$script:InstallerBuild = "2026.06.10.5"
+$script:SiteUrl = "https://pchub.cloud"
+$script:ApiUrl = "https://api.pchub.cloud"
+$script:Dest = "C:\PCHUB-Host"
+$script:Step = 0
+$script:Installing = $false
 
 try {
-  Invoke-WebRequest -Uri $bundleUrl -OutFile $zipPath -UseBasicParsing
-} catch {
-  Write-Host "Download failed: $($_.Exception.Message)"
-  Write-Host "Check your pairing code and try again at pchub.cloud/host"
-  Read-Host "Press Enter to exit"
-  exit 1
-}
-
-Write-Host "Extracting to $dest ..."
-if (Test-Path $dest) {
-  Get-ChildItem $dest -Force | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
-}
-Expand-Archive -Path $zipPath -DestinationPath $dest -Force
-Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
-
-$setup = Join-Path $dest "PCHUB-Setup.ps1"
-if (-not (Test-Path $setup)) {
-  Write-Host "Setup script missing in bundle."
-  Read-Host "Press Enter to exit"
-  exit 1
-}
-
-Write-Host "Running setup (admin prompt may appear)..."
-$proc = Start-Process powershell.exe -Verb RunAs -ArgumentList @(
-  "-NoProfile", "-ExecutionPolicy", "Bypass",
-  "-File", "`"$setup`"", "-Elevated", "-Silent"
-) -PassThru -Wait
-
-if ($proc.ExitCode -ne 0 -and $null -ne $proc.ExitCode) {
-  Write-Host "Setup exited with code $($proc.ExitCode). See $dest\agent.log"
-  if (Test-Path (Join-Path $dest "agent.log")) {
-    Write-Host ""
-    Write-Host "--- agent.log (last lines) ---"
-    Get-Content (Join-Path $dest "agent.log") -Tail 8 | ForEach-Object { Write-Host $_ }
+  if ([enum]::GetNames([Net.SecurityProtocolType]) -contains "Tls12") {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
   }
-  Write-Host ""
-  Write-Host "Tip: If you reinstalled, generate a NEW pairing code at pchub.cloud/host"
-  Write-Host "     or use the same code on the same PC (fix deployed - try again)."
-  Read-Host "Press Enter to exit"
-  exit $proc.ExitCode
+} catch { }
+
+function New-FieldLabel($text, $parent, $y) {
+  $lbl = New-Object System.Windows.Forms.Label
+  $lbl.Text = $text
+  $lbl.AutoSize = $true
+  $lbl.Location = New-Object System.Drawing.Point(28, $y)
+  $lbl.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+  $lbl.ForeColor = [System.Drawing.Color]::FromArgb(70, 70, 80)
+  $lbl.BackColor = $parent.BackColor
+  $parent.Controls.Add($lbl) | Out-Null
+  return $lbl
 }
 
-Write-Host ""
-Write-Host "Done. Your PC should show Online at pchub.cloud shortly."
-Read-Host "Press Enter to close"
+function New-FieldInput($parent, $y, $width) {
+  $tb = New-Object System.Windows.Forms.TextBox
+  $tb.Location = New-Object System.Drawing.Point(28, ($y + 22))
+  $tb.Size = New-Object System.Drawing.Size($width, 30)
+  $tb.Font = New-Object System.Drawing.Font("Segoe UI", 11)
+  $tb.BorderStyle = "Fixed3D"
+  $tb.BackColor = [System.Drawing.SystemColors]::Window
+  $tb.ForeColor = [System.Drawing.SystemColors]::WindowText
+  $parent.Controls.Add($tb) | Out-Null
+  return $tb
+}
+
+$form = New-Object System.Windows.Forms.Form
+$form.Text = "PCHUB Host Setup"
+$form.ClientSize = New-Object System.Drawing.Size(500, 420)
+$form.StartPosition = "CenterScreen"
+$form.FormBorderStyle = "FixedDialog"
+$form.MaximizeBox = $false
+$form.MinimizeBox = $false
+$form.BackColor = [System.Drawing.Color]::FromArgb(18, 18, 22)
+$form.ForeColor = [System.Drawing.Color]::White
+
+$title = New-Object System.Windows.Forms.Label
+$title.Text = "PCHUB Host"
+$title.Font = New-Object System.Drawing.Font("Segoe UI", 16, [System.Drawing.FontStyle]::Bold)
+$title.AutoSize = $true
+$title.Location = New-Object System.Drawing.Point(28, 20)
+$title.ForeColor = [System.Drawing.Color]::FromArgb(120, 200, 255)
+$form.Controls.Add($title) | Out-Null
+
+$subtitle = New-Object System.Windows.Forms.Label
+$subtitle.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+$subtitle.AutoSize = $true
+$subtitle.Location = New-Object System.Drawing.Point(28, 54)
+$subtitle.ForeColor = [System.Drawing.Color]::FromArgb(160, 160, 170)
+$form.Controls.Add($subtitle) | Out-Null
+
+$buildLabel = New-Object System.Windows.Forms.Label
+$buildLabel.Text = "Installer $script:InstallerBuild"
+$buildLabel.AutoSize = $true
+$buildLabel.Location = New-Object System.Drawing.Point(360, 54)
+$buildLabel.Font = New-Object System.Drawing.Font("Segoe UI", 8)
+$buildLabel.ForeColor = [System.Drawing.Color]::FromArgb(100, 100, 110)
+$form.Controls.Add($buildLabel) | Out-Null
+
+$contentTop = 88
+$contentHeight = 248
+
+$panelWelcome = New-Object System.Windows.Forms.Panel
+$panelWelcome.Location = New-Object System.Drawing.Point(0, $contentTop)
+$panelWelcome.Size = New-Object System.Drawing.Size(500, $contentHeight)
+$panelWelcome.BackColor = $form.BackColor
+$form.Controls.Add($panelWelcome) | Out-Null
+
+$welcomeText = New-Object System.Windows.Forms.Label
+$welcomeText.Text = @"
+Welcome! This wizard registers your gaming PC on pchub.cloud.
+
+Get a pairing code at pchub.cloud/host (valid 30 minutes), then click Next.
+"@
+$welcomeText.Location = New-Object System.Drawing.Point(28, 12)
+$welcomeText.Size = New-Object System.Drawing.Size(440, 120)
+$welcomeText.Font = New-Object System.Drawing.Font("Segoe UI", 10)
+$welcomeText.ForeColor = [System.Drawing.Color]::FromArgb(200, 200, 210)
+$panelWelcome.Controls.Add($welcomeText) | Out-Null
+
+$panelDetails = New-Object System.Windows.Forms.Panel
+$panelDetails.Location = New-Object System.Drawing.Point(16, $contentTop)
+$panelDetails.Size = New-Object System.Drawing.Size(468, $contentHeight)
+$panelDetails.BackColor = [System.Drawing.Color]::FromArgb(248, 248, 250)
+$panelDetails.Visible = $false
+$form.Controls.Add($panelDetails) | Out-Null
+
+$y = 8
+New-FieldLabel "Pairing code" $panelDetails $y | Out-Null
+$txtCode = New-FieldInput $panelDetails $y 404
+$txtCode.Font = New-Object System.Drawing.Font("Consolas", 12)
+$txtCode.CharacterCasing = "Upper"
+$txtCode.MaxLength = 12
+
+$y = 72
+New-FieldLabel "PC name" $panelDetails $y | Out-Null
+$txtName = New-FieldInput $panelDetails $y 404
+$txtName.Text = "My Gaming PC"
+
+$y = 136
+New-FieldLabel "City" $panelDetails $y | Out-Null
+$txtCity = New-FieldInput $panelDetails $y 404
+$txtCity.Text = "Manila"
+
+$linkHost = New-Object System.Windows.Forms.LinkLabel
+$linkHost.Text = "Open pchub.cloud/host to get a code"
+$linkHost.AutoSize = $true
+$linkHost.Location = New-Object System.Drawing.Point(28, 200)
+$linkHost.LinkColor = [System.Drawing.Color]::FromArgb(120, 200, 255)
+$linkHost.BackColor = [System.Drawing.Color]::Transparent
+$linkHost.Add_LinkClicked({ Start-Process "https://pchub.cloud/host" })
+$panelDetails.Controls.Add($linkHost) | Out-Null
+
+$panelInstall = New-Object System.Windows.Forms.Panel
+$panelInstall.Location = New-Object System.Drawing.Point(0, $contentTop)
+$panelInstall.Size = New-Object System.Drawing.Size(500, $contentHeight)
+$panelInstall.BackColor = $form.BackColor
+$panelInstall.Visible = $false
+$form.Controls.Add($panelInstall) | Out-Null
+
+$lblInstall = New-Object System.Windows.Forms.Label
+$lblInstall.Location = New-Object System.Drawing.Point(28, 12)
+$lblInstall.Size = New-Object System.Drawing.Size(440, 48)
+$lblInstall.Font = New-Object System.Drawing.Font("Segoe UI", 10)
+$lblInstall.ForeColor = [System.Drawing.Color]::FromArgb(200, 200, 210)
+$panelInstall.Controls.Add($lblInstall) | Out-Null
+
+$progress = New-Object System.Windows.Forms.ProgressBar
+$progress.Location = New-Object System.Drawing.Point(28, 68)
+$progress.Size = New-Object System.Drawing.Size(440, 22)
+$progress.Style = "Marquee"
+$progress.MarqueeAnimationSpeed = 30
+$progress.Visible = $false
+$panelInstall.Controls.Add($progress) | Out-Null
+
+$txtLog = New-Object System.Windows.Forms.TextBox
+$txtLog.Location = New-Object System.Drawing.Point(28, 100)
+$txtLog.Size = New-Object System.Drawing.Size(440, 130)
+$txtLog.Multiline = $true
+$txtLog.ReadOnly = $true
+$txtLog.ScrollBars = "Vertical"
+$txtLog.BackColor = [System.Drawing.Color]::FromArgb(28, 28, 34)
+$txtLog.ForeColor = [System.Drawing.Color]::FromArgb(200, 200, 210)
+$txtLog.Font = New-Object System.Drawing.Font("Consolas", 9)
+$txtLog.BorderStyle = "FixedSingle"
+$txtLog.Visible = $false
+$panelInstall.Controls.Add($txtLog) | Out-Null
+
+$panelDone = New-Object System.Windows.Forms.Panel
+$panelDone.Location = New-Object System.Drawing.Point(0, $contentTop)
+$panelDone.Size = New-Object System.Drawing.Size(500, $contentHeight)
+$panelDone.BackColor = $form.BackColor
+$panelDone.Visible = $false
+$form.Controls.Add($panelDone) | Out-Null
+
+$doneText = New-Object System.Windows.Forms.Label
+$doneText.Text = @"
+Your PC is registered on pchub.cloud.
+
+PCHUB Host opens in your taskbar — keep it running.
+Renters connect with Moonlight (no router setup for you).
+"@
+$doneText.Location = New-Object System.Drawing.Point(28, 12)
+$doneText.Size = New-Object System.Drawing.Size(440, 120)
+$doneText.Font = New-Object System.Drawing.Font("Segoe UI", 10)
+$doneText.ForeColor = [System.Drawing.Color]::FromArgb(200, 200, 210)
+$panelDone.Controls.Add($doneText) | Out-Null
+
+$btnBack = New-Object System.Windows.Forms.Button
+$btnBack.Text = "Back"
+$btnBack.Location = New-Object System.Drawing.Point(28, 352)
+$btnBack.Size = New-Object System.Drawing.Size(100, 36)
+$btnBack.FlatStyle = "Flat"
+$btnBack.BackColor = [System.Drawing.Color]::FromArgb(40, 40, 48)
+$btnBack.ForeColor = [System.Drawing.Color]::White
+$form.Controls.Add($btnBack) | Out-Null
+
+$btnNext = New-Object System.Windows.Forms.Button
+$btnNext.Text = "Next"
+$btnNext.Location = New-Object System.Drawing.Point(368, 352)
+$btnNext.Size = New-Object System.Drawing.Size(100, 36)
+$btnNext.FlatStyle = "Flat"
+$btnNext.BackColor = [System.Drawing.Color]::FromArgb(60, 140, 220)
+$btnNext.ForeColor = [System.Drawing.Color]::White
+$form.Controls.Add($btnNext) | Out-Null
+
+function Show-Step {
+  $panelWelcome.Visible = ($script:Step -eq 0)
+  $panelDetails.Visible = ($script:Step -eq 1)
+  $panelInstall.Visible = ($script:Step -eq 2)
+  $panelDone.Visible = ($script:Step -eq 3)
+
+  if ($script:Step -eq 1) {
+    $panelDetails.BringToFront()
+    $txtCode.Focus()
+    $txtCode.Select()
+  }
+
+  $btnBack.Enabled = ($script:Step -gt 0 -and $script:Step -lt 3 -and -not $script:Installing)
+  $btnNext.Enabled = ($script:Step -ne 2 -or -not $script:Installing)
+
+  switch ($script:Step) {
+    0 { $subtitle.Text = "Step 1 of 3 — Welcome"; $btnNext.Text = "Next" }
+    1 { $subtitle.Text = "Step 2 of 3 — Pair your PC"; $btnNext.Text = "Install" }
+    2 { $subtitle.Text = "Installing…"; $btnNext.Enabled = $false; $btnBack.Enabled = $false }
+    3 { $subtitle.Text = "Finished"; $btnNext.Text = "Finish"; $btnBack.Enabled = $false }
+  }
+}
+
+function Add-InstallLog([string]$Line) {
+  $txtLog.AppendText("$Line`r`n")
+  [System.Windows.Forms.Application]::DoEvents()
+}
+
+function Complete-InstallUi([bool]$Failed) {
+  $progress.Visible = $false
+  $script:Installing = $false
+  if ($Failed) {
+    $btnBack.Enabled = $true
+    $btnNext.Enabled = $true
+    $btnNext.Text = "Retry"
+    Show-Step
+  }
+}
+
+function Install-PchubHost {
+  $script:Installing = $true
+  $progress.Visible = $true
+  $txtLog.Visible = $true
+  $txtLog.Clear()
+  $lblInstall.Text = "Downloading and setting up your host PC…"
+
+  try {
+  $code = $txtCode.Text.Trim().ToUpper()
+  $name = $txtName.Text.Trim()
+  if (-not $name) { $name = "My Gaming PC" }
+  $city = $txtCity.Text.Trim()
+  if (-not $city) { $city = "Manila" }
+
+  $zipPath = Join-Path $env:TEMP "PCHUB-Host-Agent.zip"
+  $params = @(
+    "code=$([uri]::EscapeDataString($code))"
+    "machineName=$([uri]::EscapeDataString($name))"
+    "machineCity=$([uri]::EscapeDataString($city))"
+    "apiUrl=$([uri]::EscapeDataString($script:ApiUrl))"
+  ) -join "&"
+  $bundleUrl = "$($script:SiteUrl)/api/host/windows-bundle?$params"
+
+  New-Item -ItemType Directory -Force -Path $script:Dest | Out-Null
+  Add-InstallLog "Downloading bundle…"
+  try {
+    Invoke-WebRequest -Uri $bundleUrl -OutFile $zipPath -UseBasicParsing
+  } catch {
+    $lblInstall.Text = "Download failed. Check your pairing code."
+    Add-InstallLog "Download failed. Check your pairing code."
+    Add-InstallLog $_.Exception.Message
+    Complete-InstallUi $true
+    return
+  }
+
+  Add-InstallLog "Extracting to $($script:Dest)…"
+  $statePath = Join-Path $script:Dest ".agent-state.json"
+  $keepState = $false
+  if (Test-Path $statePath) {
+    try {
+      $oldState = Get-Content $statePath -Raw | ConvertFrom-Json
+      $oldCode = if ($oldState.pairingCode) { "$($oldState.pairingCode)".Trim().ToUpper() } else { "" }
+      if ($oldCode -eq $code) { $keepState = $true }
+    } catch { }
+  }
+
+  Get-ChildItem $script:Dest -Force -ErrorAction SilentlyContinue |
+    Where-Object { $_.Name -ne ".agent-state.json" -or -not $keepState } |
+    Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+
+  if (-not $keepState -and (Test-Path $statePath)) {
+    Remove-Item $statePath -Force -ErrorAction SilentlyContinue
+    Add-InstallLog "Cleared old registration for new pairing code."
+  }
+
+  Expand-Archive -Path $zipPath -DestinationPath $script:Dest -Force
+  Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
+
+  $configPath = Join-Path $script:Dest "config.json"
+  if (-not (Test-Path $configPath)) {
+    $lblInstall.Text = "Install files incomplete (config.json missing)."
+    Add-InstallLog "ERROR: config.json not found after extract."
+    Get-ChildItem $script:Dest -ErrorAction SilentlyContinue | ForEach-Object { Add-InstallLog "  $($_.Name)" }
+    Complete-InstallUi $true
+    return
+  }
+
+  $runInstall = Join-Path $script:Dest "run-install.ps1"
+  if (-not (Test-Path $runInstall)) {
+    $lblInstall.Text = "Install scripts missing from bundle."
+    Add-InstallLog "ERROR: run-install.ps1 not found"
+    Complete-InstallUi $true
+    return
+  }
+
+  Add-InstallLog "Installing (build $script:InstallerBuild)..."
+  $psi = New-Object System.Diagnostics.ProcessStartInfo
+  $psi.FileName = "$env:WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe"
+  $psi.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$runInstall`" -Silent"
+  $psi.WorkingDirectory = $script:Dest
+  $psi.UseShellExecute = $false
+  $psi.CreateNoWindow = $true
+  $installProc = [System.Diagnostics.Process]::Start($psi)
+  while (-not $installProc.HasExited) {
+    [System.Windows.Forms.Application]::DoEvents()
+    Start-Sleep -Milliseconds 200
+  }
+  $installExit = $installProc.ExitCode
+
+  $setupLog = Join-Path $script:Dest "setup.log"
+  if (Test-Path $setupLog) {
+    Get-Content $setupLog -Tail 28 | ForEach-Object { Add-InstallLog $_ }
+  }
+
+  $registered = $false
+  if (Test-Path $statePath) {
+    try {
+      $st = Get-Content $statePath -Raw | ConvertFrom-Json
+      $registered = [bool]$st.machineId
+    } catch { }
+  }
+
+  if ($installExit -ne 0 -and -not $registered) {
+    $lblInstall.Text = "Setup failed. See log below."
+    Add-InstallLog "Install exit code: $installExit"
+    Complete-InstallUi $true
+    return
+  }
+
+  if ($installExit -ne 0) {
+    Add-InstallLog "Finished with warnings — PC is registered."
+  }
+
+  $script:Step = 3
+  $progress.Visible = $false
+  $script:Installing = $false
+  Show-Step
+
+  } catch {
+    $lblInstall.Text = "Unexpected error during install."
+    Add-InstallLog $_.Exception.Message
+    Complete-InstallUi $true
+  }
+}
+
+$btnBack.Add_Click({
+  if ($script:Step -gt 0 -and -not $script:Installing) {
+    $script:Step--
+    Show-Step
+  }
+})
+
+$btnNext.Add_Click({
+  if ($script:Step -eq 0) {
+    $script:Step = 1
+    Show-Step
+    return
+  }
+  if ($script:Step -eq 1) {
+    if (-not $txtCode.Text.Trim()) {
+      [System.Windows.Forms.MessageBox]::Show(
+        "Enter your pairing code from pchub.cloud/host",
+        "PCHUB Host Setup",
+        [System.Windows.Forms.MessageBoxButtons]::OK,
+        [System.Windows.Forms.MessageBoxIcon]::Warning
+      ) | Out-Null
+      $txtCode.Focus()
+      return
+    }
+    $script:Step = 2
+    Show-Step
+    Install-PchubHost
+    return
+  }
+  if ($script:Step -eq 2 -and -not $script:Installing) {
+    Install-PchubHost
+    return
+  }
+  if ($script:Step -eq 3) {
+    $form.Close()
+  }
+})
+
+$form.Add_Shown({
+  Show-Step
+  if ($script:Step -eq 1) { $txtCode.Focus() }
+})
+
+try {
+[void][System.Windows.Forms.Application]::Run($form)
+} catch {
+  try {
+    [void][System.Windows.Forms.MessageBox]::Show(
+      $_.Exception.Message,
+      "PCHUB Host Setup",
+      [System.Windows.Forms.MessageBoxButtons]::OK,
+      [System.Windows.Forms.MessageBoxIcon]::Error
+    )
+  } catch {
+    Write-Host $_.Exception.Message
+    Read-Host "Press Enter"
+  }
+  exit 1
+}
