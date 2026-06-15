@@ -149,9 +149,16 @@ export default function HostPage() {
                 Download PCHUB Host Setup
               </a>
               <p className="mt-2 text-xs text-muted">
-                One file — double-click on Windows, paste your pairing code, click Install.
-                Right-click → <strong className="text-foreground">Run as administrator</strong> if prompted.
-                Installer version <strong className="text-foreground">2026.06.10.5</strong> shows top-right.
+                Double-click <code className="text-foreground">PCHUB-Host-Setup.cmd</code> on Windows.
+                Click <strong className="text-foreground">Yes</strong> when Windows asks for administrator.
+                Wizard shows <strong className="text-foreground">Installer 2026.06.10.6</strong> top-right.
+              </p>
+              <p className="mt-2 text-xs text-muted">
+                If CMD closes instantly: try{" "}
+                <a href="/downloads/PCHUB-Host-Setup.vbs" className="text-accent hover:underline">
+                  PCHUB-Host-Setup.vbs
+                </a>{" "}
+                instead (same install, different launcher).
               </p>
               <details className="mt-3 text-xs text-muted">
                 <summary className="cursor-pointer text-foreground">Installer didn&apos;t download?</summary>

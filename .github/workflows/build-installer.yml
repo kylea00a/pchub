@@ -21,13 +21,14 @@ jobs:
           cp agent/windows-installer/setup-wizard.ps1 staging/PCHUB-Host-Setup.ps1
           cp agent/windows-installer/bootstrap-launcher.ps1 staging/PCHUB-Host-Setup-bootstrap.ps1
           cp deploy/downloads/PCHUB-Host-Setup.cmd staging/PCHUB-Host-Setup.cmd
+          cp deploy/downloads/PCHUB-Host-Setup.vbs staging/PCHUB-Host-Setup.vbs
 
       - uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.DROPLET_HOST }}
           username: root
           key: ${{ secrets.DROPLET_SSH_KEY }}
-          source: "staging/PCHUB-Host-Setup.ps1,staging/PCHUB-Host-Setup-bootstrap.ps1,staging/PCHUB-Host-Setup.cmd"
+          source: "staging/PCHUB-Host-Setup.ps1,staging/PCHUB-Host-Setup-bootstrap.ps1,staging/PCHUB-Host-Setup.cmd,staging/PCHUB-Host-Setup.vbs"
           target: "/var/www/pchub/deploy/downloads"
           strip_components: 1
 

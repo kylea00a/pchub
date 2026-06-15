@@ -1,4 +1,4 @@
-# PCHUB Host Setup bootstrap (downloaded by PCHUB-Host-Setup.cmd)
+# PCHUB Host Setup bootstrap (run as admin via PCHUB-Host-Setup.cmd)
 $ErrorActionPreference = "Stop"
 
 function Show-ErrorAndWait([string]$Message) {
@@ -14,26 +14,6 @@ function Show-ErrorAndWait([string]$Message) {
     Write-Host ""
     Write-Host $Message -ForegroundColor Red
     Read-Host "Press Enter to close"
-  }
-}
-
-$isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
-  [Security.Principal.WindowsBuiltInRole]::Administrator
-)
-if (-not $isAdmin) {
-  try {
-    $hostCmd = (Get-Command powershell.exe).Source
-    $bootstrapUrl = "https://pchub.cloud/downloads/PCHUB-Host-Setup-bootstrap.ps1"
-    $arg = @(
-      "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-STA",
-      "-Command",
-      "& { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; `$p = Join-Path `$env:TEMP 'PCHUB-bootstrap.ps1'; Invoke-WebRequest -Uri '$bootstrapUrl' -OutFile `$p -UseBasicParsing; & `$p }"
-    )
-    Start-Process -FilePath $hostCmd -Verb RunAs -ArgumentList $arg
-    exit 0
-  } catch {
-    Show-ErrorAndWait "Could not request administrator access. Right-click PCHUB-Host-Setup.cmd and choose Run as administrator."
-    exit 1
   }
 }
 
