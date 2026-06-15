@@ -1,0 +1,14 @@
+# Launcher for install-core.ps1 (ExecutionPolicy Bypass via -File)
+param([switch]$Silent)
+
+$Root = $PSScriptRoot
+$core = Join-Path $Root "install-core.ps1"
+if (-not (Test-Path $core)) {
+  Write-Error "install-core.ps1 not found"
+  exit 1
+}
+
+. $core
+$result = Invoke-PchubHostInstall -Root $Root -Silent:$Silent
+if (-not $result.Success) { exit 1 }
+exit 0

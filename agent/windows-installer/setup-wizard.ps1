@@ -5,7 +5,7 @@ Add-Type -AssemblyName System.Drawing
 [System.Windows.Forms.Application]::EnableVisualStyles()
 [System.Windows.Forms.Application]::SetCompatibleTextRenderingDefault($false)
 
-$script:InstallerBuild = "2026.06.10.3"
+$script:InstallerBuild = "2026.06.10.4"
 $script:SiteUrl = "https://pchub.cloud"
 $script:ApiUrl = "https://api.pchub.cloud"
 $script:Dest = "C:\PCHUB-Host"
@@ -230,13 +230,25 @@ function Add-InstallLog([string]$Line) {
   [System.Windows.Forms.Application]::DoEvents()
 }
 
+function Complete-InstallUi([bool]$Failed) {
+  $progress.Visible = $false
+  $script:Installing = $false
+  if ($Failed) {
+    $btnBack.Enabled = $true
+    $btnNext.Enabled = $true
+    $btnNext.Text = "Retry"
+    Show-Step
+  }
+}
+
 function Install-PchubHost {
   $script:Installing = $true
   $progress.Visible = $true
   $txtLog.Visible = $true
   $txtLog.Clear()
-  $lblInstall.Text = "Downloading host files and setting up Sunshine + relay…"
+  $lblInstall.Text = "Downloading and setting up your host PC…"
 
+  try {
   $code = $txtCode.Text.Trim().ToUpper()
   $name = $txtName.Text.Trim()
   if (-not $name) { $name = "My Gaming PC" }
@@ -258,12 +270,9 @@ function Install-PchubHost {
     Invoke-WebRequest -Uri $bundleUrl -OutFile $zipPath -UseBasicParsing
   } catch {
     $lblInstall.Text = "Download failed. Check your pairing code."
+    Add-InstallLog "Download failed. Check your pairing code."
     Add-InstallLog $_.Exception.Message
-    $progress.Visible = $false
-    $script:Installing = $false
-    $btnBack.Enabled = $true
-    $btnNext.Enabled = $true
-    $btnNext.Text = "Retry"
+    Complete-InstallUi $true
     return
   }
 
@@ -295,69 +304,66 @@ function Install-PchubHost {
     $lblInstall.Text = "Install files incomplete (config.json missing)."
     Add-InstallLog "ERROR: config.json not found after extract."
     Get-ChildItem $script:Dest -ErrorAction SilentlyContinue | ForEach-Object { Add-InstallLog "  $($_.Name)" }
-    $progress.Visible = $false
-    $script:Installing = $false
-    $btnBack.Enabled = $true
-    $btnNext.Enabled = $true
-    $btnNext.Text = "Retry"
+    Complete-InstallUi $true
     return
   }
 
-  Add-InstallLog "Downloading status app…"
-  $statusExe = Join-Path $script:Dest "PCHUB-Status.exe"
-  try {
-    Invoke-WebRequest -Uri "$($script:SiteUrl)/downloads/PCHUB-Status.exe" -OutFile $statusExe -UseBasicParsing
-  } catch {
-    Add-InstallLog "Status app download skipped (built-in fallback will be used)."
-  }
-
-  $core = Join-Path $script:Dest "install-core.ps1"
-  if (-not (Test-Path $core)) {
-    $lblInstall.Text = "install-core.ps1 missing from bundle."
-    $script:Installing = $false
-    $btnBack.Enabled = $true
-    $btnNext.Enabled = $true
+  $runInstall = Join-Path $script:Dest "run-install.ps1"
+  if (-not (Test-Path $runInstall)) {
+    $lblInstall.Text = "Install scripts missing from bundle."
+    Add-InstallLog "ERROR: run-install.ps1 not found"
+    Complete-InstallUi $true
     return
   }
 
   Add-InstallLog "Installing (build $script:InstallerBuild)..."
-  Set-Location $script:Dest
-  . $core
-  $result = Invoke-PchubHostInstall -Root $script:Dest -Silent
+  $psi = New-Object System.Diagnostics.ProcessStartInfo
+  $psi.FileName = "$env:WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe"
+  $psi.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$runInstall`" -Silent"
+  $psi.WorkingDirectory = $script:Dest
+  $psi.UseShellExecute = $false
+  $psi.CreateNoWindow = $true
+  $installProc = [System.Diagnostics.Process]::Start($psi)
+  while (-not $installProc.HasExited) {
+    [System.Windows.Forms.Application]::DoEvents()
+    Start-Sleep -Milliseconds 200
+  }
+  $installExit = $installProc.ExitCode
 
   $setupLog = Join-Path $script:Dest "setup.log"
   if (Test-Path $setupLog) {
-    Get-Content $setupLog -Tail 24 | ForEach-Object { Add-InstallLog $_ }
+    Get-Content $setupLog -Tail 28 | ForEach-Object { Add-InstallLog $_ }
   }
 
-  $statePath = Join-Path $script:Dest ".agent-state.json"
-  $registered = $result.Success
-  if (-not $registered -and (Test-Path $statePath)) {
+  $registered = $false
+  if (Test-Path $statePath) {
     try {
       $st = Get-Content $statePath -Raw | ConvertFrom-Json
       $registered = [bool]$st.machineId
     } catch { }
   }
 
-  if (-not $registered) {
+  if ($installExit -ne 0 -and -not $registered) {
     $lblInstall.Text = "Setup failed. See log below."
-    Add-InstallLog "Registration did not complete."
-    $progress.Visible = $false
-    $script:Installing = $false
-    $btnBack.Enabled = $true
-    $btnNext.Enabled = $true
-    $btnNext.Text = "Retry"
+    Add-InstallLog "Install exit code: $installExit"
+    Complete-InstallUi $true
     return
   }
 
-  if ($result.ExitCode -ne 0) {
+  if ($installExit -ne 0) {
     Add-InstallLog "Finished with warnings — PC is registered."
   }
 
+  $script:Step = 3
   $progress.Visible = $false
   $script:Installing = $false
-  $script:Step = 3
   Show-Step
+
+  } catch {
+    $lblInstall.Text = "Unexpected error during install."
+    Add-InstallLog $_.Exception.Message
+    Complete-InstallUi $true
+  }
 }
 
 $btnBack.Add_Click({

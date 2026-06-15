@@ -1,4 +1,4 @@
-# PCHUB one-click host setup (PowerShell - survives Windows Defender better than .bat)
+# PCHUB one-click host setup
 param([switch]$Elevated, [switch]$Silent)
 
 $Root = $PSScriptRoot
@@ -22,16 +22,15 @@ if (-not $Elevated) {
   }
 }
 
-$core = Join-Path $Root "install-core.ps1"
-if (-not (Test-Path $core)) {
-  Write-Host "install-core.ps1 missing — re-download from pchub.cloud/host"
+$runInstall = Join-Path $Root "run-install.ps1"
+if (-not (Test-Path $runInstall)) {
+  Write-Host "run-install.ps1 missing — re-download from pchub.cloud/host"
   if (-not $Silent) { Read-Host "Press Enter to exit" }
   exit 1
 }
 
-. $core
-$result = Invoke-PchubHostInstall -Root $Root -Silent:$Silent
-if (-not $result.Success) {
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File $runInstall -Silent
+if ($LASTEXITCODE -ne 0) {
   if (-not $Silent) { Read-Host "Press Enter to exit" }
   exit 1
 }
