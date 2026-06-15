@@ -24,7 +24,7 @@ OutputBaseFilename=PCHUB-Host-Setup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
-UninstallDisplayIcon={app}\RUN-PCHUB.cmd
+ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 
 [Languages]
@@ -52,7 +52,7 @@ Name: "{autoprograms}\{#AppName}"; Filename: "{app}\Start PCHUB Agent.bat"; Work
 Name: "{autodesktop}\{#AppName}"; Filename: "{app}\Start PCHUB Agent.bat"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Run]
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\PCHUB-Setup.ps1"" -Elevated -Silent"; Description: "Set up PCHUB host agent"; Flags: postinstall runascurrentuser waituntilterminated
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\PCHUB-Setup.ps1"" -Elevated -Silent"; Description: "Set up PCHUB host agent"; Flags: postinstall waituntilterminated
 
 [Code]
 var
