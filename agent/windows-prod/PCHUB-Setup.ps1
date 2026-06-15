@@ -69,9 +69,16 @@ if ($hadState) {
 }
 
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $hostPs1 -Once
-if ($LASTEXITCODE -ne 0) {
+$agentExit = $LASTEXITCODE
+if ($null -eq $agentExit) { $agentExit = 0 }
+if ($agentExit -ne 0) {
   Write-Host ""
   Write-Host "Setup failed. Open agent.log in this folder."
+  if (Test-Path (Join-Path $Root "agent.log")) {
+    Write-Host ""
+    Write-Host "--- agent.log (last lines) ---"
+    Get-Content (Join-Path $Root "agent.log") -Tail 8 | ForEach-Object { Write-Host $_ }
+  }
   if (-not $Silent) { Read-Host "Press Enter to exit" }
   exit 1
 }

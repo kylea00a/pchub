@@ -53,10 +53,10 @@ function Invoke-PchubApi {
   } catch {
     $err = $_.ErrorDetails.Message
     if ($err) {
-      try {
-        $parsed = $err | ConvertFrom-Json
-        if ($parsed.error) { throw $parsed.error }
-      } catch { }
+      $parsed = $err | ConvertFrom-Json -ErrorAction SilentlyContinue
+      if ($parsed -and $parsed.error) {
+        throw $parsed.error
+      }
     }
     throw $_.Exception.Message
   }
@@ -77,7 +77,7 @@ function Register-Machine($Config) {
     $result = Invoke-PchubApi -ApiRoot $Config.apiUrl -Path "/api/agents/register" -Method "POST" -Body $body
   } catch {
     $msg = $_.Exception.Message
-    if ($msg -match "already used") {
+    if ($msg -match "already used" -or $msg -match "409") {
       Write-Log "Pairing code already used - restoring existing registration..."
       $result = Invoke-PchubApi -ApiRoot $Config.apiUrl -Path "/api/agents/rejoin" -Method "POST" -Body @{
         pairingCode = $body.pairingCode

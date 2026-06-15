@@ -81,8 +81,16 @@ $proc = Start-Process powershell.exe -Verb RunAs -ArgumentList @(
   "-File", "`"$setup`"", "-Elevated", "-Silent"
 ) -PassThru -Wait
 
-if ($proc.ExitCode -ne 0) {
+if ($proc.ExitCode -ne 0 -and $null -ne $proc.ExitCode) {
   Write-Host "Setup exited with code $($proc.ExitCode). See $dest\agent.log"
+  if (Test-Path (Join-Path $dest "agent.log")) {
+    Write-Host ""
+    Write-Host "--- agent.log (last lines) ---"
+    Get-Content (Join-Path $dest "agent.log") -Tail 8 | ForEach-Object { Write-Host $_ }
+  }
+  Write-Host ""
+  Write-Host "Tip: If you reinstalled, generate a NEW pairing code at pchub.cloud/host"
+  Write-Host "     or use the same code on the same PC (fix deployed - try again)."
   Read-Host "Press Enter to exit"
   exit $proc.ExitCode
 }
