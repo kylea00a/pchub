@@ -2,6 +2,17 @@
 param([switch]$Elevated, [switch]$Silent)
 
 $Root = $PSScriptRoot
+$setupLog = Join-Path $Root "setup.log"
+
+function Write-SetupLog([string]$Message) {
+  $line = "[{0}] {1}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"), $Message
+  Add-Content -Path $setupLog -Value $line -Encoding UTF8
+  if (-not $Silent) { Write-Host $Message }
+}
+
+if ($Silent) {
+  try { Start-Transcript -Path $setupLog -Append -ErrorAction SilentlyContinue | Out-Null } catch { }
+}
 if ($PSScriptRoot -match '\\Temp\\|\\AppData\\Local\\Temp') {
   Write-Host ""
   Write-Host "STOP - You are running from inside the zip file."
@@ -73,14 +84,12 @@ if ($hadState) {
 $agentExit = $LASTEXITCODE
 if ($null -eq $agentExit) { $agentExit = 0 }
 if ($agentExit -ne 0) {
-  Write-Host ""
-  Write-Host "Setup failed. Open agent.log in this folder."
+  Write-SetupLog "Agent registration failed (exit $agentExit)."
   if (Test-Path (Join-Path $Root "agent.log")) {
-    Write-Host ""
-    Write-Host "--- agent.log (last lines) ---"
-    Get-Content (Join-Path $Root "agent.log") -Tail 8 | ForEach-Object { Write-Host $_ }
+    Get-Content (Join-Path $Root "agent.log") -Tail 8 | ForEach-Object { Write-SetupLog $_ }
   }
   if (-not $Silent) { Read-Host "Press Enter to exit" }
+  if ($Silent) { try { Stop-Transcript | Out-Null } catch { } }
   exit 1
 }
 
@@ -151,4 +160,5 @@ Write-Host "  Moonlight streaming via PCHUB relay — no router setup for owners
 Write-Host "  Desktop shortcut: PCHUB Host (status app)"
 Write-Host "  Logs:    $Root\agent.log"
 Write-Host ""
+if ($Silent) { try { Stop-Transcript | Out-Null } catch { } }
 if (-not $Silent) { Read-Host "Press Enter to close" }

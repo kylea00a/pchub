@@ -9,144 +9,169 @@ $script:Dest = "C:\PCHUB-Host"
 $script:Step = 0
 $script:Installing = $false
 
-function New-Label($text, $x, $y, $w, $parent, $muted) {
+function New-FieldLabel($text, $parent, $y) {
   $lbl = New-Object System.Windows.Forms.Label
   $lbl.Text = $text
-  $lbl.Location = New-Object System.Drawing.Point($x, $y)
-  $lbl.Size = New-Object System.Drawing.Size($w, 40)
-  $lbl.Font = New-Object System.Drawing.Font("Segoe UI", 10)
-  if ($muted) { $lbl.ForeColor = [System.Drawing.Color]::FromArgb(100, 100, 110) }
+  $lbl.AutoSize = $true
+  $lbl.Location = New-Object System.Drawing.Point(28, $y)
+  $lbl.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+  $lbl.ForeColor = [System.Drawing.Color]::FromArgb(170, 170, 180)
+  $lbl.BackColor = [System.Drawing.Color]::Transparent
   $parent.Controls.Add($lbl) | Out-Null
   return $lbl
 }
 
+function New-FieldInput($parent, $y, $width) {
+  $tb = New-Object System.Windows.Forms.TextBox
+  $tb.Location = New-Object System.Drawing.Point(28, ($y + 22))
+  $tb.Size = New-Object System.Drawing.Size($width, 30)
+  $tb.Font = New-Object System.Drawing.Font("Segoe UI", 11)
+  $tb.BorderStyle = "FixedSingle"
+  $tb.BackColor = [System.Drawing.Color]::White
+  $tb.ForeColor = [System.Drawing.Color]::Black
+  $parent.Controls.Add($tb) | Out-Null
+  return $tb
+}
+
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "PCHUB Host Setup"
-$form.Size = New-Object System.Drawing.Size(540, 460)
+$form.ClientSize = New-Object System.Drawing.Size(500, 420)
 $form.StartPosition = "CenterScreen"
 $form.FormBorderStyle = "FixedDialog"
 $form.MaximizeBox = $false
 $form.MinimizeBox = $false
+$form.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Dpi
 $form.BackColor = [System.Drawing.Color]::FromArgb(18, 18, 22)
 $form.ForeColor = [System.Drawing.Color]::White
 
 $title = New-Object System.Windows.Forms.Label
 $title.Text = "PCHUB Host"
 $title.Font = New-Object System.Drawing.Font("Segoe UI", 16, [System.Drawing.FontStyle]::Bold)
-$title.Location = New-Object System.Drawing.Point(24, 16)
-$title.Size = New-Object System.Drawing.Size(480, 36)
+$title.AutoSize = $true
+$title.Location = New-Object System.Drawing.Point(28, 20)
 $title.ForeColor = [System.Drawing.Color]::FromArgb(120, 200, 255)
 $form.Controls.Add($title) | Out-Null
 
 $subtitle = New-Object System.Windows.Forms.Label
 $subtitle.Font = New-Object System.Drawing.Font("Segoe UI", 9)
-$subtitle.Location = New-Object System.Drawing.Point(24, 52)
-$subtitle.Size = New-Object System.Drawing.Size(480, 24)
+$subtitle.AutoSize = $true
+$subtitle.Location = New-Object System.Drawing.Point(28, 54)
 $subtitle.ForeColor = [System.Drawing.Color]::FromArgb(160, 160, 170)
 $form.Controls.Add($subtitle) | Out-Null
 
+$contentTop = 88
+$contentHeight = 248
+
 $panelWelcome = New-Object System.Windows.Forms.Panel
-$panelWelcome.Location = New-Object System.Drawing.Point(0, 88)
-$panelWelcome.Size = New-Object System.Drawing.Size(540, 260)
+$panelWelcome.Location = New-Object System.Drawing.Point(0, $contentTop)
+$panelWelcome.Size = New-Object System.Drawing.Size(500, $contentHeight)
 $panelWelcome.BackColor = $form.BackColor
 $form.Controls.Add($panelWelcome) | Out-Null
-New-Label @"
-Welcome! This wizard registers your gaming PC on pchub.cloud so renters can book it.
 
-You need a pairing code from pchub.cloud/host (valid 30 minutes).
+$welcomeText = New-Object System.Windows.Forms.Label
+$welcomeText.Text = @"
+Welcome! This wizard registers your gaming PC on pchub.cloud.
 
-Click Next to enter your code.
-"@ 24 8 480 $panelWelcome $true | Out-Null
+Get a pairing code at pchub.cloud/host (valid 30 minutes), then click Next.
+"@
+$welcomeText.Location = New-Object System.Drawing.Point(28, 12)
+$welcomeText.Size = New-Object System.Drawing.Size(440, 120)
+$welcomeText.Font = New-Object System.Drawing.Font("Segoe UI", 10)
+$welcomeText.ForeColor = [System.Drawing.Color]::FromArgb(200, 200, 210)
+$panelWelcome.Controls.Add($welcomeText) | Out-Null
 
 $panelDetails = New-Object System.Windows.Forms.Panel
-$panelDetails.Location = New-Object System.Drawing.Point(0, 88)
-$panelDetails.Size = New-Object System.Drawing.Size(540, 260)
+$panelDetails.Location = New-Object System.Drawing.Point(0, $contentTop)
+$panelDetails.Size = New-Object System.Drawing.Size(500, $contentHeight)
 $panelDetails.BackColor = $form.BackColor
 $panelDetails.Visible = $false
 $form.Controls.Add($panelDetails) | Out-Null
 
-New-Label "Pairing code" 24 8 200 $panelDetails $true | Out-Null
-$txtCode = New-Object System.Windows.Forms.TextBox
-$txtCode.Location = New-Object System.Drawing.Point(24, 32)
-$txtCode.Size = New-Object System.Drawing.Size(200, 28)
+$y = 8
+New-FieldLabel "Pairing code" $panelDetails $y | Out-Null
+$txtCode = New-FieldInput $panelDetails $y 220
 $txtCode.Font = New-Object System.Drawing.Font("Consolas", 12)
 $txtCode.CharacterCasing = "Upper"
-$panelDetails.Controls.Add($txtCode) | Out-Null
+$txtCode.MaxLength = 12
 
-New-Label "PC name" 24 72 200 $panelDetails $true | Out-Null
-$txtName = New-Object System.Windows.Forms.TextBox
-$txtName.Location = New-Object System.Drawing.Point(24, 96)
-$txtName.Size = New-Object System.Drawing.Size(280, 28)
+$y = 72
+New-FieldLabel "PC name" $panelDetails $y | Out-Null
+$txtName = New-FieldInput $panelDetails $y 360
 $txtName.Text = "My Gaming PC"
-$panelDetails.Controls.Add($txtName) | Out-Null
 
-New-Label "City" 24 136 200 $panelDetails $true | Out-Null
-$txtCity = New-Object System.Windows.Forms.TextBox
-$txtCity.Location = New-Object System.Drawing.Point(24, 160)
-$txtCity.Size = New-Object System.Drawing.Size(280, 28)
+$y = 136
+New-FieldLabel "City" $panelDetails $y | Out-Null
+$txtCity = New-FieldInput $panelDetails $y 360
 $txtCity.Text = "Manila"
-$panelDetails.Controls.Add($txtCity) | Out-Null
 
 $linkHost = New-Object System.Windows.Forms.LinkLabel
 $linkHost.Text = "Open pchub.cloud/host to get a code"
-$linkHost.Location = New-Object System.Drawing.Point(24, 200)
-$linkHost.Size = New-Object System.Drawing.Size(400, 24)
+$linkHost.AutoSize = $true
+$linkHost.Location = New-Object System.Drawing.Point(28, 200)
 $linkHost.LinkColor = [System.Drawing.Color]::FromArgb(120, 200, 255)
+$linkHost.BackColor = [System.Drawing.Color]::Transparent
 $linkHost.Add_LinkClicked({ Start-Process "https://pchub.cloud/host" })
 $panelDetails.Controls.Add($linkHost) | Out-Null
 
 $panelInstall = New-Object System.Windows.Forms.Panel
-$panelInstall.Location = New-Object System.Drawing.Point(0, 88)
-$panelInstall.Size = New-Object System.Drawing.Size(540, 260)
+$panelInstall.Location = New-Object System.Drawing.Point(0, $contentTop)
+$panelInstall.Size = New-Object System.Drawing.Size(500, $contentHeight)
 $panelInstall.BackColor = $form.BackColor
 $panelInstall.Visible = $false
 $form.Controls.Add($panelInstall) | Out-Null
 
 $lblInstall = New-Object System.Windows.Forms.Label
-$lblInstall.Location = New-Object System.Drawing.Point(24, 16)
-$lblInstall.Size = New-Object System.Drawing.Size(480, 60)
+$lblInstall.Location = New-Object System.Drawing.Point(28, 12)
+$lblInstall.Size = New-Object System.Drawing.Size(440, 48)
 $lblInstall.Font = New-Object System.Drawing.Font("Segoe UI", 10)
 $lblInstall.ForeColor = [System.Drawing.Color]::FromArgb(200, 200, 210)
 $panelInstall.Controls.Add($lblInstall) | Out-Null
 
 $progress = New-Object System.Windows.Forms.ProgressBar
-$progress.Location = New-Object System.Drawing.Point(24, 88)
-$progress.Size = New-Object System.Drawing.Size(480, 24)
+$progress.Location = New-Object System.Drawing.Point(28, 68)
+$progress.Size = New-Object System.Drawing.Size(440, 22)
 $progress.Style = "Marquee"
 $progress.MarqueeAnimationSpeed = 30
 $progress.Visible = $false
 $panelInstall.Controls.Add($progress) | Out-Null
 
 $txtLog = New-Object System.Windows.Forms.TextBox
-$txtLog.Location = New-Object System.Drawing.Point(24, 128)
-$txtLog.Size = New-Object System.Drawing.Size(480, 120)
+$txtLog.Location = New-Object System.Drawing.Point(28, 100)
+$txtLog.Size = New-Object System.Drawing.Size(440, 130)
 $txtLog.Multiline = $true
 $txtLog.ReadOnly = $true
 $txtLog.ScrollBars = "Vertical"
 $txtLog.BackColor = [System.Drawing.Color]::FromArgb(28, 28, 34)
 $txtLog.ForeColor = [System.Drawing.Color]::FromArgb(200, 200, 210)
 $txtLog.Font = New-Object System.Drawing.Font("Consolas", 9)
+$txtLog.BorderStyle = "FixedSingle"
 $txtLog.Visible = $false
 $panelInstall.Controls.Add($txtLog) | Out-Null
 
 $panelDone = New-Object System.Windows.Forms.Panel
-$panelDone.Location = New-Object System.Drawing.Point(0, 88)
-$panelDone.Size = New-Object System.Drawing.Size(540, 260)
+$panelDone.Location = New-Object System.Drawing.Point(0, $contentTop)
+$panelDone.Size = New-Object System.Drawing.Size(500, $contentHeight)
 $panelDone.BackColor = $form.BackColor
 $panelDone.Visible = $false
 $form.Controls.Add($panelDone) | Out-Null
-New-Label @"
-Your PC is being registered on pchub.cloud.
 
-PCHUB Host Status will open in your taskbar — keep it running.
+$doneText = New-Object System.Windows.Forms.Label
+$doneText.Text = @"
+Your PC is registered on pchub.cloud.
 
-Renters connect via Moonlight. No router setup needed on your end.
-"@ 24 8 480 $panelDone $true | Out-Null
+PCHUB Host opens in your taskbar — keep it running.
+Renters connect with Moonlight (no router setup for you).
+"@
+$doneText.Location = New-Object System.Drawing.Point(28, 12)
+$doneText.Size = New-Object System.Drawing.Size(440, 120)
+$doneText.Font = New-Object System.Drawing.Font("Segoe UI", 10)
+$doneText.ForeColor = [System.Drawing.Color]::FromArgb(200, 200, 210)
+$panelDone.Controls.Add($doneText) | Out-Null
 
 $btnBack = New-Object System.Windows.Forms.Button
 $btnBack.Text = "Back"
-$btnBack.Location = New-Object System.Drawing.Point(24, 368)
-$btnBack.Size = New-Object System.Drawing.Size(100, 32)
+$btnBack.Location = New-Object System.Drawing.Point(28, 352)
+$btnBack.Size = New-Object System.Drawing.Size(100, 36)
 $btnBack.FlatStyle = "Flat"
 $btnBack.BackColor = [System.Drawing.Color]::FromArgb(40, 40, 48)
 $btnBack.ForeColor = [System.Drawing.Color]::White
@@ -154,8 +179,8 @@ $form.Controls.Add($btnBack) | Out-Null
 
 $btnNext = New-Object System.Windows.Forms.Button
 $btnNext.Text = "Next"
-$btnNext.Location = New-Object System.Drawing.Point(404, 368)
-$btnNext.Size = New-Object System.Drawing.Size(100, 32)
+$btnNext.Location = New-Object System.Drawing.Point(368, 352)
+$btnNext.Size = New-Object System.Drawing.Size(100, 36)
 $btnNext.FlatStyle = "Flat"
 $btnNext.BackColor = [System.Drawing.Color]::FromArgb(60, 140, 220)
 $btnNext.ForeColor = [System.Drawing.Color]::White
@@ -166,7 +191,16 @@ function Show-Step {
   $panelDetails.Visible = ($script:Step -eq 1)
   $panelInstall.Visible = ($script:Step -eq 2)
   $panelDone.Visible = ($script:Step -eq 3)
+
+  if ($script:Step -eq 1) {
+    $panelDetails.BringToFront()
+    $txtCode.Focus()
+    $txtCode.Select()
+  }
+
   $btnBack.Enabled = ($script:Step -gt 0 -and $script:Step -lt 3 -and -not $script:Installing)
+  $btnNext.Enabled = ($script:Step -ne 2 -or -not $script:Installing)
+
   switch ($script:Step) {
     0 { $subtitle.Text = "Step 1 of 3 — Welcome"; $btnNext.Text = "Next" }
     1 { $subtitle.Text = "Step 2 of 3 — Pair your PC"; $btnNext.Text = "Install" }
@@ -184,6 +218,7 @@ function Install-PchubHost {
   $script:Installing = $true
   $progress.Visible = $true
   $txtLog.Visible = $true
+  $txtLog.Clear()
   $lblInstall.Text = "Downloading host files and setting up Sunshine + relay…"
 
   $code = $txtCode.Text.Trim().ToUpper()
@@ -217,9 +252,25 @@ function Install-PchubHost {
   }
 
   Add-InstallLog "Extracting to $($script:Dest)…"
+  $statePath = Join-Path $script:Dest ".agent-state.json"
+  $keepState = $false
+  if (Test-Path $statePath) {
+    try {
+      $oldState = Get-Content $statePath -Raw | ConvertFrom-Json
+      $oldCode = if ($oldState.pairingCode) { "$($oldState.pairingCode)".Trim().ToUpper() } else { "" }
+      if ($oldCode -eq $code) { $keepState = $true }
+    } catch { }
+  }
+
   Get-ChildItem $script:Dest -Force -ErrorAction SilentlyContinue |
-    Where-Object { $_.Name -ne ".agent-state.json" } |
+    Where-Object { $_.Name -ne ".agent-state.json" -or -not $keepState } |
     Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+
+  if (-not $keepState -and (Test-Path $statePath)) {
+    Remove-Item $statePath -Force -ErrorAction SilentlyContinue
+    Add-InstallLog "Cleared old registration for new pairing code."
+  }
+
   Expand-Archive -Path $zipPath -DestinationPath $script:Dest -Force
   Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
 
@@ -228,7 +279,7 @@ function Install-PchubHost {
   try {
     Invoke-WebRequest -Uri "$($script:SiteUrl)/downloads/PCHUB-Status.exe" -OutFile $statusExe -UseBasicParsing
   } catch {
-    Add-InstallLog "Status app download skipped (will use built-in fallback)."
+    Add-InstallLog "Status app download skipped (built-in fallback will be used)."
   }
 
   $setup = Join-Path $script:Dest "PCHUB-Setup.ps1"
@@ -240,11 +291,12 @@ function Install-PchubHost {
     return
   }
 
+  $setupLog = Join-Path $script:Dest "setup.log"
   Add-InstallLog "Running setup (admin)…"
   $proc = Start-Process powershell.exe -Verb RunAs -ArgumentList @(
     "-NoProfile", "-ExecutionPolicy", "Bypass",
     "-File", "`"$setup`"", "-Elevated", "-Silent"
-  ) -PassThru
+  ) -PassThru -WorkingDirectory $script:Dest
   while (-not $proc.HasExited) {
     [System.Windows.Forms.Application]::DoEvents()
     Start-Sleep -Milliseconds 150
@@ -254,11 +306,15 @@ function Install-PchubHost {
   if ($proc.ExitCode -ne 0 -and $null -ne $proc.ExitCode) {
     $lblInstall.Text = "Setup reported an error. See log below."
     Add-InstallLog "Exit code: $($proc.ExitCode)"
+    if (Test-Path $setupLog) {
+      Add-InstallLog "--- setup.log ---"
+      Get-Content $setupLog -Tail 16 | ForEach-Object { Add-InstallLog $_ }
+    }
     if (Test-Path $logPath) {
       Add-InstallLog "--- agent.log ---"
       Get-Content $logPath -Tail 12 | ForEach-Object { Add-InstallLog $_ }
     }
-    Add-InstallLog "Tip: generate a new code at pchub.cloud/host or reuse the same code on this PC."
+    Add-InstallLog "Tip: generate a new code at pchub.cloud/host, or reuse the same code on this PC."
     $progress.Visible = $false
     $script:Installing = $false
     $btnBack.Enabled = $true
@@ -294,6 +350,7 @@ $btnNext.Add_Click({
         [System.Windows.Forms.MessageBoxButtons]::OK,
         [System.Windows.Forms.MessageBoxIcon]::Warning
       ) | Out-Null
+      $txtCode.Focus()
       return
     }
     $script:Step = 2
@@ -310,5 +367,9 @@ $btnNext.Add_Click({
   }
 })
 
-Show-Step
+$form.Add_Shown({
+  Show-Step
+  if ($script:Step -eq 1) { $txtCode.Focus() }
+})
+
 [void][System.Windows.Forms.Application]::Run($form)

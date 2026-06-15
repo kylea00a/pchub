@@ -58,6 +58,7 @@ function Register-Machine($Config) {
     machineId = $result.machineId
     agentToken = $result.agentToken
     name = $result.name
+    pairingCode = "$($Config.pairingCode)".Trim().ToUpper()
     sunshineUsername = $result.sunshineUsername
     sunshinePassword = $result.sunshinePassword
     lastRentalId = $null
@@ -146,6 +147,14 @@ Write-Log "PCHUB agent -> $($config.apiUrl) (root: $Root)"
 
 try {
   $state = Get-State
+  $configCode = if ($config.pairingCode) { "$($config.pairingCode)".Trim().ToUpper() } else { $null }
+  if ($state -and $configCode) {
+    $stateCode = if ($state.pairingCode) { "$($state.pairingCode)".Trim().ToUpper() } else { $null }
+    if (-not $stateCode -or $stateCode -ne $configCode) {
+      Write-Log "Pairing code changed — registering with new code..."
+      $state = Register-Machine $config
+    }
+  }
   if (-not $state) {
     $state = Register-Machine $config
   } else {
@@ -159,7 +168,12 @@ try {
   }
 
   try { Send-Inventory $config $state } catch { Write-Log "Inventory warn: $($_.Exception.Message)" }
-  Send-Heartbeat $config $state
+  try {
+    Send-Heartbeat $config $state
+  } catch {
+    Write-Log "Heartbeat warn: $($_.Exception.Message)"
+    if (-not $Once) { throw }
+  }
   $state = Handle-ActiveSession $config $state
 
   if ($Once) {
