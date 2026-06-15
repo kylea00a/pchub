@@ -160,10 +160,14 @@ try {
   } else {
     Write-Log "Using saved machine `"$($state.name)`" ($($state.machineId))"
     if (-not $state.sunshineUsername -or -not $state.sunshinePassword) {
-      $remote = Invoke-PchubApi -ApiRoot $config.apiUrl -Path "/api/agents/streaming/config" -Method "GET" -Token $state.agentToken
-      $state.sunshineUsername = $remote.sunshineUsername
-      $state.sunshinePassword = $remote.sunshinePassword
-      Save-State $state
+      try {
+        $remote = Invoke-PchubApi -ApiRoot $config.apiUrl -Path "/api/agents/streaming/config" -Method "GET" -Token $state.agentToken
+        $state.sunshineUsername = $remote.sunshineUsername
+        $state.sunshinePassword = $remote.sunshinePassword
+        Save-State $state
+      } catch {
+        Write-Log "Sunshine creds warn: $($_.Exception.Message)"
+      }
     }
   }
 
@@ -172,9 +176,12 @@ try {
     Send-Heartbeat $config $state
   } catch {
     Write-Log "Heartbeat warn: $($_.Exception.Message)"
-    if (-not $Once) { throw }
   }
-  $state = Handle-ActiveSession $config $state
+  try {
+    $state = Handle-ActiveSession $config $state
+  } catch {
+    Write-Log "Session warn: $($_.Exception.Message)"
+  }
 
   if ($Once) {
     Write-Log "Single run complete (-Once)."

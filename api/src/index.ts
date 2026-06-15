@@ -604,10 +604,10 @@ app.post("/api/agents/rejoin", (req, res) => {
   }
 
   if (hostname?.trim() && machine.hostname && machine.hostname !== hostname.trim()) {
-    res.status(403).json({
-      error: "This pairing code belongs to a different PC. Generate a new code at pchub.cloud/host",
-    });
-    return;
+    db.prepare(`UPDATE machines SET hostname = ? WHERE id = ?`).run(
+      hostname.trim(),
+      machine.id
+    );
   }
 
   const rustdeskPassword = ensureRustDeskPassword(machine);

@@ -6,18 +6,15 @@ $setupLog = Join-Path $Root "setup.log"
 
 function Write-SetupLog([string]$Message) {
   $line = "[{0}] {1}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"), $Message
-  Add-Content -Path $setupLog -Value $line -Encoding UTF8
+  try { Add-Content -Path $setupLog -Value $line -Encoding UTF8 } catch { }
   if (-not $Silent) { Write-Host $Message }
 }
 
-if ($Silent) {
-  try { Start-Transcript -Path $setupLog -Append -ErrorAction SilentlyContinue | Out-Null } catch { }
-}
+Set-Content -Path $setupLog -Value "" -Encoding UTF8 -ErrorAction SilentlyContinue
+Write-SetupLog "PCHUB setup starting (root: $Root)"
+
 if ($PSScriptRoot -match '\\Temp\\|\\AppData\\Local\\Temp') {
-  Write-Host ""
-  Write-Host "STOP - You are running from inside the zip file."
-  Write-Host "Right-click the zip > Extract All > C:\\PCHUB-Host"
-  Write-Host "Then run RUN-PCHUB.cmd from the extracted folder."
+  Write-SetupLog "ERROR: running from temp folder — extract to C:\PCHUB-Host first"
   if (-not $Silent) { Read-Host "Press Enter to exit" }
   exit 1
 }
@@ -26,15 +23,12 @@ if (-not $Elevated) {
     [Security.Principal.WindowsBuiltInRole]::Administrator
   )
   if (-not $isAdmin) {
-    Write-Host ""
-    Write-Host "PCHUB needs administrator permission ONCE (Defender exclusion + remote desktop)."
-    Write-Host "Click YES on the next Windows prompt..."
-    Write-Host ""
+    Write-SetupLog "Requesting administrator elevation..."
     Start-Process powershell.exe -Verb RunAs -ArgumentList @(
       "-NoProfile", "-ExecutionPolicy", "Bypass",
-      "-File", "`"$PSCommandPath`"", "-Elevated"
+      "-File", "`"$PSCommandPath`"", "-Elevated", "-Silent"
     ) -WorkingDirectory $Root
-    exit
+    exit 0
   }
 }
 
@@ -45,56 +39,62 @@ $tunnelPs1 = Join-Path $Root "tunnel.ps1"
 $statePath = Join-Path $Root ".agent-state.json"
 
 if (-not (Test-Path (Join-Path $Root "config.json"))) {
-  Write-Host "config.json not found. Download from https://pchub.cloud/host"
+  Write-SetupLog "ERROR: config.json not found"
+  Get-ChildItem $Root -ErrorAction SilentlyContinue | ForEach-Object { Write-SetupLog "  file: $($_.Name)" }
   if (-not $Silent) { Read-Host "Press Enter to exit" }
   exit 1
 }
 if (-not (Test-Path $hostPs1)) {
-  Write-Host "pchub-host.ps1 not found. Re-download from https://pchub.cloud/host"
+  Write-SetupLog "ERROR: pchub-host.ps1 not found — re-download from pchub.cloud/host"
   if (-not $Silent) { Read-Host "Press Enter to exit" }
   exit 1
 }
 
-Write-Host ""
-Write-Host "[1/5] Adding Windows Defender exclusion..."
+Write-SetupLog "[1/5] Adding Windows Defender exclusion..."
 try {
   Add-MpPreference -ExclusionPath $Root -ErrorAction Stop
-  Write-Host "      OK - Defender will not delete PCHUB files here."
+  Write-SetupLog "      Defender exclusion OK"
 } catch {
-  Write-Host "      Warning: could not add exclusion. Continuing anyway."
+  Write-SetupLog "      Defender exclusion skipped: $($_.Exception.Message)"
 }
 
-Write-Host ""
-Write-Host "[2/5] Stopping any old agent..."
+Write-SetupLog "[2/5] Stopping any old agent..."
 & cmd /c "taskkill /FI `"WINDOWTITLE eq PCHUB Agent Loop*`" /F >nul 2>&1"
 & cmd /c "taskkill /FI `"WINDOWTITLE eq PCHUB Host Status*`" /F >nul 2>&1"
 & cmd /c "wmic process where `"CommandLine like '%pchub-host.ps1%'`" call terminate >nul 2>&1"
-Write-Host "      OK (keeping saved registration if present)"
 
-$hadState = Test-Path $statePath
-if ($hadState) {
-  Write-Host ""
-  Write-Host "[3/5] Repairing existing registration..."
+if (Test-Path $statePath) {
+  Write-SetupLog "[3/5] Repairing existing registration..."
 } else {
-  Write-Host ""
-  Write-Host "[3/5] Detecting hardware and registering..."
+  Write-SetupLog "[3/5] Detecting hardware and registering..."
 }
 
-& powershell.exe -NoProfile -ExecutionPolicy Bypass -File $hostPs1 -Once
+& $hostPs1 -Once
 $agentExit = $LASTEXITCODE
 if ($null -eq $agentExit) { $agentExit = 0 }
-if ($agentExit -ne 0) {
-  Write-SetupLog "Agent registration failed (exit $agentExit)."
+
+$registered = $false
+if (Test-Path $statePath) {
+  try {
+    $check = Get-Content $statePath -Raw | ConvertFrom-Json
+    $registered = [bool]$check.machineId
+  } catch { }
+}
+
+if ($agentExit -ne 0 -and -not $registered) {
+  Write-SetupLog "ERROR: Agent registration failed (exit $agentExit)."
   if (Test-Path (Join-Path $Root "agent.log")) {
-    Get-Content (Join-Path $Root "agent.log") -Tail 8 | ForEach-Object { Write-SetupLog $_ }
+    Get-Content (Join-Path $Root "agent.log") -Tail 12 | ForEach-Object { Write-SetupLog $_ }
   }
   if (-not $Silent) { Read-Host "Press Enter to exit" }
-  if ($Silent) { try { Stop-Transcript | Out-Null } catch { } }
   exit 1
 }
 
-Write-Host ""
-Write-Host "[4/5] Installing Sunshine + PCHUB relay tunnel..."
+if ($agentExit -ne 0) {
+  Write-SetupLog "Agent warned (exit $agentExit) but registration file exists — continuing."
+}
+
+Write-SetupLog "[4/5] Installing Sunshine + PCHUB relay tunnel..."
 if ((Test-Path $sunshinePs1) -and (Test-Path $tunnelPs1)) {
   . (Join-Path $Root "pchub-api.ps1")
   . $sunshinePs1
@@ -103,28 +103,22 @@ if ((Test-Path $sunshinePs1) -and (Test-Path $tunnelPs1)) {
   $config = Get-Content (Join-Path $Root "config.json") -Raw | ConvertFrom-Json
   try {
     if (-not $state.sunshineUsername -or -not $state.sunshinePassword) {
-      $headers = @{
-        "Content-Type" = "application/json"
-        "Authorization" = "Bearer $($state.agentToken)"
-      }
-      $remote = Invoke-RestMethod -Uri "$($config.apiUrl.TrimEnd('/'))/api/agents/streaming/config" -Headers $headers -Method GET
+      $remote = Invoke-PchubApi -ApiRoot $config.apiUrl -Path "/api/agents/streaming/config" -Method "GET" -Token $state.agentToken
       $state.sunshineUsername = $remote.sunshineUsername
       $state.sunshinePassword = $remote.sunshinePassword
     }
     Initialize-PchubSunshine -Username $state.sunshineUsername -Password $state.sunshinePassword
     Initialize-PchubTunnel -Config $config -State $state | Out-Null
     $state | ConvertTo-Json | Set-Content $statePath -Encoding UTF8
-    Write-Host "      Sunshine + relay tunnel ready."
+    Write-SetupLog "      Sunshine + relay tunnel ready"
   } catch {
-    Write-Host "      Warning: Streaming setup - $($_.Exception.Message)"
-    Write-Host "      Agent will retry when a renter powers on."
+    Write-SetupLog "      Streaming setup warning: $($_.Exception.Message)"
   }
 } else {
-  Write-Host "      sunshine.ps1 or tunnel.ps1 missing - re-download bundle from pchub.cloud/host"
+  Write-SetupLog "      sunshine.ps1 or tunnel.ps1 missing"
 }
 
-Write-Host ""
-Write-Host "[5/5] Starting agent + status app..."
+Write-SetupLog "[5/5] Starting agent + status app..."
 $statusExe = Join-Path $Root "PCHUB-Status.exe"
 $statusPs1 = Join-Path $Root "status-app.ps1"
 & cmd /c "`"$Root\Start PCHUB Agent.bat`""
@@ -133,7 +127,7 @@ if (Test-Path $statusExe) {
   Start-Process -FilePath $statusExe -WindowStyle Normal
 } elseif (Test-Path $statusPs1) {
   Start-Process powershell.exe -ArgumentList @(
-    "-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden",
+    "-NoProfile", "-ExecutionPolicy", "Bypass", "-STA", "-WindowStyle", "Hidden",
     "-File", "`"$statusPs1`""
   )
 }
@@ -151,14 +145,6 @@ try {
   $shortcut.Save()
 } catch { }
 
-Write-Host ""
-Write-Host "========================================"
-Write-Host "  DONE - PC listed on pchub.cloud"
-Write-Host "========================================"
-Write-Host ""
-Write-Host "  Moonlight streaming via PCHUB relay — no router setup for owners."
-Write-Host "  Desktop shortcut: PCHUB Host (status app)"
-Write-Host "  Logs:    $Root\agent.log"
-Write-Host ""
-if ($Silent) { try { Stop-Transcript | Out-Null } catch { } }
+Write-SetupLog "DONE — PC should show Online at pchub.cloud"
 if (-not $Silent) { Read-Host "Press Enter to close" }
+exit 0

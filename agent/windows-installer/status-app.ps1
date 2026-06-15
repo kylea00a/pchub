@@ -1,6 +1,8 @@
 # PCHUB Host Status — small status window (packaged as PCHUB-Status.exe)
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
+[System.Windows.Forms.Application]::EnableVisualStyles()
+[System.Windows.Forms.Application]::SetCompatibleTextRenderingDefault($false)
 
 $Root = if ($PSScriptRoot) { $PSScriptRoot } else { "C:\PCHUB-Host" }
 $StatePath = Join-Path $Root ".agent-state.json"

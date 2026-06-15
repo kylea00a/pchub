@@ -2,6 +2,8 @@
 $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
+[System.Windows.Forms.Application]::EnableVisualStyles()
+[System.Windows.Forms.Application]::SetCompatibleTextRenderingDefault($false)
 
 $script:SiteUrl = "https://pchub.cloud"
 $script:ApiUrl = "https://api.pchub.cloud"
@@ -15,8 +17,8 @@ function New-FieldLabel($text, $parent, $y) {
   $lbl.AutoSize = $true
   $lbl.Location = New-Object System.Drawing.Point(28, $y)
   $lbl.Font = New-Object System.Drawing.Font("Segoe UI", 9)
-  $lbl.ForeColor = [System.Drawing.Color]::FromArgb(170, 170, 180)
-  $lbl.BackColor = [System.Drawing.Color]::Transparent
+  $lbl.ForeColor = [System.Drawing.Color]::FromArgb(70, 70, 80)
+  $lbl.BackColor = $parent.BackColor
   $parent.Controls.Add($lbl) | Out-Null
   return $lbl
 }
@@ -26,9 +28,9 @@ function New-FieldInput($parent, $y, $width) {
   $tb.Location = New-Object System.Drawing.Point(28, ($y + 22))
   $tb.Size = New-Object System.Drawing.Size($width, 30)
   $tb.Font = New-Object System.Drawing.Font("Segoe UI", 11)
-  $tb.BorderStyle = "FixedSingle"
-  $tb.BackColor = [System.Drawing.Color]::White
-  $tb.ForeColor = [System.Drawing.Color]::Black
+  $tb.BorderStyle = "Fixed3D"
+  $tb.BackColor = [System.Drawing.SystemColors]::Window
+  $tb.ForeColor = [System.Drawing.SystemColors]::WindowText
   $parent.Controls.Add($tb) | Out-Null
   return $tb
 }
@@ -40,7 +42,6 @@ $form.StartPosition = "CenterScreen"
 $form.FormBorderStyle = "FixedDialog"
 $form.MaximizeBox = $false
 $form.MinimizeBox = $false
-$form.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Dpi
 $form.BackColor = [System.Drawing.Color]::FromArgb(18, 18, 22)
 $form.ForeColor = [System.Drawing.Color]::White
 
@@ -81,27 +82,27 @@ $welcomeText.ForeColor = [System.Drawing.Color]::FromArgb(200, 200, 210)
 $panelWelcome.Controls.Add($welcomeText) | Out-Null
 
 $panelDetails = New-Object System.Windows.Forms.Panel
-$panelDetails.Location = New-Object System.Drawing.Point(0, $contentTop)
-$panelDetails.Size = New-Object System.Drawing.Size(500, $contentHeight)
-$panelDetails.BackColor = $form.BackColor
+$panelDetails.Location = New-Object System.Drawing.Point(16, $contentTop)
+$panelDetails.Size = New-Object System.Drawing.Size(468, $contentHeight)
+$panelDetails.BackColor = [System.Drawing.Color]::FromArgb(248, 248, 250)
 $panelDetails.Visible = $false
 $form.Controls.Add($panelDetails) | Out-Null
 
 $y = 8
 New-FieldLabel "Pairing code" $panelDetails $y | Out-Null
-$txtCode = New-FieldInput $panelDetails $y 220
+$txtCode = New-FieldInput $panelDetails $y 404
 $txtCode.Font = New-Object System.Drawing.Font("Consolas", 12)
 $txtCode.CharacterCasing = "Upper"
 $txtCode.MaxLength = 12
 
 $y = 72
 New-FieldLabel "PC name" $panelDetails $y | Out-Null
-$txtName = New-FieldInput $panelDetails $y 360
+$txtName = New-FieldInput $panelDetails $y 404
 $txtName.Text = "My Gaming PC"
 
 $y = 136
 New-FieldLabel "City" $panelDetails $y | Out-Null
-$txtCity = New-FieldInput $panelDetails $y 360
+$txtCity = New-FieldInput $panelDetails $y 404
 $txtCity.Text = "Manila"
 
 $linkHost = New-Object System.Windows.Forms.LinkLabel
@@ -273,6 +274,19 @@ function Install-PchubHost {
 
   Expand-Archive -Path $zipPath -DestinationPath $script:Dest -Force
   Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
+
+  $configPath = Join-Path $script:Dest "config.json"
+  if (-not (Test-Path $configPath)) {
+    $lblInstall.Text = "Install files incomplete (config.json missing)."
+    Add-InstallLog "ERROR: config.json not found after extract."
+    Get-ChildItem $script:Dest -ErrorAction SilentlyContinue | ForEach-Object { Add-InstallLog "  $($_.Name)" }
+    $progress.Visible = $false
+    $script:Installing = $false
+    $btnBack.Enabled = $true
+    $btnNext.Enabled = $true
+    $btnNext.Text = "Retry"
+    return
+  }
 
   Add-InstallLog "Downloading status app…"
   $statusExe = Join-Path $script:Dest "PCHUB-Status.exe"

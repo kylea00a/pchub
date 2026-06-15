@@ -6,6 +6,7 @@ on:
     paths:
       - "agent/windows-installer/**"
       - "agent/windows-prod/status-app.ps1"
+      - "agent/windows-prod/pchub-host.ps1"
       - "agent/windows-prod/PCHUB-Setup.ps1"
       - "agent/windows-prod/Start PCHUB Agent.bat"
       - "deploy/downloads/PCHUB-Host-Setup.cmd"
@@ -54,12 +55,14 @@ jobs:
             -inputFile "agent\windows-installer\setup-wizard.ps1" `
             -outputFile "staging\PCHUB-Host-Setup.exe" `
             -title "PCHUB Host Setup" `
+            -sta `
             -noConsole `
             -requireAdmin
           Invoke-ps2exe `
             -inputFile "agent\windows-installer\status-app.ps1" `
             -outputFile "staging\PCHUB-Status.exe" `
             -title "PCHUB Host" `
+            -sta `
             -noConsole
           Get-Item staging\*.exe
 
