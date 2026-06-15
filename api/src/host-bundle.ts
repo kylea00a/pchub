@@ -9,6 +9,14 @@ const AGENT_ROOT = path.join(__dirname, "..", "..", "agent");
 const BUNDLE_ROOT = "";
 const PS_AGENT_PATH = path.join(AGENT_ROOT, "windows-prod", "pchub-host.ps1");
 const PROD_SCRIPTS = path.join(AGENT_ROOT, "windows-prod");
+export const STATIC_BUNDLE_PATH = path.join(
+  __dirname,
+  "..",
+  "..",
+  "deploy",
+  "downloads",
+  "PCHUB-Host-Agent.zip"
+);
 
 export type BundleConfig = {
   apiUrl: string;
@@ -23,6 +31,21 @@ export type PairingRow = {
   used: number;
   expires_at: string;
 };
+
+const HOST_SCRIPTS = [
+  "PCHUB-Setup.ps1",
+  "RUN-PCHUB.cmd",
+  "pchub-host.ps1",
+  "rustdesk.ps1",
+  "remote.ps1",
+  "Start PCHUB Agent.bat",
+  "status-window.bat",
+  "run-agent.bat",
+  "stop-agent.bat",
+  "allow-windows-defender.bat",
+  "allow-windows-defender.ps1",
+  "add-to-startup.bat",
+] as const;
 
 export function resolveWindowsBundleConfig(
   pairing: PairingRow | undefined,
@@ -57,7 +80,7 @@ export function resolveWindowsBundleConfig(
   };
 }
 
-function buildConfigJson(config: BundleConfig) {
+export function buildConfigJson(config: BundleConfig) {
   return JSON.stringify(
     {
       apiUrl: config.apiUrl,
@@ -71,7 +94,7 @@ function buildConfigJson(config: BundleConfig) {
   );
 }
 
-function buildStartHere(config: BundleConfig) {
+function buildStartHere() {
   return `PCHUB HOST - READ THIS FIRST
 ============================
 
@@ -79,39 +102,39 @@ DO NOT double-click files while still inside the zip file.
 The black window will flash and close if you skip this step.
 
 STEP 1 - EXTRACT
-  Right-click SkyPC-Host-Agent.zip
+  Right-click PCHUB-Host-Agent.zip
   Choose "Extract All..."
   Folder: C:\\PCHUB-Host
 
-STEP 2 - RUN SETUP (from the EXTRACTED folder)
+STEP 2 - ADD YOUR CONFIG
+  From pchub.cloud/host, download config.json for your pairing code.
+  Put config.json inside C:\\PCHUB-Host
+
+STEP 3 - RUN SETUP (from the EXTRACTED folder)
   Open C:\\PCHUB-Host
   Double-click RUN-PCHUB.cmd
   Click YES when Windows asks for administrator
 
-STEP 3 - DONE
+STEP 4 - DONE
   "PCHUB Host Status" appears on your taskbar
   Your PC shows Online at https://pchub.cloud
-
-API: ${config.apiUrl}
 `;
 }
 
-function buildReadme(config: BundleConfig) {
+function buildReadme() {
   return `PCHUB Host Agent — one-click setup
 ========================================
 
 1. Extract this zip to C:\\PCHUB-Host (Extract All — not Run)
 
-2. Open C:\\PCHUB-Host and double-click RUN-PCHUB.cmd
-   - Click YES on the one-time administrator prompt
-   - Defender exclusion, registration, Sunshine install, and agent start all run automatically
+2. Download config.json from pchub.cloud/host (same pairing code page)
+   and save it in C:\\PCHUB-Host
 
-3. "PCHUB Host Status" appears on your taskbar (Online / Offline)
+3. Double-click RUN-PCHUB.cmd — click YES on the admin prompt
 
-Renters pair Moonlight from pchub.cloud — no localhost setup on your PC.
+4. "PCHUB Host Status" appears on your taskbar (Online / Offline)
 
-API: ${config.apiUrl}
-Pairing code is in config.json (~30 min validity).
+Remote desktop uses PCHUB relay — no router setup needed.
 `;
 }
 
@@ -119,45 +142,55 @@ function bundlePath(name: string) {
   return BUNDLE_ROOT ? `${BUNDLE_ROOT}/${name}` : name;
 }
 
-function streamProductionBundle(
-  archive: archiver.Archiver,
-  config: BundleConfig
-) {
-  archive.file(PS_AGENT_PATH, { name: bundlePath("pchub-host.ps1") });
-
-  for (const script of [
-    "sunshine.ps1",
-    "streaming.ps1",
-    "install-sunshine.ps1",
-    "RUN-INSTALL-SUNSHINE.cmd",
-    "PCHUB-Setup.ps1",
-    "RUN-PCHUB.cmd",
-    "rustdesk.ps1",
-    "remote.ps1",
-    "RUN-REPAIR-STREAMING.cmd",
-    "repair-streaming.ps1",
-    "PCHUB Install.bat",
-    "SkyPC-Setup.bat",
-    "Start PCHUB Agent.bat",
-    "status-window.bat",
-    "run-agent.bat",
-    "stop-agent.bat",
-    "allow-windows-defender.bat",
-    "allow-windows-defender.ps1",
-    "add-to-startup.bat",
-  ]) {
+function appendHostScripts(archive: archiver.Archiver) {
+  for (const script of HOST_SCRIPTS) {
     const full = path.join(PROD_SCRIPTS, script);
     if (fs.existsSync(full)) {
       archive.file(full, { name: bundlePath(script) });
     }
   }
-
-  archive.append(buildConfigJson(config), { name: bundlePath("config.json") });
-  archive.append(buildReadme(config), { name: bundlePath("README.txt") });
-  archive.append(buildStartHere(config), { name: bundlePath("START-HERE.txt") });
 }
 
-export function streamWindowsAgentBundle(res: Response, config: BundleConfig) {
+function createZipBuffer(
+  append: (archive: archiver.Archiver) => void
+): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const archive = archiver("zip", { zlib: { level: 6 } });
+    const chunks: Buffer[] = [];
+    archive.on("data", (chunk: Buffer) => chunks.push(chunk));
+    archive.on("error", reject);
+    archive.on("end", () => resolve(Buffer.concat(chunks)));
+    append(archive);
+    archive.finalize();
+  });
+}
+
+export async function buildStaticHostBundle(outputPath = STATIC_BUNDLE_PATH) {
+  if (!fs.existsSync(PS_AGENT_PATH)) {
+    throw new Error(`Host agent not found at ${PS_AGENT_PATH}`);
+  }
+
+  const buffer = await createZipBuffer((archive) => {
+    appendHostScripts(archive);
+    archive.append(buildReadme(), { name: bundlePath("README.txt") });
+    archive.append(buildStartHere(), { name: bundlePath("START-HERE.txt") });
+  });
+
+  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+  fs.writeFileSync(outputPath, buffer);
+  return { path: outputPath, bytes: buffer.length };
+}
+
+function sendZipBuffer(res: Response, buffer: Buffer, filename: string) {
+  res.setHeader("Content-Type", "application/octet-stream");
+  res.setHeader("Content-Length", String(buffer.length));
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Cache-Control", "private, no-transform");
+  res.send(buffer);
+}
+
+export async function streamWindowsAgentBundle(res: Response, config: BundleConfig) {
   if (!fs.existsSync(AGENT_ROOT)) {
     res.status(500).json({ error: "Agent package not found on server" });
     return;
@@ -168,18 +201,25 @@ export function streamWindowsAgentBundle(res: Response, config: BundleConfig) {
     return;
   }
 
-  const archive = archiver("zip", { zlib: { level: 9 } });
-  res.setHeader("Content-Type", "application/zip");
-  res.setHeader(
-    "Content-Disposition",
-    'attachment; filename="PCHUB-Host-Agent.zip"'
-  );
-  archive.on("error", (err) => {
-    if (!res.headersSent) res.status(500).json({ error: err.message });
-  });
-  archive.pipe(res);
+  try {
+    const buffer = await createZipBuffer((archive) => {
+      appendHostScripts(archive);
+      archive.append(buildConfigJson(config), { name: bundlePath("config.json") });
+      archive.append(buildReadme(), { name: bundlePath("README.txt") });
+      archive.append(buildStartHere(), { name: bundlePath("START-HERE.txt") });
+    });
+    sendZipBuffer(res, buffer, "PCHUB-Host-Agent.zip");
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to build zip";
+    if (!res.headersSent) res.status(500).json({ error: message });
+  }
+}
 
-  streamProductionBundle(archive, config);
-
-  archive.finalize();
+export function sendHostConfigJson(res: Response, config: BundleConfig) {
+  const body = buildConfigJson(config);
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
+  res.setHeader("Content-Length", String(Buffer.byteLength(body, "utf8")));
+  res.setHeader("Content-Disposition", 'attachment; filename="config.json"');
+  res.setHeader("Cache-Control", "private, no-store");
+  res.send(body);
 }

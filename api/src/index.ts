@@ -13,7 +13,11 @@ import {
 } from "./auth.js";
 import { db, type InventoryRow, type MachineRow, type RenterProfileRow, type RentalRow } from "./db.js";
 import { requireAdmin, requireAuth, type AuthedRequest } from "./middleware.js";
-import { resolveWindowsBundleConfig, streamWindowsAgentBundle } from "./host-bundle.js";
+import {
+  resolveWindowsBundleConfig,
+  sendHostConfigJson,
+  streamWindowsAgentBundle,
+} from "./host-bundle.js";
 import { formatConnectInfo } from "./streaming.js";
 import {
   ensureRustDeskPassword,
@@ -391,8 +395,54 @@ function serveWindowsBundle(
     return;
   }
 
-  streamWindowsAgentBundle(res, resolved);
+  void streamWindowsAgentBundle(res, resolved);
 }
+
+function serveHostConfig(
+  res: express.Response,
+  code: string,
+  opts: {
+    machineName?: string;
+    machineCity?: string;
+    priceCents?: number;
+    apiUrl?: string;
+  }
+) {
+  const pairing = db
+    .prepare("SELECT * FROM pairing_codes WHERE code = ?")
+    .get(code.trim().toUpperCase()) as
+    | { code: string; used: number; expires_at: string }
+    | undefined;
+
+  const resolved = resolveWindowsBundleConfig(pairing, {
+    ...opts,
+    defaultApiUrl:
+      process.env.PUBLIC_API_URL?.replace(/\/$/, "") || `http://localhost:${PORT}`,
+  });
+
+  if ("error" in resolved) {
+    res.status(resolved.status).json({ error: resolved.error });
+    return;
+  }
+
+  sendHostConfigJson(res, resolved);
+}
+
+app.get("/api/host/config.json", (req, res) => {
+  const code = (req.query.code as string | undefined)?.trim();
+  if (!code) {
+    res.status(400).json({ error: "code is required" });
+    return;
+  }
+
+  const priceCents = Number(req.query.priceCents);
+  serveHostConfig(res, code, {
+    machineName: req.query.machineName as string | undefined,
+    machineCity: req.query.machineCity as string | undefined,
+    priceCents: Number.isFinite(priceCents) ? priceCents : undefined,
+    apiUrl: req.query.apiUrl as string | undefined,
+  });
+});
 
 app.get("/api/host/windows-bundle", (req, res) => {
   const code = (req.query.code as string | undefined)?.trim();

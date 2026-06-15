@@ -38,6 +38,8 @@ echo "NEXT_PUBLIC_API_URL=${AGENT_API_URL}" > admin/.env.local
 npm install
 command -v unzip >/dev/null 2>&1 || apt-get install -y unzip
 mkdir -p "${APP_DIR}/agent/dist/runtime"
+mkdir -p "${APP_DIR}/deploy/downloads"
+npm run build:host-bundle -w api
 npm run build:release -w agent
 npm run build -w web
 npm run build -w admin

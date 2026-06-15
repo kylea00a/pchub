@@ -6,6 +6,41 @@ export type HostInstallerConfig = {
   priceCents?: number;
 };
 
+export const STATIC_HOST_AGENT_ZIP = "/downloads/PCHUB-Host-Agent.zip";
+
+export function buildHostConfigQuery(config: HostInstallerConfig) {
+  const params = new URLSearchParams({
+    code: config.pairingCode,
+    machineName: config.machineName ?? "My Gaming PC",
+    machineCity: config.machineCity ?? "Manila",
+    apiUrl: config.apiUrl.replace(/\/$/, ""),
+  });
+  if (config.priceCents != null) {
+    params.set("priceCents", String(config.priceCents));
+  }
+  return params.toString();
+}
+
+export function buildHostConfigDownloadUrl(config: HostInstallerConfig) {
+  return `/api/host/config.json?${buildHostConfigQuery(config)}`;
+}
+
+export function buildWindowsBundleDownloadUrl(config: HostInstallerConfig) {
+  return `/api/host/windows-bundle?${buildHostConfigQuery(config)}`;
+}
+
+export function buildWindowsDownloadCommands(
+  siteOrigin: string,
+  config: HostInstallerConfig
+) {
+  const zipUrl = `${siteOrigin}${STATIC_HOST_AGENT_ZIP}`;
+  const configUrl = `${siteOrigin}${buildHostConfigDownloadUrl(config)}`;
+  return `mkdir C:\\PCHUB-Host 2>nul
+curl -L -o "%USERPROFILE%\\Downloads\\PCHUB-Host-Agent.zip" "${zipUrl}"
+curl -L -o "C:\\PCHUB-Host\\config.json" "${configUrl}"
+echo Extract the zip to C:\\PCHUB-Host, then run RUN-PCHUB.cmd`;
+}
+
 export function buildConfigJson(config: HostInstallerConfig) {
   return JSON.stringify(
     {
@@ -18,20 +53,6 @@ export function buildConfigJson(config: HostInstallerConfig) {
     null,
     2
   );
-}
-
-export function buildWindowsBundleDownloadUrl(config: HostInstallerConfig) {
-  const params = new URLSearchParams({
-    code: config.pairingCode,
-    machineName: config.machineName ?? "My Gaming PC",
-    machineCity: config.machineCity ?? "Manila",
-    apiUrl: config.apiUrl.replace(/\/$/, ""),
-  });
-  if (config.priceCents != null) {
-    params.set("priceCents", String(config.priceCents));
-  }
-  // Same-origin relative URL — avoids cross-subdomain download blocks in browsers.
-  return `/api/host/windows-bundle?${params.toString()}`;
 }
 
 export function buildReadme(config: HostInstallerConfig) {
