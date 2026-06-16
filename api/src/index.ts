@@ -1,7 +1,9 @@
 import cors from "cors";
 import express from "express";
 import net from "node:net";
+import http from "node:http";
 import { nanoid } from "nanoid";
+import { WebSocketServer, type WebSocket } from "ws";
 import {
   ensureDefaultAdmin,
   getOrCreateRenterProfile,
@@ -11,6 +13,7 @@ import {
   signToken,
   toAuthUser,
   verifyPassword,
+  verifyToken,
 } from "./auth.js";
 import { db, type InventoryRow, type MachineRow, type RenterProfileRow, type RentalRow } from "./db.js";
 import { requireAdmin, requireAuth, type AuthedRequest } from "./middleware.js";
@@ -100,6 +103,79 @@ app.post(
 );
 
 app.use(express.json({ limit: "25mb" }));
+
+type SignalRole = "host" | "renter";
+type SignalConn = { ws: WebSocket; role: SignalRole; rentalId: string; machineId?: string; userId?: string };
+type SignalRoom = { host?: SignalConn; renter?: SignalConn };
+const SIGNAL_ROOMS = new Map<string, SignalRoom>();
+
+function safeJsonParse(text: string) {
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return null;
+  }
+}
+
+function wsSend(ws: WebSocket, payload: unknown) {
+  try {
+    ws.send(JSON.stringify(payload));
+  } catch {
+    // ignore
+  }
+}
+
+function closeWith(ws: WebSocket, code: number, reason: string) {
+  try {
+    ws.close(code, reason);
+  } catch {
+    // ignore
+  }
+}
+
+function getRoom(rentalId: string) {
+  const existing = SIGNAL_ROOMS.get(rentalId);
+  if (existing) return existing;
+  const created: SignalRoom = {};
+  SIGNAL_ROOMS.set(rentalId, created);
+  return created;
+}
+
+function otherPeer(room: SignalRoom, role: SignalRole) {
+  return role === "host" ? room.renter?.ws : room.host?.ws;
+}
+
+async function authorizeSignalJoin(opts: {
+  role: SignalRole;
+  rentalId: string;
+  token: string;
+}): Promise<{ ok: true; machineId?: string; userId?: string } | { ok: false; status: number; error: string }> {
+  const { role, rentalId, token } = opts;
+  if (!rentalId) return { ok: false, status: 400, error: "rentalId required" };
+  if (!token) return { ok: false, status: 401, error: "token required" };
+
+  if (role === "host") {
+    const machine = db
+      .prepare("SELECT * FROM machines WHERE agent_token = ?")
+      .get(token) as MachineRow | undefined;
+    if (!machine) return { ok: false, status: 401, error: "Invalid host token" };
+    const rental = db
+      .prepare("SELECT * FROM rentals WHERE id = ? AND machine_id = ? AND status = 'active'")
+      .get(rentalId, machine.id) as RentalRow | undefined;
+    if (!rental) return { ok: false, status: 404, error: "Active rental not found for host" };
+    return { ok: true, machineId: machine.id };
+  }
+
+  // renter
+  const user = verifyToken(token);
+  if (!user) return { ok: false, status: 401, error: "Invalid or expired session" };
+  const profile = profileForUser(user.id);
+  const rental = db
+    .prepare("SELECT * FROM rentals WHERE id = ? AND renter_profile_id = ? AND status = 'active'")
+    .get(rentalId, profile.id) as RentalRow | undefined;
+  if (!rental) return { ok: false, status: 404, error: "Active rental not found for renter" };
+  return { ok: true, userId: user.id };
+}
 
 function refreshProfileUsage(profileId: string) {
   const used = getUsedBytes(profileId);
@@ -1396,7 +1472,102 @@ app.get("/api/rentals", (_req, res) => {
 
 ensureDefaultAdmin();
 
-app.listen(PORT, () => {
+const server = http.createServer(app);
+
+const wss = new WebSocketServer({ noServer: true });
+server.on("upgrade", (req, socket, head) => {
+  try {
+    const url = new URL(req.url ?? "", `http://${req.headers.host ?? "localhost"}`);
+    if (url.pathname !== "/api/webrtc/signal") {
+      socket.destroy();
+      return;
+    }
+    wss.handleUpgrade(req, socket, head, (ws) => {
+      wss.emit("connection", ws, req);
+    });
+  } catch {
+    socket.destroy();
+  }
+});
+
+wss.on("connection", (ws) => {
+  let conn: SignalConn | null = null;
+
+  ws.on("message", async (data) => {
+    const text = typeof data === "string" ? data : data.toString("utf8");
+    const msg = safeJsonParse(text) as any;
+    if (!msg || typeof msg !== "object") return;
+
+    if (!conn) {
+      if (msg.type !== "join") {
+        closeWith(ws, 1008, "join first");
+        return;
+      }
+      const role = msg.role as SignalRole;
+      const rentalId = typeof msg.rentalId === "string" ? msg.rentalId : "";
+      const token = typeof msg.token === "string" ? msg.token : "";
+      if (role !== "host" && role !== "renter") {
+        closeWith(ws, 1008, "invalid role");
+        return;
+      }
+      const auth = await authorizeSignalJoin({ role, rentalId, token });
+      if (!auth.ok) {
+        wsSend(ws, { type: "error", error: auth.error, status: auth.status });
+        closeWith(ws, 1008, auth.error);
+        return;
+      }
+
+      conn = {
+        ws,
+        role,
+        rentalId,
+        machineId: auth.machineId,
+        userId: auth.userId,
+      };
+
+      const room = getRoom(rentalId);
+      if (role === "host") {
+        if (room.host?.ws && room.host.ws !== ws) closeWith(room.host.ws, 1012, "replaced");
+        room.host = conn;
+      } else {
+        if (room.renter?.ws && room.renter.ws !== ws) closeWith(room.renter.ws, 1012, "replaced");
+        room.renter = conn;
+      }
+
+      wsSend(ws, { type: "joined", role, rentalId });
+      const peer = otherPeer(room, role);
+      if (peer) {
+        wsSend(peer, { type: "peer", status: "joined", role });
+        wsSend(ws, { type: "peer", status: "joined", role: role === "host" ? "renter" : "host" });
+      }
+      return;
+    }
+
+    // forward signaling to the other peer in the room
+    const room = SIGNAL_ROOMS.get(conn.rentalId);
+    if (!room) return;
+    const peer = otherPeer(room, conn.role);
+    if (!peer) return;
+
+    if (msg.type === "offer" || msg.type === "answer" || msg.type === "ice") {
+      wsSend(peer, { ...msg, from: conn.role });
+    }
+  });
+
+  ws.on("close", () => {
+    if (!conn) return;
+    const room = SIGNAL_ROOMS.get(conn.rentalId);
+    if (!room) return;
+    if (conn.role === "host" && room.host?.ws === ws) room.host = undefined;
+    if (conn.role === "renter" && room.renter?.ws === ws) room.renter = undefined;
+    const peer = conn.role === "host" ? room.renter?.ws : room.host?.ws;
+    if (peer) wsSend(peer, { type: "peer", status: "left", role: conn.role });
+    if (!room.host && !room.renter) SIGNAL_ROOMS.delete(conn.rentalId);
+  });
+});
+
+server.listen(PORT, () => {
   console.log(`SkyPC API running at http://localhost:${PORT}`);
   console.log(`Health: http://localhost:${PORT}/api/health`);
+  console.log(`WebRTC signal: ws://localhost:${PORT}/api/webrtc/signal`);
 });
