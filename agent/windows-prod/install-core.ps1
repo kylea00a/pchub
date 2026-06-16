@@ -125,7 +125,11 @@ function Invoke-PchubHostInstall {
   Write-PchubSetupLog -Root $Root -Message "[5/5] Starting agent + status app..." -Silent:$Silent
   $statusExe = Join-Path $Root "PCHUB-Status.exe"
   $statusPs1 = Join-Path $Root "status-app.ps1"
-  & cmd /c "`"$Root\Start PCHUB Agent.bat`""
+  try {
+    Start-Process -FilePath (Join-Path $Root "Start PCHUB Agent.bat") -WorkingDirectory $Root -WindowStyle Minimized | Out-Null
+  } catch {
+    Write-PchubSetupLog -Root $Root -Message "      Warning: could not start agent: $($_.Exception.Message)" -Silent:$Silent
+  }
   Start-Sleep -Seconds 2
   if (Test-Path $statusExe) {
     Start-Process -FilePath $statusExe -WindowStyle Normal

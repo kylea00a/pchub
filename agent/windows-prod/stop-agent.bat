@@ -1,6 +1,8 @@
 @echo off
-:: Fast agent stop - no slow WMI scan of every process
+:: Fast agent stop - avoid WMIC hangs
 taskkill /FI "WINDOWTITLE eq PCHUB Agent Loop*" /F >nul 2>&1
 taskkill /FI "WINDOWTITLE eq PCHUB Host Status*" /F >nul 2>&1
-wmic process where "CommandLine like '%%pchub-host.ps1%%'" call terminate >nul 2>&1
+for /f "usebackq delims=" %%P in (`powershell.exe -NoProfile -Command "$p=Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*pchub-host.ps1*' } | Select-Object -ExpandProperty ProcessId; $p" 2^>nul`) do (
+  taskkill /PID %%P /F >nul 2>&1
+)
 if /i not "%~1"=="quiet" echo PCHUB agent stopped.
