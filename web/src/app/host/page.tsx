@@ -151,7 +151,7 @@ export default function HostPage() {
               <p className="mt-2 text-xs text-muted">
                 One file. Delete any old copy in Downloads first, then double-click.
                 Click <strong className="text-foreground">Yes</strong> for administrator.
-                Wizard shows <strong className="text-foreground">Installer 2026.06.10.8</strong> top-right.
+                Wizard shows <strong className="text-foreground">Installer 2026.06.10.9</strong> top-right.
               </p>
               <details className="mt-3 text-xs text-muted">
                 <summary className="cursor-pointer text-foreground">Installer didn&apos;t download?</summary>

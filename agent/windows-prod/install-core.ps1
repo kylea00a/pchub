@@ -57,27 +57,14 @@ function Invoke-PchubHostInstall {
 
   $agentExit = 0
   try {
-    $pinfo = New-Object System.Diagnostics.ProcessStartInfo
-    $pinfo.FileName = "$env:WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe"
-    $pinfo.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$hostPs1`" -Once"
-    $pinfo.WorkingDirectory = $Root
-    $pinfo.UseShellExecute = $false
-    $pinfo.RedirectStandardOutput = $true
-    $pinfo.RedirectStandardError = $true
-    $pinfo.CreateNoWindow = $true
-    $proc = [System.Diagnostics.Process]::Start($pinfo)
-    $stdout = $proc.StandardOutput.ReadToEnd()
-    $stderr = $proc.StandardError.ReadToEnd()
-    $proc.WaitForExit()
-    $agentExit = $proc.ExitCode
-    if ($stdout) {
-      $stdout.Trim().Split("`n") | ForEach-Object {
+    $onceLog = Join-Path $Root "agent-once.log"
+    if (Test-Path $onceLog) { Remove-Item $onceLog -Force -ErrorAction SilentlyContinue }
+    $ps = "$env:WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe"
+    & $ps -NoProfile -ExecutionPolicy Bypass -File $hostPs1 -Once *> $onceLog
+    $agentExit = $LASTEXITCODE
+    if (Test-Path $onceLog) {
+      Get-Content $onceLog -ErrorAction SilentlyContinue | ForEach-Object {
         if ($_.Trim()) { Write-PchubSetupLog -Root $Root -Message "      $_" -Silent:$Silent }
-      }
-    }
-    if ($stderr) {
-      $stderr.Trim().Split("`n") | ForEach-Object {
-        if ($_.Trim()) { Write-PchubSetupLog -Root $Root -Message "      ERR $_" -Silent:$Silent }
       }
     }
   } catch {
@@ -117,11 +104,14 @@ function Invoke-PchubHostInstall {
       $state = Get-Content $statePath -Raw | ConvertFrom-Json
       $config = Get-Content $configPath -Raw | ConvertFrom-Json
       if (-not $state.sunshineUsername -or -not $state.sunshinePassword) {
+        Write-PchubSetupLog -Root $Root -Message "      Fetching streaming credentials..." -Silent:$Silent
         $remote = Invoke-PchubApi -ApiRoot $config.apiUrl -Path "/api/agents/streaming/config" -Method "GET" -Token $state.agentToken
         $state.sunshineUsername = $remote.sunshineUsername
         $state.sunshinePassword = $remote.sunshinePassword
       }
+      Write-PchubSetupLog -Root $Root -Message "      Installing Sunshine (may take a few minutes)..." -Silent:$Silent
       Initialize-PchubSunshine -Username $state.sunshineUsername -Password $state.sunshinePassword
+      Write-PchubSetupLog -Root $Root -Message "      Setting up WireGuard relay tunnel..." -Silent:$Silent
       Initialize-PchubTunnel -Config $config -State $state | Out-Null
       $state | ConvertTo-Json | Set-Content $statePath -Encoding UTF8
       Write-PchubSetupLog -Root $Root -Message "      OK" -Silent:$Silent

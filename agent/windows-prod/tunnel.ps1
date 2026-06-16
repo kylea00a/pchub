@@ -15,7 +15,7 @@ function Install-WireGuardIfNeeded {
   Write-Host "      Installing WireGuard (PCHUB relay tunnel)..."
   $installer = Join-Path $env:TEMP "wireguard-installer.exe"
   $url = "https://download.wireguard.com/windows-client/wireguard-installer.exe"
-  Invoke-WebRequest -Uri $url -OutFile $installer -UseBasicParsing
+  Invoke-WebRequest -Uri $url -OutFile $installer -UseBasicParsing -TimeoutSec 180
   $proc = Start-Process -FilePath $installer -ArgumentList "/quiet" -Wait -PassThru
   if ($proc.ExitCode -ne 0) {
     throw "WireGuard install failed (exit $($proc.ExitCode))."

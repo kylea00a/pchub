@@ -37,7 +37,7 @@ Add-Type -AssemblyName System.Drawing
 [System.Windows.Forms.Application]::EnableVisualStyles()
 [System.Windows.Forms.Application]::SetCompatibleTextRenderingDefault($false)
 
-$script:InstallerBuild = "2026.06.10.8"
+$script:InstallerBuild = "2026.06.10.9"
 $script:SiteUrl = "https://pchub.cloud"
 $script:ApiUrl = "https://api.pchub.cloud"
 $script:Dest = "C:\PCHUB-Host"
@@ -349,6 +349,9 @@ function Install-PchubHost {
   }
 
   Add-InstallLog "Installing (build $script:InstallerBuild)..."
+  $setupLog = Join-Path $script:Dest "setup.log"
+  $lastLogLine = 0
+
   $psi = New-Object System.Diagnostics.ProcessStartInfo
   $psi.FileName = "$env:WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe"
   $psi.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$runInstall`" -Silent"
@@ -357,14 +360,31 @@ function Install-PchubHost {
   $psi.CreateNoWindow = $true
   $installProc = [System.Diagnostics.Process]::Start($psi)
   while (-not $installProc.HasExited) {
+    if (Test-Path $setupLog) {
+      $lines = @(Get-Content $setupLog -ErrorAction SilentlyContinue)
+      if ($lines.Count -gt $lastLogLine) {
+        for ($i = $lastLogLine; $i -lt $lines.Count; $i++) {
+          $line = $lines[$i]
+          if ($line -match '\[(\d)/5\]') {
+            $lblInstall.Text = "Step $($Matches[1]) of 5 - $($line -replace '^\[[^\]]+\]\s*','')"
+          }
+          Add-InstallLog $line
+        }
+        $lastLogLine = $lines.Count
+      }
+    }
     [System.Windows.Forms.Application]::DoEvents()
-    Start-Sleep -Milliseconds 200
+    Start-Sleep -Milliseconds 400
   }
   $installExit = $installProc.ExitCode
 
-  $setupLog = Join-Path $script:Dest "setup.log"
   if (Test-Path $setupLog) {
-    Get-Content $setupLog | ForEach-Object { Add-InstallLog $_ }
+    $lines = @(Get-Content $setupLog -ErrorAction SilentlyContinue)
+    if ($lines.Count -gt $lastLogLine) {
+      for ($i = $lastLogLine; $i -lt $lines.Count; $i++) {
+        Add-InstallLog $lines[$i]
+      }
+    }
   }
   $agentLog = Join-Path $script:Dest "agent.log"
   if (Test-Path $agentLog) {

@@ -17,7 +17,7 @@ function Install-SunshineIfNeeded {
   $url = "https://github.com/LizardByte/Sunshine/releases/latest/download/sunshine-windows-installer.exe"
 
   try {
-    Invoke-WebRequest -Uri $url -OutFile $installer -UseBasicParsing
+    Invoke-WebRequest -Uri $url -OutFile $installer -UseBasicParsing -TimeoutSec 180
     $proc = Start-Process -FilePath $installer -ArgumentList "/S" -Wait -PassThru
     if ($proc.ExitCode -ne 0) {
       throw "Sunshine installer exit $($proc.ExitCode)"
@@ -199,10 +199,15 @@ function Test-SunshineReady {
   $localIp = (Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
     Where-Object { $_.IPAddress -notlike "127.*" -and $_.IPAddress -notlike "169.254.*" } |
     Select-Object -First 1).IPAddress
-  $portOpen = (Test-NetConnection -ComputerName 127.0.0.1 -Port 47989 -WarningAction SilentlyContinue).TcpTestSucceeded
+  $portOpen = $false
+  try {
+    $portOpen = (Test-NetConnection -ComputerName 127.0.0.1 -Port 47989 -WarningAction SilentlyContinue -InformationLevel Quiet -ErrorAction Stop)
+  } catch { }
   $lanPortOpen = $false
   if ($localIp) {
-    $lanPortOpen = (Test-NetConnection -ComputerName $localIp -Port 47989 -WarningAction SilentlyContinue).TcpTestSucceeded
+    try {
+      $lanPortOpen = (Test-NetConnection -ComputerName $localIp -Port 47989 -WarningAction SilentlyContinue -InformationLevel Quiet -ErrorAction Stop)
+    } catch { }
   }
   if ($portOpen -and -not $serviceRunning) {
     $serviceRunning = $true
