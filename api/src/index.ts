@@ -1133,9 +1133,15 @@ app.post("/api/agents/tunnel/heartbeat", authAgent, (req, res) => {
   if (connected) {
     recordTunnelHandshake(machine.id);
     const fresh = db.prepare("SELECT * FROM machines WHERE id = ?").get(machine.id) as MachineRow;
-    enableStreamRelay(fresh);
+    const ok = enableStreamRelay(fresh);
+    if (!ok) {
+      // This most commonly fails if the API process doesn't have permission to run iptables.
+      // We still record the handshake so "tunnel up" is tracked, but relay will not work.
+      res.json({ ok: true, relayConfigured: false });
+      return;
+    }
   }
-  res.json({ ok: true });
+  res.json({ ok: true, relayConfigured: true });
 });
 
 app.post("/api/agents/streaming", authAgent, (req, res) => {

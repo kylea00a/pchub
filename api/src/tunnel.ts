@@ -122,28 +122,39 @@ export function enableStreamRelay(machine: MachineRow) {
   const hostIp = machine.wg_tunnel_ip;
 
   try {
+    // Only one active relay target per droplet IP.
+    // If we append rules, older DNAT rules would keep matching first and break new rentals.
+    const ipt = (cmd: string) =>
+      execSync(cmd, { shell: "/bin/bash", stdio: "ignore" });
+    const delAll = (rule: string) => {
+      // Delete until no longer present.
+      for (let i = 0; i < 20; i++) {
+        try {
+          ipt(`iptables -w -t nat -D ${rule}`);
+        } catch {
+          break;
+        }
+      }
+    };
+
     for (const port of GAMESTREAM_PORTS_TCP) {
-      execSync(
-        `iptables -t nat -C PREROUTING -p tcp --dport ${port} -j DNAT --to-destination ${hostIp}:${port} 2>/dev/null || ` +
-          `iptables -t nat -A PREROUTING -p tcp --dport ${port} -j DNAT --to-destination ${hostIp}:${port}`,
-        { shell: "/bin/bash" }
+      delAll(`PREROUTING -p tcp --dport ${port} -j DNAT`);
+      delAll(`POSTROUTING -p tcp -d ${hostIp} --dport ${port} -j MASQUERADE`);
+      ipt(
+        `iptables -w -t nat -A PREROUTING -p tcp --dport ${port} -j DNAT --to-destination ${hostIp}:${port}`
       );
-      execSync(
-        `iptables -t nat -C POSTROUTING -p tcp -d ${hostIp} --dport ${port} -j MASQUERADE 2>/dev/null || ` +
-          `iptables -t nat -A POSTROUTING -p tcp -d ${hostIp} --dport ${port} -j MASQUERADE`,
-        { shell: "/bin/bash" }
+      ipt(
+        `iptables -w -t nat -A POSTROUTING -p tcp -d ${hostIp} --dport ${port} -j MASQUERADE`
       );
     }
     for (const port of GAMESTREAM_PORTS_UDP) {
-      execSync(
-        `iptables -t nat -C PREROUTING -p udp --dport ${port} -j DNAT --to-destination ${hostIp}:${port} 2>/dev/null || ` +
-          `iptables -t nat -A PREROUTING -p udp --dport ${port} -j DNAT --to-destination ${hostIp}:${port}`,
-        { shell: "/bin/bash" }
+      delAll(`PREROUTING -p udp --dport ${port} -j DNAT`);
+      delAll(`POSTROUTING -p udp -d ${hostIp} --dport ${port} -j MASQUERADE`);
+      ipt(
+        `iptables -w -t nat -A PREROUTING -p udp --dport ${port} -j DNAT --to-destination ${hostIp}:${port}`
       );
-      execSync(
-        `iptables -t nat -C POSTROUTING -p udp -d ${hostIp} --dport ${port} -j MASQUERADE 2>/dev/null || ` +
-          `iptables -t nat -A POSTROUTING -p udp -d ${hostIp} --dport ${port} -j MASQUERADE`,
-        { shell: "/bin/bash" }
+      ipt(
+        `iptables -w -t nat -A POSTROUTING -p udp -d ${hostIp} --dport ${port} -j MASQUERADE`
       );
     }
     return true;
