@@ -1,13 +1,18 @@
 ## PCHUB Renter (Windows)
 
-Planned responsibilities:
-- Login (email/password) via existing API
-- Select rental and connect
-- WebRTC receive video/audio (hardware decode)
-- Send input events over data channel
+Login with **email/password**, pick your **active rental**, then click **Connect** to start streaming (does not auto-connect).
 
-Install target:
-- `C:\Program Files\PCHUB\Renter\`
+### Build (Windows)
 
-This folder is scaffold-only for now.
+```powershell
+cd stream\windows\renter\PCHUB.Renter
+dotnet publish -c Release -r win-x64 -o ..\..\..\..\deploy\downloads\renter
+```
 
+### v0.1 scope
+
+- Login + active rental detection
+- **Connect** button → signaling WebSocket join (`/api/webrtc/signal`)
+- WebRTC media (capture/decode) coming next
+
+Install target (MSI): `C:\Program Files\PCHUB\Renter\`

@@ -17,6 +17,7 @@ import {
 } from "./auth.js";
 import { db, type InventoryRow, type MachineRow, type RenterProfileRow, type RentalRow } from "./db.js";
 import { requireAdmin, requireAuth, type AuthedRequest } from "./middleware.js";
+import { streamableStatusSql } from "./rental-session.js";
 import {
   resolveWindowsBundleConfig,
   sendHostConfigJson,
@@ -104,7 +105,7 @@ app.post(
 
 app.use(express.json({ limit: "25mb" }));
 
-type SignalRole = "host" | "renter";
+type SignalRole = "host" | "renter" | "admin";
 type SignalConn = { ws: WebSocket; role: SignalRole; rentalId: string; machineId?: string; userId?: string };
 type SignalRoom = { host?: SignalConn; renter?: SignalConn };
 const SIGNAL_ROOMS = new Map<string, SignalRoom>();
@@ -142,7 +143,28 @@ function getRoom(rentalId: string) {
 }
 
 function otherPeer(room: SignalRoom, role: SignalRole) {
-  return role === "host" ? room.renter?.ws : room.host?.ws;
+  if (role === "host") return room.renter?.ws;
+  return room.host?.ws;
+}
+
+function isClientRole(role: SignalRole) {
+  return role === "renter" || role === "admin";
+}
+
+const PUBLIC_STUN_SERVERS = [
+  "stun:stun.l.google.com:19302",
+  "stun:stun1.l.google.com:19302",
+];
+
+function webrtcConfigPayload(req: express.Request) {
+  const proto = req.headers["x-forwarded-proto"] === "https" ? "wss" : "ws";
+  const host = req.headers["x-forwarded-host"] ?? req.headers.host ?? `localhost:${PORT}`;
+  return {
+    signalUrl: `${proto}://${host}/api/webrtc/signal`,
+    stunServers: PUBLIC_STUN_SERVERS,
+    mode: "direct" as const,
+    turnEnabled: false,
+  };
 }
 
 async function authorizeSignalJoin(opts: {
@@ -160,10 +182,24 @@ async function authorizeSignalJoin(opts: {
       .get(token) as MachineRow | undefined;
     if (!machine) return { ok: false, status: 401, error: "Invalid host token" };
     const rental = db
-      .prepare("SELECT * FROM rentals WHERE id = ? AND machine_id = ? AND status = 'active'")
+      .prepare(
+        `SELECT * FROM rentals WHERE id = ? AND machine_id = ? AND status IN ${streamableStatusSql()}`
+      )
       .get(rentalId, machine.id) as RentalRow | undefined;
-    if (!rental) return { ok: false, status: 404, error: "Active rental not found for host" };
+    if (!rental) return { ok: false, status: 404, error: "Active session not found for host" };
     return { ok: true, machineId: machine.id };
+  }
+
+  if (role === "admin") {
+    const user = verifyToken(token);
+    if (!user || user.role !== "admin") {
+      return { ok: false, status: 403, error: "Admin access only" };
+    }
+    const rental = db
+      .prepare("SELECT * FROM rentals WHERE id = ? AND status = 'admin_active'")
+      .get(rentalId) as RentalRow | undefined;
+    if (!rental) return { ok: false, status: 404, error: "Admin stream session not found" };
+    return { ok: true, userId: user.id };
   }
 
   // renter
@@ -311,7 +347,12 @@ function endRentalLogic(rentalId: string) {
     .prepare("SELECT * FROM rentals WHERE id = ?")
     .get(rentalId) as RentalRow | undefined;
   if (!rental) throw new Error("Rental not found");
-  if (rental.status !== "active") throw new Error("Rental is not active");
+  if (rental.status !== "active" && rental.status !== "admin_active") {
+    throw new Error("Rental is not active");
+  }
+  if (rental.status === "admin_active") {
+    return endAdminStreamLogic(rentalId);
+  }
 
   const started = new Date(rental.started_at).getTime();
   const minutes = Math.max(1, Math.ceil((Date.now() - started) / 60_000));
@@ -341,6 +382,54 @@ function endRentalLogic(rentalId: string) {
         ? "PC turned off. Saving personal files to cloud."
         : "PC turned off.",
   };
+}
+
+function startAdminStreamLogic(machineId: string) {
+  const machine = db
+    .prepare("SELECT * FROM machines WHERE id = ?")
+    .get(machineId) as MachineRow | undefined;
+  if (!machine) throw new Error("Machine not found");
+  if (!isOnline(machine.last_seen_at)) throw new Error("Machine is offline");
+  if (machine.status === "rented") throw new Error("Machine already in use");
+
+  const existingAdmin = db
+    .prepare(
+      `SELECT id FROM rentals WHERE machine_id = ? AND status = 'admin_active' LIMIT 1`
+    )
+    .get(machine.id) as { id: string } | undefined;
+  if (existingAdmin) {
+    return { rentalId: existingAdmin.id, machineId: machine.id, reused: true };
+  }
+
+  const rentalId = nanoid(12);
+  db.prepare(
+    `INSERT INTO rentals (
+      id, machine_id, status, price_per_minute_cents, started_at, minutes_billed,
+      renter_profile_id, personal_storage, sync_status, sync_message,
+      stream_status, stream_message, stream_pair_status, connect_password
+    ) VALUES (?, ?, 'admin_active', 0, ?, 0, NULL, 0, 'idle', NULL, 'pending', ?, 'idle', NULL)`
+  ).run(
+    rentalId,
+    machine.id,
+    nowIso(),
+    "Admin support stream session"
+  );
+  db.prepare(`UPDATE machines SET status = 'rented' WHERE id = ?`).run(machine.id);
+  return { rentalId, machineId: machine.id, reused: false };
+}
+
+function endAdminStreamLogic(rentalId: string) {
+  const rental = db
+    .prepare("SELECT * FROM rentals WHERE id = ?")
+    .get(rentalId) as RentalRow | undefined;
+  if (!rental) throw new Error("Session not found");
+  if (rental.status !== "admin_active") throw new Error("Not an admin stream session");
+  db.prepare(`UPDATE rentals SET status = 'ended', ended_at = ? WHERE id = ?`).run(
+    nowIso(),
+    rental.id
+  );
+  db.prepare(`UPDATE machines SET status = 'online' WHERE id = ?`).run(rental.machine_id);
+  return { rentalId: rental.id, power: "off", message: "Admin stream ended." };
 }
 
 function buildDashboard(profile: RenterProfileRow) {
@@ -987,6 +1076,10 @@ app.post("/api/me/power/off", requireAuth, (req, res) => {
 });
 
 // ——— Admin (admin.skypc.ph subdomain) ———
+app.get("/api/webrtc/config", (req, res) => {
+  res.json(webrtcConfigPayload(req));
+});
+
 app.get("/api/admin/overview", requireAdmin, (_req, res) => {
   const users = db.prepare("SELECT COUNT(*) as c FROM users").get() as { c: number };
   const machines = db.prepare("SELECT COUNT(*) as c FROM machines").get() as { c: number };
@@ -1019,6 +1112,27 @@ app.get("/api/admin/overview", requireAdmin, (_req, res) => {
     }),
     rentals,
   });
+});
+
+app.post("/api/admin/machines/:machineId/stream/connect", requireAdmin, (req, res) => {
+  try {
+    const result = startAdminStreamLogic(req.params.machineId);
+    res.json({
+      ...result,
+      webrtc: webrtcConfigPayload(req),
+      message: "Admin stream session ready. Connect from admin tools with this rentalId.",
+    });
+  } catch (err) {
+    res.status(409).json({ error: err instanceof Error ? err.message : "Failed" });
+  }
+});
+
+app.post("/api/admin/stream/:rentalId/end", requireAdmin, (req, res) => {
+  try {
+    res.json(endAdminStreamLogic(req.params.rentalId));
+  } catch (err) {
+    res.status(409).json({ error: err instanceof Error ? err.message : "Failed" });
+  }
 });
 
 app.post("/api/rentals", requireAuth, (req, res) => {
@@ -1081,7 +1195,28 @@ app.get("/api/me/rentals/:id/connect", requireAuth, (req, res) => {
     res.status(404).json({ error: "Active rental not found" });
     return;
   }
-  res.json(formatConnectInfo(rental));
+  res.json({
+    ...formatConnectInfo(rental),
+    webrtc: webrtcConfigPayload(req),
+  });
+});
+
+app.post("/api/me/rentals/:id/stream/connect", requireAuth, (req, res) => {
+  const user = (req as AuthedRequest).user;
+  const profile = profileForUser(user.id);
+  const rental = db
+    .prepare("SELECT * FROM rentals WHERE id = ? AND renter_profile_id = ? AND status = 'active'")
+    .get(req.params.id, profile.id) as RentalRow | undefined;
+  if (!rental) {
+    res.status(404).json({ error: "Active rental not found" });
+    return;
+  }
+  res.json({
+    rentalId: rental.id,
+    machineId: rental.machine_id,
+    webrtc: webrtcConfigPayload(req),
+    message: "Click Connect in the renter app to start streaming.",
+  });
 });
 
 app.post("/api/me/rentals/:id/pair", requireAuth, (req, res) => {
@@ -1142,7 +1277,7 @@ app.post("/api/agents/remote", authAgent, (req, res) => {
 
   const rental = db
     .prepare(
-      "SELECT * FROM rentals WHERE id = ? AND machine_id = ? AND status = 'active'"
+      `SELECT * FROM rentals WHERE id = ? AND machine_id = ? AND status IN ${streamableStatusSql()}`
     )
     .get(rentalId, machine.id) as RentalRow | undefined;
   if (!rental) {
@@ -1262,7 +1397,7 @@ app.post("/api/agents/streaming", authAgent, async (req, res) => {
 
   const rental = db
     .prepare(
-      "SELECT * FROM rentals WHERE id = ? AND machine_id = ? AND status = 'active'"
+      `SELECT * FROM rentals WHERE id = ? AND machine_id = ? AND status IN ${streamableStatusSql()}`
     )
     .get(rentalId, machine.id) as RentalRow | undefined;
   if (!rental) {
@@ -1345,7 +1480,7 @@ app.get("/api/agents/session", authAgent, (req, res) => {
   const machine = (req as express.Request & { machine: MachineRow }).machine;
   const rental = db
     .prepare(
-      `SELECT * FROM rentals WHERE machine_id = ? AND status = 'active' ORDER BY started_at DESC LIMIT 1`
+      `SELECT * FROM rentals WHERE machine_id = ? AND status IN ${streamableStatusSql()} ORDER BY started_at DESC LIMIT 1`
     )
     .get(machine.id) as RentalRow | undefined;
 
@@ -1506,7 +1641,7 @@ wss.on("connection", (ws) => {
       const role = msg.role as SignalRole;
       const rentalId = typeof msg.rentalId === "string" ? msg.rentalId : "";
       const token = typeof msg.token === "string" ? msg.token : "";
-      if (role !== "host" && role !== "renter") {
+      if (role !== "host" && role !== "renter" && role !== "admin") {
         closeWith(ws, 1008, "invalid role");
         return;
       }
@@ -1537,8 +1672,9 @@ wss.on("connection", (ws) => {
       wsSend(ws, { type: "joined", role, rentalId });
       const peer = otherPeer(room, role);
       if (peer) {
-        wsSend(peer, { type: "peer", status: "joined", role });
-        wsSend(ws, { type: "peer", status: "joined", role: role === "host" ? "renter" : "host" });
+        const peerRole = role === "host" ? room.renter?.role : "host";
+        wsSend(peer, { type: "peer", status: "joined", role: peerRole ?? "renter" });
+        wsSend(ws, { type: "peer", status: "joined", role: role === "host" ? (room.renter?.role ?? "renter") : "host" });
       }
       return;
     }
@@ -1559,7 +1695,7 @@ wss.on("connection", (ws) => {
     const room = SIGNAL_ROOMS.get(conn.rentalId);
     if (!room) return;
     if (conn.role === "host" && room.host?.ws === ws) room.host = undefined;
-    if (conn.role === "renter" && room.renter?.ws === ws) room.renter = undefined;
+    if (isClientRole(conn.role) && room.renter?.ws === ws) room.renter = undefined;
     const peer = conn.role === "host" ? room.renter?.ws : room.host?.ws;
     if (peer) wsSend(peer, { type: "peer", status: "left", role: conn.role });
     if (!room.host && !room.renter) SIGNAL_ROOMS.delete(conn.rentalId);

@@ -20,6 +20,14 @@ jobs:
 
       # WiX v4 is the intended packager. This is a scaffold pipeline:
       # it will be wired to real host/renter binaries as they land.
+      - name: Build PCHUB Renter app
+        shell: pwsh
+        run: |
+          dotnet publish stream/windows/renter/PCHUB.Renter/PCHUB.Renter.csproj `
+            -c Release -r win-x64 --self-contained false `
+            -o staging/renter
+          Get-ChildItem staging/renter | Format-Table Name, Length
+
       - name: Install WiX Toolset v4
         shell: pwsh
         run: |

@@ -29,6 +29,13 @@ Then forward:
 
 Server forwards these messages to the other peer and adds `from: "host|renter"`.
 
+### Session rules
+
+- **No owner preview** — hosts never stream outside an active session.
+- **Renter must click Connect** — streaming does not auto-start when a rental begins.
+- **Admin connect only** — admins can open a support stream via `POST /api/admin/machines/:id/stream/connect` (creates `admin_active` session).
+- **Direct-only (v1)** — ICE + public STUN; TURN fallback comes later for the minority.
+
 ### Why this exists
 
 Moonlight/Sunshine does not support ICE/STUN hole-punching. To achieve **direct**
