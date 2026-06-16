@@ -47,6 +47,10 @@ function Invoke-PchubHostInstall {
   Write-PchubSetupLog -Root $Root -Message "[2/5] Stopping old agent..." -Silent:$Silent
   & cmd /c "taskkill /FI `"WINDOWTITLE eq PCHUB Agent Loop*`" /F >nul 2>&1"
   & cmd /c "taskkill /FI `"WINDOWTITLE eq PCHUB Host Status*`" /F >nul 2>&1"
+  if (Test-Path (Join-Path $Root "webrtc-signaling.ps1")) {
+    . (Join-Path $Root "webrtc-signaling.ps1")
+    Stop-HostWebRtcSignaling
+  }
   & cmd /c "wmic process where `"CommandLine like '%pchub-host.ps1%'`" call terminate >nul 2>&1"
 
   if (Test-Path $statePath) {

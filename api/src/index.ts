@@ -1315,6 +1315,10 @@ app.post("/api/agents/rustdesk/id", authAgent, (req, res) => {
   res.json({ ok: true });
 });
 
+app.get("/api/agents/webrtc/config", authAgent, (req, res) => {
+  res.json(webrtcConfigPayload(req));
+});
+
 app.get("/api/agents/streaming/config", authAgent, (req, res) => {
   const machine = (req as express.Request & { machine: MachineRow }).machine;
   res.json({

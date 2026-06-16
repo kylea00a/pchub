@@ -22,11 +22,19 @@ try {
 }
 
 $script:StreamingLoaded = $false
+$script:WebRtcSignalingLoaded = $false
 try {
   . (Join-Path $Root "streaming.ps1")
   $script:StreamingLoaded = $true
 } catch {
   Write-Log "Streaming module skipped: $($_.Exception.Message)"
+}
+
+try {
+  . (Join-Path $Root "webrtc-signaling.ps1")
+  $script:WebRtcSignalingLoaded = $true
+} catch {
+  Write-Log "WebRTC signaling module skipped: $($_.Exception.Message)"
 }
 
 function Get-Config {
@@ -147,9 +155,14 @@ function Get-AgentSession($Config, $State) {
 function Handle-ActiveSession($Config, $State) {
   try {
     $session = Get-AgentSession $Config $State
+    if ($script:WebRtcSignalingLoaded) {
+      Sync-HostWebRtcSignaling -Config $Config -State $State -Session $session
+    }
     if ($session.active) {
-      $State = Update-StreamingSession -Config $Config -State $State -Session $session
-      Save-State $State
+      if ($script:StreamingLoaded) {
+        $State = Update-StreamingSession -Config $Config -State $State -Session $session
+        Save-State $State
+      }
     }
   } catch {
     Write-Log "Session check failed: $($_.Exception.Message)"

@@ -29,7 +29,12 @@ Then forward:
 
 Server forwards these messages to the other peer and adds `from: "host|renter"`.
 
-### Session rules
+### Host agent (current)
+
+When a rental or admin session is active, the host agent starts `webrtc-signaling-worker.ps1`
+in the background and joins the signaling room as `role: host`.
+
+Logs: `C:\PCHUB-Host\webrtc-signaling.log`
 
 - **No owner preview** — hosts never stream outside an active session.
 - **Renter must click Connect** — streaming does not auto-start when a rental begins.

@@ -39,6 +39,8 @@ const HOST_SCRIPTS = [
   "RUN-PCHUB.cmd",
   "pchub-host.ps1",
   "pchub-api.ps1",
+  "webrtc-signaling.ps1",
+  "webrtc-signaling-worker.ps1",
   "sunshine.ps1",
   "streaming.ps1",
   "status-app.ps1",
