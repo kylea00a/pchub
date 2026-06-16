@@ -16,10 +16,17 @@ try { Write-Log "PCHUB agent starting (root: $Root)" } catch { }
 
 try {
   . (Join-Path $Root "pchub-api.ps1")
-  . (Join-Path $Root "streaming.ps1")
 } catch {
   Write-Log "Agent load failed: $($_.Exception.Message)"
   exit 1
+}
+
+$script:StreamingLoaded = $false
+try {
+  . (Join-Path $Root "streaming.ps1")
+  $script:StreamingLoaded = $true
+} catch {
+  Write-Log "Streaming module skipped: $($_.Exception.Message)"
 }
 
 function Get-Config {
@@ -165,7 +172,7 @@ try {
   if ($state -and $configCode) {
     $stateCode = if ($state.pairingCode) { "$($state.pairingCode)".Trim().ToUpper() } else { $null }
     if (-not $stateCode -or $stateCode -ne $configCode) {
-      Write-Log "Pairing code changed — registering with new code..."
+      Write-Log "Pairing code changed - registering with new code..."
       $state = Register-Machine $config
     }
   }
@@ -192,7 +199,9 @@ try {
     Write-Log "Heartbeat warn: $($_.Exception.Message)"
   }
   try {
-    $state = Handle-ActiveSession $config $state
+    if ($script:StreamingLoaded) {
+      $state = Handle-ActiveSession $config $state
+    }
   } catch {
     Write-Log "Session warn: $($_.Exception.Message)"
   }
@@ -209,7 +218,9 @@ try {
     Start-Sleep -Milliseconds $interval
     try {
       Send-Heartbeat $config $state
-      $state = Handle-ActiveSession $config $state
+      if ($script:StreamingLoaded) {
+        $state = Handle-ActiveSession $config $state
+      }
     } catch {
       Write-Log "Heartbeat failed: $($_.Exception.Message)"
     }

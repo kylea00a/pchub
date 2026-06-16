@@ -7,8 +7,6 @@ import {
   buildWindowsBundleDownloadUrl,
   buildWindowsDownloadCommand,
   HOST_INSTALLER_CMD,
-  HOST_INSTALLER_DIAG,
-  HOST_INSTALLER_EXE,
   type HostInstallerConfig,
 } from "@/lib/host-installer";
 
@@ -148,26 +146,12 @@ export default function HostPage() {
                 href={HOST_INSTALLER_CMD}
                 className="mt-4 block w-full pchub-btn-primary px-5 py-2.5 text-center text-sm font-medium text-background"
               >
-                Download PCHUB Host Setup (.cmd)
-              </a>
-              <a
-                href={HOST_INSTALLER_EXE}
-                className="mt-2 block w-full border border-border px-5 py-2.5 text-center text-sm font-medium text-foreground hover:border-accent/40"
-              >
-                Or download .exe (same wizard)
+                Download PCHUB Host Setup
               </a>
               <p className="mt-2 text-xs text-muted">
-                Delete any old copy in Downloads first. Double-click the new file.
-                Click <strong className="text-foreground">Yes</strong> when Windows asks for administrator.
-                Wizard shows <strong className="text-foreground">Installer 2026.06.10.7</strong> top-right.
-              </p>
-              <p className="mt-2 text-xs text-muted">
-                If a window flashes and closes: run{" "}
-                <a href={HOST_INSTALLER_DIAG} className="text-accent hover:underline">
-                  PCHUB-Diagnose.cmd
-                </a>{" "}
-                and send us <code className="text-foreground">Desktop\PCHUB-Setup-Log.txt</code>.
-                If you installed before, open <code className="text-foreground">C:\PCHUB-Host\stop-agent.bat</code> first.
+                One file. Delete any old copy in Downloads first, then double-click.
+                Click <strong className="text-foreground">Yes</strong> for administrator.
+                Wizard shows <strong className="text-foreground">Installer 2026.06.10.8</strong> top-right.
               </p>
               <details className="mt-3 text-xs text-muted">
                 <summary className="cursor-pointer text-foreground">Installer didn&apos;t download?</summary>

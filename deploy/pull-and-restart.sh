@@ -48,8 +48,6 @@ command -v unzip >/dev/null 2>&1 || apt-get install -y unzip
 mkdir -p "${APP_DIR}/agent/dist/runtime"
 mkdir -p "${APP_DIR}/deploy/downloads"
 cp -f agent/windows-installer/setup-wizard.ps1 deploy/downloads/PCHUB-Host-Setup.ps1
-cp -f agent/windows-installer/launcher.ps1 deploy/downloads/PCHUB-Host-Setup-launcher.ps1
-cp -f agent/windows-installer/bootstrap-launcher.ps1 deploy/downloads/PCHUB-Host-Setup-bootstrap.ps1
 npm run build:host-bundle -w api
 npm run build:release -w agent
 npm run build -w web

@@ -1,19 +1,43 @@
-# PCHUB Host Setup — graphical wizard (packaged as PCHUB-Host-Setup.exe)
+# PCHUB Host Setup - graphical wizard (packaged as PCHUB-Host-Setup.exe)
 $script:SetupLog = Join-Path $env:USERPROFILE "Desktop\PCHUB-Setup-Log.txt"
 function Write-WizardLog([string]$Message) {
   $line = "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') [wizard] $Message"
   try { Add-Content -Path $script:SetupLog -Value $line -ErrorAction SilentlyContinue } catch { }
 }
 
-try {
 Write-WizardLog "Loading wizard..."
 $ErrorActionPreference = "Stop"
+
+$isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
+  [Security.Principal.WindowsBuiltInRole]::Administrator
+)
+if (-not $isAdmin) {
+  Write-WizardLog "Not admin - requesting elevation..."
+  $ps = "$env:WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe"
+  $elevArgs = @("-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-STA", "-File", $PSCommandPath)
+  $elev = Start-Process -FilePath $ps -ArgumentList $elevArgs -Verb RunAs -Wait -PassThru
+  exit $(if ($elev) { $elev.ExitCode } else { 1 })
+}
+
+try {
+  $pchubRoot = "C:\PCHUB-Host"
+  if (Test-Path "$pchubRoot\stop-agent.bat") {
+    Write-WizardLog "Stopping existing PCHUB agent..."
+    & cmd.exe /c "`"$pchubRoot\stop-agent.bat`" quiet" | Out-Null
+  }
+  New-Item -ItemType Directory -Force -Path $pchubRoot | Out-Null
+  Add-MpPreference -ExclusionPath $pchubRoot -ErrorAction SilentlyContinue | Out-Null
+} catch {
+  Write-WizardLog "Preamble warning: $($_.Exception.Message)"
+}
+
+try {
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 [System.Windows.Forms.Application]::EnableVisualStyles()
 [System.Windows.Forms.Application]::SetCompatibleTextRenderingDefault($false)
 
-$script:InstallerBuild = "2026.06.10.7"
+$script:InstallerBuild = "2026.06.10.8"
 $script:SiteUrl = "https://pchub.cloud"
 $script:ApiUrl = "https://api.pchub.cloud"
 $script:Dest = "C:\PCHUB-Host"
@@ -183,7 +207,7 @@ $doneText = New-Object System.Windows.Forms.Label
 $doneText.Text = @"
 Your PC is registered on pchub.cloud.
 
-PCHUB Host opens in your taskbar — keep it running.
+PCHUB Host opens in your taskbar - keep it running.
 Renters connect with Moonlight (no router setup for you).
 "@
 $doneText.Location = New-Object System.Drawing.Point(28, 12)
@@ -226,9 +250,9 @@ function Show-Step {
   $btnNext.Enabled = ($script:Step -ne 2 -or -not $script:Installing)
 
   switch ($script:Step) {
-    0 { $subtitle.Text = "Step 1 of 3 — Welcome"; $btnNext.Text = "Next" }
-    1 { $subtitle.Text = "Step 2 of 3 — Pair your PC"; $btnNext.Text = "Install" }
-    2 { $subtitle.Text = "Installing…"; $btnNext.Enabled = $false; $btnBack.Enabled = $false }
+    0 { $subtitle.Text = "Step 1 of 3 - Welcome"; $btnNext.Text = "Next" }
+    1 { $subtitle.Text = "Step 2 of 3 - Pair your PC"; $btnNext.Text = "Install" }
+    2 { $subtitle.Text = "Installing..."; $btnNext.Enabled = $false; $btnBack.Enabled = $false }
     3 { $subtitle.Text = "Finished"; $btnNext.Text = "Finish"; $btnBack.Enabled = $false }
   }
 }
@@ -254,7 +278,7 @@ function Install-PchubHost {
   $progress.Visible = $true
   $txtLog.Visible = $true
   $txtLog.Clear()
-  $lblInstall.Text = "Downloading and setting up your host PC…"
+  $lblInstall.Text = "Downloading and setting up your host PC..."
 
   try {
   $code = $txtCode.Text.Trim().ToUpper()
@@ -273,7 +297,7 @@ function Install-PchubHost {
   $bundleUrl = "$($script:SiteUrl)/api/host/windows-bundle?$params"
 
   New-Item -ItemType Directory -Force -Path $script:Dest | Out-Null
-  Add-InstallLog "Downloading bundle…"
+  Add-InstallLog "Downloading bundle..."
   try {
     Invoke-WebRequest -Uri $bundleUrl -OutFile $zipPath -UseBasicParsing
   } catch {
@@ -284,7 +308,7 @@ function Install-PchubHost {
     return
   }
 
-  Add-InstallLog "Extracting to $($script:Dest)…"
+  Add-InstallLog "Extracting to $($script:Dest)..."
   $statePath = Join-Path $script:Dest ".agent-state.json"
   $keepState = $false
   if (Test-Path $statePath) {
@@ -340,7 +364,12 @@ function Install-PchubHost {
 
   $setupLog = Join-Path $script:Dest "setup.log"
   if (Test-Path $setupLog) {
-    Get-Content $setupLog -Tail 28 | ForEach-Object { Add-InstallLog $_ }
+    Get-Content $setupLog | ForEach-Object { Add-InstallLog $_ }
+  }
+  $agentLog = Join-Path $script:Dest "agent.log"
+  if (Test-Path $agentLog) {
+    Add-InstallLog "--- agent.log ---"
+    Get-Content $agentLog -Tail 12 | ForEach-Object { Add-InstallLog $_ }
   }
 
   $registered = $false
@@ -359,7 +388,7 @@ function Install-PchubHost {
   }
 
   if ($installExit -ne 0) {
-    Add-InstallLog "Finished with warnings — PC is registered."
+    Add-InstallLog "Finished with warnings - PC is registered."
   }
 
   $script:Step = 3

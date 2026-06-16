@@ -105,7 +105,7 @@ function Invoke-PchubHostInstall {
   }
 
   if ($agentExit -ne 0) {
-    Write-PchubSetupLog -Root $Root -Message "Agent warned (exit $agentExit) but registered — continuing" -Silent:$Silent
+    Write-PchubSetupLog -Root $Root -Message "Agent warned (exit $agentExit) but registered - continuing" -Silent:$Silent
   }
 
   Write-PchubSetupLog -Root $Root -Message "[4/5] Sunshine + relay tunnel..." -Silent:$Silent
@@ -156,6 +156,6 @@ function Invoke-PchubHostInstall {
     $shortcut.Save()
   } catch { }
 
-  Write-PchubSetupLog -Root $Root -Message "DONE — check pchub.cloud for Online status" -Silent:$Silent
+  Write-PchubSetupLog -Root $Root -Message "DONE - check pchub.cloud for Online status" -Silent:$Silent
   return @{ Success = $true; ExitCode = 0 }
 }

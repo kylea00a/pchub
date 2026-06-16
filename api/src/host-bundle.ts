@@ -66,7 +66,7 @@ export function resolveWindowsBundleConfig(
     return { error: "Invalid pairing code", status: 404 };
   }
   if (new Date(pairing.expires_at).getTime() < Date.now()) {
-    return { error: "Pairing code expired — generate a new one", status: 410 };
+    return { error: "Pairing code expired - generate a new one", status: 410 };
   }
 
   const baseUrl =
