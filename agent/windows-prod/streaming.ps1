@@ -1,5 +1,4 @@
 . (Join-Path $PSScriptRoot "sunshine.ps1")
-. (Join-Path $PSScriptRoot "tunnel.ps1")
 
 function Get-LocalIPv4 {
   $addrs = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
@@ -44,8 +43,7 @@ function Get-StreamingStatus {
   param(
     [object]$Ready,
     [string]$LocalIp,
-    [string]$PublicIp,
-    [bool]$TunnelUp
+    [string]$PublicIp
   )
 
   if (-not $Ready.Installed) {
@@ -72,19 +70,19 @@ function Get-StreamingStatus {
     }
   }
 
-  if ($TunnelUp) {
-    return @{
-      status = "ready_relay"
-      message = "Use the PCHUB relay IP in Moonlight (IP only, no :port). No router setup needed."
-      connectMode = "relay"
-    }
-  }
-
   if ($LocalIp -and $Ready.LanPortOpen) {
     return @{
       status = "ready_local"
-      message = "Same WiFi: use $LocalIp in Moonlight. For internet, wait for PCHUB relay."
+      message = "Same WiFi: use $LocalIp in Moonlight. For internet, set router port forwarding for Moonlight ports."
       connectMode = "local"
+    }
+  }
+
+  if ($PublicIp) {
+    return @{
+      status = "ready"
+      message = "Internet: use your public IP in Moonlight after you set router port forwarding for Moonlight ports."
+      connectMode = "direct"
     }
   }
 
@@ -104,16 +102,6 @@ function Update-StreamingSession {
 
   if (-not $Session.active -or -not $Session.rentalId) { return $State }
 
-  $tunnelUp = $false
-  try {
-    $tunnelUp = Test-PchubTunnel -Config $Config -State $State
-    if (-not $tunnelUp) {
-      $tunnelUp = Initialize-PchubTunnel -Config $Config -State $State
-    }
-  } catch {
-    Write-Log "Tunnel warn: $($_.Exception.Message)"
-  }
-
   $creds = Get-SunshineCredsFromSession -Session $Session -State $State -Config $Config
   if ($creds.Username -and $creds.Password) {
     Enable-StreamingFirewall
@@ -124,7 +112,7 @@ function Update-StreamingSession {
   $ready = Test-SunshineReady
   $localIp = Get-LocalIPv4
   $publicIp = Get-PublicIPv4
-  $stream = Get-StreamingStatus -Ready $ready -LocalIp $localIp -PublicIp $publicIp -TunnelUp $tunnelUp
+  $stream = Get-StreamingStatus -Ready $ready -LocalIp $localIp -PublicIp $publicIp
   $pairStatus = $null
   $pairMessage = $null
 

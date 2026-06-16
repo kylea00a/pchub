@@ -8,7 +8,6 @@ const STATUS_LABELS: Record<string, string> = {
   pending: "Preparing",
   ready: "Ready",
   ready_local: "Ready (local)",
-  ready_relay: "Ready (relay)",
   needs_sunshine: "Installing Sunshine",
   sunshine_stopped: "Starting Sunshine",
   firewall_blocked: "Fixing firewall",
@@ -89,7 +88,7 @@ export function ConnectPanel({
             </dd>
             <p className="mt-1 text-[10px] text-muted">
               Enter IP only in Moonlight — no port number.
-              {connect.connectMode === "relay" && " PCHUB relay (works over internet)."}
+              {connect.connectMode === "direct" && " Internet (router port forwarding required)."}
             </p>
           </div>
         </dl>

@@ -41,7 +41,6 @@ const HOST_SCRIPTS = [
   "pchub-api.ps1",
   "sunshine.ps1",
   "streaming.ps1",
-  "tunnel.ps1",
   "status-app.ps1",
   "Start PCHUB Agent.bat",
   "status-window.bat",

@@ -1,5 +1,4 @@
 import type { MachineRow, RentalRow } from "./db.js";
-import { getStreamRelayHost, machineTunnelReady } from "./tunnel.js";
 
 export const MOONLIGHT_LINKS = {
   windows: "https://moonlight-stream.org/downloads/",
@@ -13,8 +12,6 @@ export function formatMoonlightConnect(rental: RentalRow, machine: MachineRow) {
     return null;
   }
 
-  const relayHost = getStreamRelayHost();
-  const tunnelUp = machineTunnelReady(machine);
   const localIp = rental.stream_local_ip?.trim() || null;
   const publicIp = rental.stream_public_ip?.trim() || null;
   const port = rental.stream_port || 47989;
@@ -28,18 +25,17 @@ export function formatMoonlightConnect(rental: RentalRow, machine: MachineRow) {
   let recommendedHost: string | null = null;
   let message = rental.stream_message;
 
-  if (tunnelUp) {
-    recommendedHost = relayHost;
+  if (publicIp && portsOpen) {
+    recommendedHost = publicIp;
     if (!message) {
-      message = `Add ${relayHost} in Moonlight (IP only, no :port). PCHUB relays through our server — no router setup on the host PC.`;
+      message =
+        "Add your host public IP in Moonlight (IP only, no :port). Make sure your router port forwarding is set up.";
     }
   } else if (localIp && rental.stream_status === "ready_local") {
     recommendedHost = localIp;
     if (!message) {
-      message = `Same WiFi: use ${localIp} in Moonlight. Otherwise wait for PCHUB relay.`;
+      message = `Same WiFi: use ${localIp} in Moonlight. For internet, set router port forwarding first.`;
     }
-  } else if (publicIp && portsOpen) {
-    recommendedHost = publicIp;
   }
 
   const streamReady =
@@ -47,10 +43,7 @@ export function formatMoonlightConnect(rental: RentalRow, machine: MachineRow) {
     running &&
     portsOpen &&
     Boolean(recommendedHost) &&
-    (rental.stream_status === "ready" ||
-      rental.stream_status === "ready_local" ||
-      rental.stream_status === "ready_relay" ||
-      connectMode === "relay");
+    (rental.stream_status === "ready" || rental.stream_status === "ready_local");
 
   const ready = streamReady && paired;
 
@@ -66,9 +59,11 @@ export function formatMoonlightConnect(rental: RentalRow, machine: MachineRow) {
   if (!installed) {
     message = "Host PC is installing Sunshine for low-latency streaming…";
   } else if (!running || !portsOpen) {
-    message = message || "Sunshine is starting on the host PC…";
+    message =
+      message ||
+      "Waiting for internet access. Start Sunshine and set up router port forwarding for Moonlight ports.";
   } else if (!recommendedHost) {
-    message = "Host is connecting to PCHUB relay…";
+    message = "Waiting for host public IP + port forwarding…";
   } else if (!paired && pairStatus === "pending") {
     message = "Enter the Moonlight PIN below to pair this session.";
   } else if (paired) {
@@ -83,7 +78,7 @@ export function formatMoonlightConnect(rental: RentalRow, machine: MachineRow) {
     localIp,
     publicIp,
     recommendedHost,
-    connectMode: tunnelUp ? "relay" : connectMode,
+    connectMode,
     message,
     sunshineInstalled: installed,
     sunshineRunning: running,

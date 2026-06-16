@@ -1,5 +1,6 @@
 import cors from "cors";
 import express from "express";
+import net from "node:net";
 import { nanoid } from "nanoid";
 import {
   ensureDefaultAdmin,
@@ -1144,7 +1145,7 @@ app.post("/api/agents/tunnel/heartbeat", authAgent, (req, res) => {
   res.json({ ok: true, relayConfigured: true });
 });
 
-app.post("/api/agents/streaming", authAgent, (req, res) => {
+app.post("/api/agents/streaming", authAgent, async (req, res) => {
   const machine = (req as express.Request & { machine: MachineRow }).machine;
   const {
     rentalId,
@@ -1193,6 +1194,28 @@ app.post("/api/agents/streaming", authAgent, (req, res) => {
     return;
   }
 
+  // For direct-only mode, "ports open" must mean reachable from the public internet.
+  // We validate TCP reachability from the server side (host router port-forwarding).
+  let externallyReachable = false;
+  const publicIpTrim = publicIp?.trim();
+  const streamPort = port ?? 47989;
+  if (publicIpTrim) {
+    externallyReachable = await new Promise<boolean>((resolve) => {
+      const socket = new net.Socket();
+      const done = (ok: boolean) => {
+        try {
+          socket.destroy();
+        } catch { }
+        resolve(ok);
+      };
+      socket.setTimeout(2500);
+      socket.once("connect", () => done(true));
+      socket.once("timeout", () => done(false));
+      socket.once("error", () => done(false));
+      socket.connect(streamPort, publicIpTrim);
+    });
+  }
+
   db.prepare(
     `UPDATE rentals SET
       stream_status = ?,
@@ -1214,13 +1237,13 @@ app.post("/api/agents/streaming", authAgent, (req, res) => {
     status ?? "pending",
     localIp ?? null,
     publicIp ?? null,
-    port ?? 47989,
+    streamPort,
     httpsPort ?? 47990,
     pin ?? null,
     message ?? null,
     sunshineInstalled ? 1 : 0,
     sunshineRunning ? 1 : 0,
-    portsOpen ? 1 : 0,
+    externallyReachable ? 1 : 0,
     connectMode ?? null,
     nowIso(),
     pairStatus ?? null,

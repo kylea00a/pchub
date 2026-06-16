@@ -95,12 +95,11 @@ function Invoke-PchubHostInstall {
     Write-PchubSetupLog -Root $Root -Message "Agent warned (exit $agentExit) but registered - continuing" -Silent:$Silent
   }
 
-  Write-PchubSetupLog -Root $Root -Message "[4/5] Sunshine + relay tunnel..." -Silent:$Silent
-  if ((Test-Path $sunshinePs1) -and (Test-Path $tunnelPs1)) {
+  Write-PchubSetupLog -Root $Root -Message "[4/5] Sunshine (direct connect)..." -Silent:$Silent
+  if (Test-Path $sunshinePs1) {
     try {
       . (Join-Path $Root "pchub-api.ps1")
       . $sunshinePs1
-      . $tunnelPs1
       $state = Get-Content $statePath -Raw | ConvertFrom-Json
       $config = Get-Content $configPath -Raw | ConvertFrom-Json
       if (-not $state.sunshineUsername -or -not $state.sunshinePassword) {
@@ -111,8 +110,6 @@ function Invoke-PchubHostInstall {
       }
       Write-PchubSetupLog -Root $Root -Message "      Installing Sunshine (may take a few minutes)..." -Silent:$Silent
       Initialize-PchubSunshine -Username $state.sunshineUsername -Password $state.sunshinePassword
-      Write-PchubSetupLog -Root $Root -Message "      Setting up WireGuard relay tunnel..." -Silent:$Silent
-      Initialize-PchubTunnel -Config $config -State $state | Out-Null
       $state | ConvertTo-Json | Set-Content $statePath -Encoding UTF8
       Write-PchubSetupLog -Root $Root -Message "      OK" -Silent:$Silent
     } catch {
