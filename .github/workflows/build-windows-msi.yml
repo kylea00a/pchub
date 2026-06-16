@@ -1,0 +1,41 @@
+name: Build Windows MSIs (Host + Renter)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "stream/windows/**"
+      - ".github/workflows/build-windows-msi.yml"
+
+concurrency:
+  group: windows-msi
+  cancel-in-progress: false
+
+jobs:
+  build-msi:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # WiX v4 is the intended packager. This is a scaffold pipeline:
+      # it will be wired to real host/renter binaries as they land.
+      - name: Install WiX Toolset v4
+        shell: pwsh
+        run: |
+          dotnet tool install --global wix --version 4.*
+          wix --version
+
+      - name: Build placeholder MSIs
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path staging | Out-Null
+          Write-Host "MSI pipeline scaffold. Real MSI build will be added with app binaries."
+          Set-Content -Path staging/README.txt -Value "Placeholder artifacts."
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PCHUB-windows-msi
+          path: staging/**
+          retention-days: 14
+
