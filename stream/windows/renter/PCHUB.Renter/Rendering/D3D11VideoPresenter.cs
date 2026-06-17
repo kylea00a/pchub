@@ -94,7 +94,7 @@ public sealed class D3D11VideoPresenter : IDisposable
                 box,
                 (IntPtr)ptr,
                 (uint)(raw.Width * 4),
-                (uint)frameBytes.Length);
+                0);
         }
 
         _swapChain.Present(0, PresentFlags.None);

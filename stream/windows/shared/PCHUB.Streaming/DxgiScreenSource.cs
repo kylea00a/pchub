@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using SharpGen.Runtime;
 using SIPSorceryMedia.Abstractions;
 using Vortice.Direct3D;
 using Vortice.DXGI;

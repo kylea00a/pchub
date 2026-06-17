@@ -6,6 +6,7 @@ import { createPairingCode, getAgentApiUrl, getApiUrl } from "@/lib/api";
 import {
   buildWindowsBundleDownloadUrl,
   buildWindowsDownloadCommand,
+  HOST_INSTALLER_EXE,
   HOST_INSTALLER_MSI,
   HOST_INSTALLER_CMD,
   type HostInstallerConfig,
@@ -144,13 +145,13 @@ export default function HostPage() {
                 </p>
               )}
               <a
-                href={HOST_INSTALLER_MSI}
+                href={HOST_INSTALLER_EXE}
                 className="mt-4 block w-full pchub-btn-primary px-5 py-2.5 text-center text-sm font-medium text-background"
               >
                 Download PCHUB Host (Windows installer)
               </a>
               <p className="mt-2 text-xs text-muted">
-                One MSI — agent + streaming host. After install, paste your pairing code into{" "}
+                One installer — agent + setup wizard. After install, paste your pairing code into{" "}
                 <code className="text-foreground">C:\PCHUB-Host\config.json</code>, then start{" "}
                 <strong className="text-foreground">PCHUB Host Agent</strong> from the Start menu.
               </p>

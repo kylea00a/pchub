@@ -6,8 +6,11 @@ export type HostInstallerConfig = {
   priceCents?: number;
 };
 
-/** Single host installer — agent + StreamHost at C:\PCHUB-Host\ */
+/** Single host installer — agent + StreamHost at C:\PCHUB-Host\ (published by MSI CI) */
 export const HOST_INSTALLER_MSI = "/downloads/PCHUB-Host.msi";
+
+/** Live host bootstrap until PCHUB-Host.msi is published */
+export const HOST_INSTALLER_EXE = "/downloads/PCHUB-Host-Setup.exe";
 
 /** Renter streaming app (separate installer). */
 export const RENTER_INSTALLER_MSI = "/downloads/PCHUB-Renter.msi";
