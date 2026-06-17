@@ -38,10 +38,10 @@ public sealed class DxgiScreenSource : IVideoSource, IDisposable
         // Width/height is set dynamically based on capture output and/or selected format.
         _formatManager = new MediaFormatManager<VideoFormat>(new List<VideoFormat>
         {
-            new(VideoCodecsEnum.H264, 1280, 720, 60),
-            new(VideoCodecsEnum.H264, 1280, 720, 30),
-            new(VideoCodecsEnum.VP8, 1280, 720, 60),
-            new(VideoCodecsEnum.VP8, 1280, 720, 30),
+            new(VideoCodecsEnum.H264, 1280, 720, "packetization-mode=1"),
+            new(VideoCodecsEnum.H264, 1280, 720, "packetization-mode=1;max-fs=3600"),
+            new(VideoCodecsEnum.VP8, 1280, 720, ""),
+            new(VideoCodecsEnum.VP8, 1280, 720, ""),
         });
     }
 
@@ -111,9 +111,8 @@ public sealed class DxgiScreenSource : IVideoSource, IDisposable
 
             using var dupl = output1.DuplicateOutput(device);
 
-            var selected = _formatManager.SelectedFormat;
-            var targetW = selected.Width > 0 ? selected.Width : 1280;
-            var targetH = selected.Height > 0 ? selected.Height : 720;
+            var targetW = 1280;
+            var targetH = 720;
 
             // We'll capture at duplication's native resolution, then crop to target size top-left.
             ID3D11Texture2D? gpuFrame = null;

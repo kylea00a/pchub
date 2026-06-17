@@ -29,10 +29,7 @@ public static class HostScreenCapture
     public static DxgiScreenSource CreatePrimaryDxgi(int targetWidth = 1280, int targetHeight = 720, int frameRate = 60)
     {
         var src = new DxgiScreenSource();
-        src.RestrictFormats(f =>
-            (f.Codec == VideoCodecsEnum.H264 || f.Codec == VideoCodecsEnum.VP8) &&
-            f.Width == targetWidth &&
-            f.Height == targetHeight);
+        src.RestrictFormats(f => f.Codec == VideoCodecsEnum.H264 || f.Codec == VideoCodecsEnum.VP8);
         return src;
     }
 

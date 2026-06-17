@@ -151,9 +151,7 @@ public sealed class DirectStreamPeer : IAsyncDisposable
             var decoderOpts = new Dictionary<string, string> { ["hwaccel"] = "d3d11va" };
             _videoSink = new FFmpegVideoEndPoint(decoderOpts);
             _videoSink.RestrictFormats(f =>
-                (f.Codec == VideoCodecsEnum.H264 || f.Codec == VideoCodecsEnum.VP8) &&
-                f.Width == 1280 &&
-                f.Height == 720);
+                f.Codec == VideoCodecsEnum.H264 || f.Codec == VideoCodecsEnum.VP8);
 
             var track = new MediaStreamTrack(_videoSink.GetVideoSinkFormats(), MediaStreamStatusEnum.RecvOnly);
             _pc.addTrack(track);
@@ -163,7 +161,7 @@ public sealed class DirectStreamPeer : IAsyncDisposable
                 var fmt = formats.First();
                 _renterVideoCodec = fmt.Codec;
                 _videoSink!.SetVideoSinkFormat(fmt);
-                Log($"Renter video recv: {fmt.Codec} {fmt.Width}x{fmt.Height}");
+                Log($"Renter video recv: {fmt.Codec}");
             };
 
             _videoSink.OnVideoSinkDecodedSampleFaster += raw =>
@@ -183,7 +181,7 @@ public sealed class DirectStreamPeer : IAsyncDisposable
                 catch { }
             };
             _pc.addTrack(new MediaStreamTrack(SDPMediaTypesEnum.video, false,
-                new List<VideoFormat> { new VideoFormat(VideoCodecsEnum.VP8, 1280, 720, 60) },
+                new List<VideoFormat> { new VideoFormat(VideoCodecsEnum.VP8, 1280, 720, "") },
                 MediaStreamStatusEnum.RecvOnly));
         }
     }

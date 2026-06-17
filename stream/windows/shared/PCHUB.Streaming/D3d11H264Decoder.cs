@@ -123,7 +123,7 @@ public sealed unsafe class D3d11H264Decoder : IDisposable
         ffmpeg.av_hwframe_transfer_data(_bgraFrame, _nv12Frame, 0).ThrowExceptionIfError();
 
         using var context = Device!.ImmediateContext;
-        var tex = new ID3D11Texture2D((IntPtr)_bgraFrame->data[0]);
+        var tex = new D3D11Texture2D((IntPtr)_bgraFrame->data[0]);
         frame = new GpuTextureFrame
         {
             Device = Device,
