@@ -7,7 +7,6 @@ import {
   buildWindowsBundleDownloadUrl,
   buildWindowsDownloadCommand,
   HOST_INSTALLER_EXE,
-  HOST_INSTALLER_MSI,
   HOST_INSTALLER_CMD,
   type HostInstallerConfig,
 } from "@/lib/host-installer";
