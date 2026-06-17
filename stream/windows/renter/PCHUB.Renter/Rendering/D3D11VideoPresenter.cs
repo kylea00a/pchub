@@ -30,11 +30,7 @@ public sealed class D3D11VideoPresenter : IDisposable
         _height = Math.Max(1, height);
 
         _factory = DXGI.CreateDXGIFactory2<IDXGIFactory2>(CreateFactoryFlags.None);
-        var created = D3D11.D3D11CreateDevice(
-            null,
-            DriverType.Hardware,
-            DeviceCreationFlags.BgraSupport);
-        _device = created.Device;
+        _device = D3D11.D3D11CreateDevice(DriverType.Hardware, DeviceCreationFlags.BgraSupport);
         _context = _device.ImmediateContext;
 
         CreateSwapChain(hwnd, _width, _height);
@@ -89,14 +85,16 @@ public sealed class D3D11VideoPresenter : IDisposable
         var frameBytes = PackBgra(raw);
         if (frameBytes is null) return false;
 
-        var box = new Box(0, 0, raw.Width, raw.Height);
+        var box = new Box(0, 0, 0, raw.Width, raw.Height, 1);
         fixed (byte* ptr = frameBytes)
         {
             _context.UpdateSubresource(
                 _backBuffer,
                 0,
                 box,
-                new SubresourceData(ptr, raw.Width * 4, frameBytes.Length));
+                (IntPtr)ptr,
+                (uint)(raw.Width * 4),
+                (uint)frameBytes.Length);
         }
 
         _swapChain.Present(0, PresentFlags.None);

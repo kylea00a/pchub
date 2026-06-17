@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using SIPSorceryMedia.Abstractions;
+using Vortice.Direct3D;
 using Vortice.DXGI;
 using Vortice.Direct3D11;
 using Vortice.Mathematics;
@@ -91,10 +92,15 @@ public sealed class DxgiScreenSource : IVideoSource, IDisposable
             using var output = adapter.EnumOutputs(0);
             using var output1 = output.QueryInterface<IDXGIOutput1>();
 
-            using var d3d = D3D11.D3D11CreateDevice(adapter, Vortice.Direct3D.DriverType.Unknown,
-                Vortice.Direct3D11.DeviceCreationFlags.BgraSupport);
-            using var device = d3d.Device;
-            using var context = device.ImmediateContext;
+            FeatureLevel[] featureLevels = [FeatureLevel.Level_11_0];
+            D3D11.D3D11CreateDevice(
+                adapter,
+                DriverType.Unknown,
+                DeviceCreationFlags.BgraSupport,
+                featureLevels,
+                out ID3D11Device device,
+                out _,
+                out ID3D11DeviceContext context).CheckError();
 
             using var dupl = output1.DuplicateOutput(device);
 
@@ -162,7 +168,7 @@ public sealed class DxgiScreenSource : IVideoSource, IDisposable
                         }
 
                         var srcBox = new Box(0, 0, 0, width, height, 1);
-                        context.CopySubresourceRegion(tex, 0, srcBox, gpuFrame, 0, 0, 0, 0);
+                        context.CopySubresourceRegion(gpuFrame, 0, 0, 0, 0, tex, 0, srcBox);
 
                         OnVideoSourceGpuTexture.Invoke(new GpuTextureFrame
                         {
@@ -240,6 +246,8 @@ public sealed class DxgiScreenSource : IVideoSource, IDisposable
 
             gpuFrame?.Dispose();
             staging?.Dispose();
+            device.Dispose();
+            context.Dispose();
         }
         catch (Exception ex)
         {
