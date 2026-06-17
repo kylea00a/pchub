@@ -236,7 +236,7 @@ public sealed class DirectStreamPeer : IAsyncDisposable
             _videoSource = _dxgiSource;
 
             var formats = _dxgiSource.GetVideoSourceFormats();
-            var track = new MediaStreamTrack(SDPMediaTypesEnum.video, false, formats, MediaStreamStatusEnum.SendOnly);
+            var track = new MediaStreamTrack(formats, MediaStreamStatusEnum.SendOnly);
             _pc.addTrack(track);
 
             _pc.OnVideoFormatsNegotiated += formats =>
@@ -432,7 +432,7 @@ public sealed class DirectStreamPeer : IAsyncDisposable
             _screenSource = HostScreenCapture.CreatePrimary(1280, 720, 60);
             _videoSource = _screenSource;
             var formats = _screenSource.GetVideoSourceFormats();
-            var track = new MediaStreamTrack(SDPMediaTypesEnum.video, false, formats, MediaStreamStatusEnum.SendOnly);
+            var track = new MediaStreamTrack(formats, MediaStreamStatusEnum.SendOnly);
             _pc.addTrack(track);
             _screenSource.OnVideoSourceEncodedSample += _pc.SendVideo;
 
@@ -463,7 +463,7 @@ public sealed class DirectStreamPeer : IAsyncDisposable
             _screenSource = HostScreenCapture.CreatePrimary(640, 480, 15);
             _videoSource = _screenSource;
             var formats = _screenSource.GetVideoSourceFormats();
-            var track = new MediaStreamTrack(SDPMediaTypesEnum.video, false, formats, MediaStreamStatusEnum.SendOnly);
+            var track = new MediaStreamTrack(formats, MediaStreamStatusEnum.SendOnly);
             _pc.addTrack(track);
             _screenSource.OnVideoSourceEncodedSample += _pc.SendVideo;
 

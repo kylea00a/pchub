@@ -95,8 +95,8 @@ public sealed class DxgiScreenSource : IVideoSource, IDisposable
         try
         {
             using var dxgiFactory = DXGI.CreateDXGIFactory1<IDXGIFactory1>();
-            using var adapter = dxgiFactory.EnumAdapters1(0);
-            using var output = adapter.EnumOutputs(0);
+            dxgiFactory.EnumAdapters1(0, out IDXGIAdapter1 adapter).CheckError();
+            adapter.EnumOutputs(0, out IDXGIOutput output).CheckError();
             using var output1 = output.QueryInterface<IDXGIOutput1>();
 
             FeatureLevel[] featureLevels = [FeatureLevel.Level_11_0];
