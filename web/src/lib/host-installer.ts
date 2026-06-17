@@ -6,7 +6,13 @@ export type HostInstallerConfig = {
   priceCents?: number;
 };
 
-/** One-file setup - pairing code entered when you run it. */
+/** Single host installer — agent + StreamHost at C:\PCHUB-Host\ */
+export const HOST_INSTALLER_MSI = "/downloads/PCHUB-Host.msi";
+
+/** Renter streaming app (separate installer). */
+export const RENTER_INSTALLER_MSI = "/downloads/PCHUB-Renter.msi";
+
+/** Legacy bootstrap — prefer HOST_INSTALLER_MSI */
 export const HOST_INSTALLER_CMD = "/downloads/PCHUB-Host-Setup.cmd?v=2026.06.10.9";
 export const HOST_INSTALLER_PS1 = "/downloads/PCHUB-Host-Setup.ps1";
 

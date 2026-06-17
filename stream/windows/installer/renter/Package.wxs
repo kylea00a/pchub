@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package
+    Name="PCHUB Renter"
+    Manufacturer="$(var.Manufacturer)"
+    Version="$(var.ProductVersion)"
+    UpgradeCode="a7b6c5d4-3e2f-4a1b-8c9d-0e1f2a3b4c5d"
+    Scope="perMachine">
+
+    <MajorUpgrade
+      AllowSameVersionUpgrades="yes"
+      DowngradeErrorMessage="A newer version of PCHUB Renter is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Feature Id="Main" Title="PCHUB Renter" Level="1">
+      <ComponentGroupRef Id="RenterAppFiles" />
+      <ComponentRef Id="RenterShortcut" />
+    </Feature>
+
+    <StandardDirectory Id="ProgramFiles6432Folder">
+      <Directory Id="PCHUBDIR" Name="PCHUB">
+        <Directory Id="RENTERDIR" Name="Renter" />
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="CommonProgramsFolder">
+      <Directory Id="PCHUBMENU" Name="PCHUB" />
+    </StandardDirectory>
+
+    <ComponentGroup Id="RenterAppFiles" Directory="RENTERDIR">
+      <Files Include="$(var.RenterPublishDir)\**">
+        <Exclude Files="$(var.RenterPublishDir)\**\*.pdb" />
+      </Files>
+    </ComponentGroup>
+
+    <Component Id="RenterShortcut" Directory="PCHUBMENU">
+      <Shortcut
+        Id="RenterAppShortcut"
+        Name="PCHUB Renter"
+        Description="Connect to your rented gaming PC"
+        Target="[RENTERDIR]PCHUB-Renter.exe"
+        WorkingDirectory="RENTERDIR" />
+      <RemoveFolder Id="RemovePCHUBMenu" On="uninstall" />
+      <RegistryValue
+        Root="HKLM"
+        Key="Software\PCHUB\Renter"
+        Name="Shortcuts"
+        Type="integer"
+        Value="1"
+        KeyPath="yes" />
+    </Component>
+  </Package>
+</Wix>

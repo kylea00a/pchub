@@ -4,6 +4,7 @@ using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
 using System.Windows;
+using PCHUB.Streaming;
 
 namespace PCHUB.Renter.Services;
 
@@ -109,6 +110,22 @@ public sealed class WebrtcConfigDto
 {
     public string SignalUrl { get; set; } = "";
     public List<string> StunServers { get; set; } = new();
+    public List<IceServerDto> IceServers { get; set; } = new();
+    public bool TurnEnabled { get; set; }
+}
+
+public sealed class IceServerDto
+{
+    public string Urls { get; set; } = "";
+    public string? Username { get; set; }
+    public string? Credential { get; set; }
+
+    public WebRtcIceServer ToIceServer() => new()
+    {
+        Urls = Urls,
+        Username = Username,
+        Credential = Credential,
+    };
 }
 
 public sealed class SignalingClient : IAsyncDisposable

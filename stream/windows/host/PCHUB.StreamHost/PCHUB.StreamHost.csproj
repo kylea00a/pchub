@@ -1,17 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <OutputType>WinExe</OutputType>
+    <OutputType>Exe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
-    <UseWPF>true</UseWPF>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <AssemblyName>PCHUB-Renter</AssemblyName>
-    <RootNamespace>PCHUB.Renter</RootNamespace>
-    <Version>0.6.0</Version>
+    <AssemblyName>PCHUB-StreamHost</AssemblyName>
+    <RootNamespace>PCHUB.StreamHost</RootNamespace>
+    <Version>0.4.0</Version>
+    <UseWindowsForms>false</UseWindowsForms>
+    <UseWPF>false</UseWPF>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\shared\PCHUB.Streaming\PCHUB.Streaming.csproj" />
-    <PackageReference Include="Vortice.Windows" Version="3.10.0" />
   </ItemGroup>
 </Project>

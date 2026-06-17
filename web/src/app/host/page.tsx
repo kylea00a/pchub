@@ -6,6 +6,7 @@ import { createPairingCode, getAgentApiUrl, getApiUrl } from "@/lib/api";
 import {
   buildWindowsBundleDownloadUrl,
   buildWindowsDownloadCommand,
+  HOST_INSTALLER_MSI,
   HOST_INSTALLER_CMD,
   type HostInstallerConfig,
 } from "@/lib/host-installer";
@@ -143,15 +144,15 @@ export default function HostPage() {
                 </p>
               )}
               <a
-                href={HOST_INSTALLER_CMD}
+                href={HOST_INSTALLER_MSI}
                 className="mt-4 block w-full pchub-btn-primary px-5 py-2.5 text-center text-sm font-medium text-background"
               >
-                Download PCHUB Host Setup
+                Download PCHUB Host (Windows installer)
               </a>
               <p className="mt-2 text-xs text-muted">
-                One file. Delete any old copy in Downloads first, then double-click.
-                Click <strong className="text-foreground">Yes</strong> for administrator.
-                Wizard shows <strong className="text-foreground">Installer 2026.06.10.9</strong> top-right.
+                One MSI — agent + streaming host. After install, paste your pairing code into{" "}
+                <code className="text-foreground">C:\PCHUB-Host\config.json</code>, then start{" "}
+                <strong className="text-foreground">PCHUB Host Agent</strong> from the Start menu.
               </p>
               <details className="mt-3 text-xs text-muted">
                 <summary className="cursor-pointer text-foreground">Installer didn&apos;t download?</summary>
@@ -189,20 +190,20 @@ export default function HostPage() {
           <h2 className="font-medium">Step 2 — Windows PC</h2>
           <ol className="mt-4 list-decimal space-y-3 pl-5 text-sm text-muted">
             <li>
-              Download and run <code className="text-foreground">PCHUB-Host-Setup.cmd</code> (one file)
+              Download and run <code className="text-foreground">PCHUB-Host.msi</code> (one installer)
             </li>
             <li>
-              Click <strong className="text-foreground">Next</strong>, enter your pairing code, PC name, and city
+              Paste your pairing code into <code className="text-foreground">C:\PCHUB-Host\config.json</code>
             </li>
             <li>
-              Click <strong className="text-foreground">Install</strong> and approve the admin prompt
+              Start <strong className="text-foreground">PCHUB Host Agent</strong> from the Start menu
             </li>
             <li>
-              When finished, <strong className="text-foreground">PCHUB Host</strong> opens — keep it running in the taskbar
+              Install FFmpeg for streaming: <code className="text-foreground">winget install Gyan.FFmpeg</code>
             </li>
           </ol>
           <p className="mt-4 text-sm text-muted">
-            Setup installs Sunshine + the PCHUB relay tunnel. Renters connect with Moonlight — no router changes for you.
+            Direct WebRTC streaming when a renter connects — no router setup for you.
           </p>
           <p className="mt-2 text-xs text-muted">
             Desktop shortcut <strong className="text-foreground">PCHUB Host</strong> reopens the status app · Logs:{" "}

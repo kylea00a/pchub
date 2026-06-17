@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { ConnectInfo } from "@/lib/api";
 import { submitMoonlightPair } from "@/lib/api";
+import { RENTER_INSTALLER_MSI } from "@/lib/host-installer";
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "Preparing",
@@ -58,6 +59,22 @@ export function ConnectPanel({
   }
 
   return (
+    <>
+      <div className="mt-4 border border-accent/40 bg-accent/5 p-4">
+        <p className="font-mono text-[10px] uppercase tracking-widest text-accent">
+          PCHUB Renter (recommended)
+        </p>
+        <p className="mt-2 text-xs text-muted">
+          One Windows installer — log in, start your rental, click <strong className="text-foreground">Connect</strong>.
+        </p>
+        <a
+          href={RENTER_INSTALLER_MSI}
+          className="mt-3 inline-block pchub-btn-primary px-4 py-2 text-[11px] font-medium text-background"
+        >
+          Download PCHUB Renter
+        </a>
+      </div>
+
     <div className="mt-4 border border-accent/30 bg-accent/5 p-4">
       <div className="flex items-center justify-between gap-2">
         <p className="font-mono text-[10px] uppercase tracking-widest text-accent">
@@ -156,5 +173,6 @@ export function ConnectPanel({
         ))}
       </div>
     </div>
+    </>
   );
 }

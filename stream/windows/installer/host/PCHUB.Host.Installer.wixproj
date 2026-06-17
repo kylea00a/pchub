@@ -1,0 +1,8 @@
+<Project Sdk="WixToolset.Sdk/4.0.5">
+  <PropertyGroup>
+    <OutputName>PCHUB-Host</OutputName>
+    <OutputType>Package</OutputType>
+    <HostStageDir Condition="'$(HostStageDir)' == ''">$(MSBuildThisFileDirectory)..\..\..\..\staging\host-msi</HostStageDir>
+    <DefineConstants>HostStageDir=$(HostStageDir);ProductVersion=$(ProductVersion);Manufacturer=$(Manufacturer)</DefineConstants>
+  </PropertyGroup>
+</Project>

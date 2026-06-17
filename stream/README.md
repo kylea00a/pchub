@@ -31,10 +31,48 @@ Server forwards these messages to the other peer and adds `from: "host|renter"`.
 
 ### Host agent (current)
 
-When a rental or admin session is active, the host agent starts `webrtc-signaling-worker.ps1`
-in the background and joins the signaling room as `role: host`.
+When a rental or admin session is active, the host agent starts **`PCHUB-StreamHost.exe`**
+(signaling + WebRTC screen capture) if present, else falls back to `webrtc-signaling-worker.ps1`.
+
+Place `PCHUB-StreamHost.exe` in `C:\PCHUB-Host\` (built from `stream/windows/host/PCHUB.StreamHost`).
+
+**Host requirement:** FFmpeg shared libraries on PATH (e.g. `winget install Gyan.FFmpeg`).
+Without FFmpeg, the host falls back to a test pattern.
 
 Logs: `C:\PCHUB-Host\webrtc-signaling.log`
+
+### Renter app (v0.4)
+
+`stream/windows/renter/PCHUB.Renter` — login, active rental, **Connect** → video + **mouse/keyboard** over WebRTC DataChannel.
+
+Click the video panel to focus before typing. Coordinates are normalized to the streamed 1280×720 capture region.
+
+### Input protocol
+
+Binary messages on DataChannel `pchub-input` (renter creates, host receives):
+
+| Type | Payload |
+|------|---------|
+| mouse move | `float nx, float ny` (0–1) |
+| mouse down/up | `byte button` (0=left, 1=right, 2=middle) |
+| wheel | `short delta` |
+| key down/up | `ushort virtualKey` (Windows VK) |
+
+Host injects via `SendInput` / `SetCursorPos`.
+
+**Audio:** host sends **system loopback** (game/desktop audio via WASAPI), not the microphone. Renter plays through speakers.
+
+**Relative mouse:** hold **Right Mouse Button** on the video panel for FPS-style aiming.
+
+### MSI installers (WiX v4)
+
+See `stream/windows/installer/README.md` — `PCHUB-Host.msi` and `PCHUB-Renter.msi` with idempotent reinstall.
+
+### Shared library
+
+`stream/windows/shared/PCHUB.Streaming` — signaling client, SDP/ICE negotiation, SIPSorcery peer.
+Host captures the **primary display** (up to 1280x720 @ 60fps, VP8) via FFmpeg `gdigrab`.
+DXGI / NVENC hardware path is next for lower latency.
 
 - **No owner preview** — hosts never stream outside an active session.
 - **Renter must click Connect** — streaming does not auto-start when a rental begins.

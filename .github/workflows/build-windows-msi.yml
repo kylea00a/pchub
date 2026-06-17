@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - "stream/windows/**"
+      - "agent/windows-prod/**"
       - ".github/workflows/build-windows-msi.yml"
 
 concurrency:
@@ -18,15 +19,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # WiX v4 is the intended packager. This is a scaffold pipeline:
-      # it will be wired to real host/renter binaries as they land.
-      - name: Build PCHUB Renter app
+      - name: Install FFmpeg (host screen capture)
+        shell: pwsh
+        run: choco install ffmpeg -y
+
+      - name: Publish StreamHost + Renter
         shell: pwsh
         run: |
+          dotnet publish stream/windows/host/PCHUB.StreamHost/PCHUB.StreamHost.csproj `
+            -c Release -r win-x64 --self-contained false `
+            -o staging/streamhost
           dotnet publish stream/windows/renter/PCHUB.Renter/PCHUB.Renter.csproj `
             -c Release -r win-x64 --self-contained false `
             -o staging/renter
-          Get-ChildItem staging/renter | Format-Table Name, Length
+          Get-ChildItem staging/streamhost, staging/renter | Format-Table Name, Length
+
+      - name: Stage host MSI payload
+        shell: pwsh
+        run: |
+          pwsh -File stream/windows/installer/stage-host.ps1
 
       - name: Install WiX Toolset v4
         shell: pwsh
@@ -34,16 +45,55 @@ jobs:
           dotnet tool install --global wix --version 4.*
           wix --version
 
-      - name: Build placeholder MSIs
+      - name: Build MSIs
         shell: pwsh
         run: |
+          dotnet build stream/windows/installer/host/PCHUB.Host.Installer.wixproj `
+            -c Release `
+            -p:HostStageDir="$PWD/staging/host-msi"
+          dotnet build stream/windows/installer/renter/PCHUB.Renter.Installer.wixproj `
+            -c Release `
+            -p:RenterPublishDir="$PWD/staging/renter"
           New-Item -ItemType Directory -Force -Path staging | Out-Null
-          Write-Host "MSI pipeline scaffold. Real MSI build will be added with app binaries."
-          Set-Content -Path staging/README.txt -Value "Placeholder artifacts."
+          Copy-Item stream/windows/installer/host/bin/Release/*.msi staging/ -Force
+          Copy-Item stream/windows/installer/renter/bin/Release/*.msi staging/ -Force
+          Get-ChildItem staging -Filter *.msi | Format-Table Name, Length
+
+      - name: Write artifact README
+        shell: pwsh
+        run: |
+          Set-Content -Path staging/README.txt -Value @"
+          PCHUB Windows installers (v0.6)
+          - PCHUB-Host.msi   -> C:\PCHUB-Host\ (agent + StreamHost, idempotent reinstall)
+          - PCHUB-Renter.msi -> C:\Program Files\PCHUB\Renter\
+          Download: https://pchub.cloud/downloads/PCHUB-Host.msi
+                  https://pchub.cloud/downloads/PCHUB-Renter.msi
+          Host needs FFmpeg on PATH for screen capture (winget install Gyan.FFmpeg).
+          Edit C:\PCHUB-Host\config.json pairingCode after install, then run Start PCHUB Agent.
+          "@
 
       - uses: actions/upload-artifact@v4
         with:
           name: PCHUB-windows-msi
-          path: staging/**
+          path: |
+            staging/*.msi
+            staging/README.txt
           retention-days: 14
 
+  publish-msi:
+    needs: build-msi
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: PCHUB-windows-msi
+          path: staging
+
+      - uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.DROPLET_HOST }}
+          username: root
+          key: ${{ secrets.DROPLET_SSH_KEY }}
+          source: "staging/*.msi,staging/README.txt"
+          target: "/var/www/pchub/deploy/downloads"
+          strip_components: 1

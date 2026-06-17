@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package
+    Name="PCHUB Host"
+    Manufacturer="$(var.Manufacturer)"
+    Version="$(var.ProductVersion)"
+    UpgradeCode="f8c3e2a1-4b5d-4e6f-9a0b-1c2d3e4f5a6b"
+    Scope="perMachine">
+
+    <MajorUpgrade
+      AllowSameVersionUpgrades="yes"
+      DowngradeErrorMessage="A newer version of PCHUB Host is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Feature Id="Main" Title="PCHUB Host" Level="1">
+      <ComponentGroupRef Id="HostAgentFiles" />
+      <ComponentRef Id="HostConfigTemplate" />
+      <ComponentRef Id="HostProgramDataDir" />
+      <ComponentRef Id="HostShortcuts" />
+    </Feature>
+
+    <StandardDirectory Id="TARGETDIR">
+      <Directory Id="C_DRIVE" Name="C:">
+        <Directory Id="PCHUBHOST" Name="PCHUB-Host" />
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="CommonAppDataFolder">
+      <Directory Id="PCHUBDATA" Name="PCHUB" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="CommonProgramsFolder">
+      <Directory Id="PCHUBMENU" Name="PCHUB" />
+    </StandardDirectory>
+
+    <ComponentGroup Id="HostAgentFiles" Directory="PCHUBHOST">
+      <Files Include="$(var.HostStageDir)\**">
+        <Exclude Files="$(var.HostStageDir)\**\*.pdb" />
+      </Files>
+    </ComponentGroup>
+
+    <!-- Never overwrite pairing config on repair/reinstall -->
+    <Component Id="HostConfigTemplate" Directory="PCHUBHOST" NeverOverwrite="yes">
+      <File
+        Id="HostConfigJson"
+        Source="$(var.HostStageDir)\config.json.template"
+        Name="config.json"
+        KeyPath="yes" />
+    </Component>
+
+    <Component Id="HostProgramDataDir" Directory="PCHUBDATA">
+      <CreateFolder />
+      <RegistryValue
+        Root="HKLM"
+        Key="Software\PCHUB\Host"
+        Name="DataDir"
+        Type="string"
+        Value="[PCHUBDATA]"
+        KeyPath="yes" />
+    </Component>
+
+    <Component Id="HostShortcuts" Directory="PCHUBMENU">
+      <Shortcut
+        Id="HostAgentShortcut"
+        Name="PCHUB Host Agent"
+        Description="Start PCHUB host agent"
+        Target="[System64Folder]cmd.exe"
+        Arguments="/c &quot;[PCHUBHOST]Start PCHUB Agent.bat&quot;"
+        WorkingDirectory="PCHUBHOST" />
+      <Shortcut
+        Id="HostStatusShortcut"
+        Name="PCHUB Host Status"
+        Description="PCHUB host status window"
+        Target="[System64Folder]WindowsPowerShell\v1.0\powershell.exe"
+        Arguments="-NoProfile -ExecutionPolicy Bypass -STA -File &quot;[PCHUBHOST]status-app.ps1&quot;"
+        WorkingDirectory="PCHUBHOST" />
+      <RegistryValue
+        Root="HKLM"
+        Key="Software\PCHUB\Host"
+        Name="Shortcuts"
+        Type="integer"
+        Value="1"
+        KeyPath="yes" />
+    </Component>
+  </Package>
+</Wix>

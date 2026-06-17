@@ -1,0 +1,11 @@
+# WebRTC TURN relay (coturn) — enable when symmetric NAT blocks direct P2P.
+# Set on API droplet: WEBRTC_TURN_URL=turn:relay.pchub.cloud:3478
+# WEBRTC_TURN_USERNAME / WEBRTC_TURN_CREDENTIAL (match coturn user/pass below).
+services:
+  coturn:
+    image: coturn/coturn:4.6.2
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./coturn/turnserver.conf:/etc/coturn/turnserver.conf:ro
+    command: ["-c", "/etc/coturn/turnserver.conf"]

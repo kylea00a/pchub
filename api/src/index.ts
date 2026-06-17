@@ -159,11 +159,23 @@ const PUBLIC_STUN_SERVERS = [
 function webrtcConfigPayload(req: express.Request) {
   const proto = req.headers["x-forwarded-proto"] === "https" ? "wss" : "ws";
   const host = req.headers["x-forwarded-host"] ?? req.headers.host ?? `localhost:${PORT}`;
+  const iceServers: Array<{ urls: string; username?: string; credential?: string }> =
+    PUBLIC_STUN_SERVERS.map((url) => ({ urls: url }));
+
+  const turnUrl = process.env.WEBRTC_TURN_URL?.trim();
+  const turnUser = process.env.WEBRTC_TURN_USERNAME?.trim();
+  const turnCred = process.env.WEBRTC_TURN_CREDENTIAL?.trim();
+  const turnEnabled = !!(turnUrl && turnUser && turnCred);
+  if (turnEnabled) {
+    iceServers.push({ urls: turnUrl!, username: turnUser!, credential: turnCred! });
+  }
+
   return {
     signalUrl: `${proto}://${host}/api/webrtc/signal`,
     stunServers: PUBLIC_STUN_SERVERS,
+    iceServers,
     mode: "direct" as const,
-    turnEnabled: false,
+    turnEnabled,
   };
 }
 

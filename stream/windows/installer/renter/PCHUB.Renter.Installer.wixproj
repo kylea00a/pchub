@@ -1,0 +1,8 @@
+<Project Sdk="WixToolset.Sdk/4.0.5">
+  <PropertyGroup>
+    <OutputName>PCHUB-Renter</OutputName>
+    <OutputType>Package</OutputType>
+    <RenterPublishDir Condition="'$(RenterPublishDir)' == ''">$(MSBuildThisFileDirectory)..\..\..\..\staging\renter</RenterPublishDir>
+    <DefineConstants>RenterPublishDir=$(RenterPublishDir);ProductVersion=$(ProductVersion);Manufacturer=$(Manufacturer)</DefineConstants>
+  </PropertyGroup>
+</Project>
