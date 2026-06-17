@@ -1,4 +1,6 @@
 using Vortice.Direct3D11;
+using D3D11Device = Vortice.Direct3D11.ID3D11Device;
+using D3D11Context = Vortice.Direct3D11.ID3D11DeviceContext;
 
 namespace PCHUB.Streaming;
 
@@ -8,11 +10,11 @@ namespace PCHUB.Streaming;
 /// </summary>
 public readonly struct GpuTextureFrame
 {
-    public required ID3D11Device Device { get; init; }
-    public required ID3D11DeviceContext Context { get; init; }
-    public required ID3D11Texture2D Texture { get; init; }
-    public required int Width { get; init; }
-    public required int Height { get; init; }
+    public D3D11Device Device { get; init; }
+    public D3D11Context Context { get; init; }
+    public ID3D11Texture2D Texture { get; init; }
+    public int Width { get; init; }
+    public int Height { get; init; }
 }
 
 public delegate void GpuTextureSampleDelegate(GpuTextureFrame frame);

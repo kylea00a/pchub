@@ -2,6 +2,10 @@ using System.Runtime.InteropServices;
 using FFmpeg.AutoGen;
 using SIPSorceryMedia.FFmpeg;
 using Vortice.Direct3D11;
+using D3D11Device = Vortice.Direct3D11.ID3D11Device;
+using D3D11Context = Vortice.Direct3D11.ID3D11DeviceContext;
+using FfmpegD3D11Device = FFmpeg.AutoGen.ID3D11Device;
+using FfmpegD3D11Context = FFmpeg.AutoGen.ID3D11DeviceContext;
 
 namespace PCHUB.Streaming;
 
@@ -21,9 +25,9 @@ public sealed unsafe class D3d11H264Decoder : IDisposable
     private bool _disposed;
 
     public bool IsReady => _codec != null;
-    public ID3D11Device? Device { get; private set; }
+    public D3D11Device? Device { get; private set; }
 
-    public bool TryInitialize(ID3D11Device? shareDevice = null)
+    public bool TryInitialize(D3D11Device? shareDevice = null)
     {
         if (_disposed) return false;
         if (_codec != null) return true;
@@ -47,11 +51,11 @@ public sealed unsafe class D3d11H264Decoder : IDisposable
                 var d3d11va = (AVD3D11VADeviceContext*)hwDev->hwctx;
                 var devPtr = shareDevice.NativePointer;
                 Marshal.AddRef(devPtr);
-                d3d11va->device = (ID3D11Device*)devPtr;
+                d3d11va->device = (FfmpegD3D11Device*)devPtr;
                 using var ctx = shareDevice.ImmediateContext;
                 var ctxPtr = ctx.NativePointer;
                 Marshal.AddRef(ctxPtr);
-                d3d11va->device_context = (ID3D11DeviceContext*)ctxPtr;
+                d3d11va->device_context = (FfmpegD3D11Context*)ctxPtr;
                 ffmpeg.av_hwdevice_ctx_init(_hwDeviceRef).ThrowExceptionIfError();
             }
             else
@@ -72,7 +76,7 @@ public sealed unsafe class D3d11H264Decoder : IDisposable
 
             var hwDevCtx = (AVHWDeviceContext*)_hwDeviceRef->data;
             var d3d11 = (AVD3D11VADeviceContext*)hwDevCtx->hwctx;
-            Device = new ID3D11Device((IntPtr)d3d11->device);
+            Device = new D3D11Device((IntPtr)d3d11->device);
 
             return true;
         }

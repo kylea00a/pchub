@@ -2,6 +2,7 @@ using SIPSorcery.Net;
 using SIPSorceryMedia.Abstractions;
 using PCHUB.Streaming.Input;
 using Vortice.Direct3D11;
+using D3D11Device = Vortice.Direct3D11.ID3D11Device;
 
 namespace PCHUB.Streaming;
 
@@ -36,7 +37,7 @@ public sealed class DirectStreamSession : IAsyncDisposable
         string token,
         string signalUrl,
         IEnumerable<WebRtcIceServer> iceServers,
-        ID3D11Device? sharedGpuDevice = null)
+        D3D11Device? sharedGpuDevice = null)
     {
         _role = role;
         SignalUrl = signalUrl;

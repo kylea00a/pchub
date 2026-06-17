@@ -2,6 +2,10 @@ using System.Runtime.InteropServices;
 using FFmpeg.AutoGen;
 using SIPSorceryMedia.FFmpeg;
 using Vortice.Direct3D11;
+using D3D11Device = Vortice.Direct3D11.ID3D11Device;
+using D3D11Context = Vortice.Direct3D11.ID3D11DeviceContext;
+using FfmpegD3D11Device = FFmpeg.AutoGen.ID3D11Device;
+using FfmpegD3D11Context = FFmpeg.AutoGen.ID3D11DeviceContext;
 
 namespace PCHUB.Streaming;
 
@@ -20,7 +24,7 @@ public sealed unsafe class NvencD3D11Encoder : IDisposable
 
     public bool IsReady => _codec != null;
 
-    public bool TryInitialize(ID3D11Device device, int width, int height)
+    public bool TryInitialize(D3D11Device device, int width, int height)
     {
         if (_disposed) return false;
         if (_codec != null) return true;
@@ -39,11 +43,11 @@ public sealed unsafe class NvencD3D11Encoder : IDisposable
             var d3d11va = (AVD3D11VADeviceContext*)hwDev->hwctx;
             var devPtr = device.NativePointer;
             Marshal.AddRef(devPtr);
-            d3d11va->device = (ID3D11Device*)devPtr;
+            d3d11va->device = (FfmpegD3D11Device*)devPtr;
             using var ctx = device.ImmediateContext;
             var ctxPtr = ctx.NativePointer;
             Marshal.AddRef(ctxPtr);
-            d3d11va->device_context = (ID3D11DeviceContext*)ctxPtr;
+            d3d11va->device_context = (FfmpegD3D11Context*)ctxPtr;
 
             ffmpeg.av_hwdevice_ctx_init(_hwDeviceRef).ThrowExceptionIfError();
 
@@ -100,7 +104,7 @@ public sealed unsafe class NvencD3D11Encoder : IDisposable
         }
     }
 
-    public byte[]? Encode(ID3D11DeviceContext context, ID3D11Texture2D src)
+    public byte[]? Encode(D3D11Context context, ID3D11Texture2D src)
     {
         if (_disposed || _codec == null || _frame == null) return null;
 
@@ -112,13 +116,11 @@ public sealed unsafe class NvencD3D11Encoder : IDisposable
         if (_forceKeyFrame)
         {
             _frame->pict_type = AVPictureType.AV_PICTURE_TYPE_I;
-            _frame->flags |= ffmpeg.AV_FRAME_FLAG_KEY;
             _forceKeyFrame = false;
         }
         else
         {
             _frame->pict_type = AVPictureType.AV_PICTURE_TYPE_NONE;
-            _frame->flags &= ~ffmpeg.AV_FRAME_FLAG_KEY;
         }
 
         ffmpeg.avcodec_send_frame(_codec, _frame).ThrowExceptionIfError();

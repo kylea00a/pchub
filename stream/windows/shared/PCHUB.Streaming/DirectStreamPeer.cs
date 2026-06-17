@@ -10,6 +10,7 @@ using SIPSorceryMedia.Source;
 using SIPSorceryMedia.Windows;
 using PCHUB.Streaming.Input;
 using Vortice.Direct3D11;
+using D3D11Device = Vortice.Direct3D11.ID3D11Device;
 
 namespace PCHUB.Streaming;
 
@@ -34,7 +35,7 @@ public sealed class DirectStreamPeer : IAsyncDisposable
     private RawVideoSampleFasterDelegate? _cpuH264Handler;
     private D3d11H264Decoder? _h264GpuDecoder;
     private VideoCodecsEnum _renterVideoCodec = VideoCodecsEnum.H264;
-    private readonly ID3D11Device? _sharedGpuDevice;
+    private readonly D3D11Device? _sharedGpuDevice;
     private bool _loggedGpuDecode;
 
     public event Action<string>? OnLog;
@@ -50,7 +51,7 @@ public sealed class DirectStreamPeer : IAsyncDisposable
     {
     }
 
-    public DirectStreamPeer(string role, IEnumerable<WebRtcIceServer> iceServers, ID3D11Device? sharedGpuDevice = null)
+    public DirectStreamPeer(string role, IEnumerable<WebRtcIceServer> iceServers, D3D11Device? sharedGpuDevice = null)
     {
         _sharedGpuDevice = sharedGpuDevice;
         _role = role;

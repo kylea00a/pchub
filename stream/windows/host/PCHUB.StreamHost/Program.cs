@@ -1,4 +1,5 @@
 using System.Text.Json;
+using PCHUB.StreamHost;
 using PCHUB.Streaming;
 
 static string? Arg(string[] args, string name)
@@ -104,10 +105,3 @@ catch (Exception ex)
 }
 
 return 0;
-
-file sealed class IceJsonEntry
-{
-    public string? Urls { get; set; }
-    public string? Username { get; set; }
-    public string? Credential { get; set; }
-}

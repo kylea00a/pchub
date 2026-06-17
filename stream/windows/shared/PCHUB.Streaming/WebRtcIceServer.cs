@@ -11,11 +11,15 @@ public sealed class WebRtcIceServer
     public static IEnumerable<WebRtcIceServer> FromStunUrls(IEnumerable<string> stunUrls) =>
         stunUrls.Select(u => new WebRtcIceServer { Urls = u });
 
-    public RTCIceServer ToRtcIceServer() => new()
+    public RTCIceServer ToRtcIceServer()
     {
-        urls = Urls,
-        username = Username,
-        credential = Credential,
-        credentialType = string.IsNullOrEmpty(Username) ? null : RTCCredentialType.password,
-    };
+        var server = new RTCIceServer { urls = Urls };
+        if (!string.IsNullOrEmpty(Username))
+        {
+            server.username = Username;
+            server.credential = Credential;
+            server.credentialType = RTCCredentialType.password;
+        }
+        return server;
+    }
 }
