@@ -4,6 +4,7 @@ using SIPSorceryMedia.FFmpeg;
 using Vortice.Direct3D11;
 using D3D11Device = Vortice.Direct3D11.ID3D11Device;
 using D3D11Context = Vortice.Direct3D11.ID3D11DeviceContext;
+using D3D11Texture2D = Vortice.Direct3D11.ID3D11Texture2D;
 using FfmpegD3D11Device = FFmpeg.AutoGen.ID3D11Device;
 using FfmpegD3D11Context = FFmpeg.AutoGen.ID3D11DeviceContext;
 
@@ -60,8 +61,10 @@ public sealed unsafe class D3d11H264Decoder : IDisposable
             }
             else
             {
-                ffmpeg.av_hwdevice_ctx_create(&_hwDeviceRef, AVHWDeviceType.AV_HWDEVICE_TYPE_D3D11VA, null, null, 0)
+                AVBufferRef* hwRef = null;
+                ffmpeg.av_hwdevice_ctx_create(&hwRef, AVHWDeviceType.AV_HWDEVICE_TYPE_D3D11VA, null, null, 0)
                     .ThrowExceptionIfError();
+                _hwDeviceRef = hwRef;
             }
 
             _codec->hw_device_ctx = ffmpeg.av_buffer_ref(_hwDeviceRef);

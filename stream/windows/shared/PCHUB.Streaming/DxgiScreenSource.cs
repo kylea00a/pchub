@@ -38,8 +38,8 @@ public sealed class DxgiScreenSource : IVideoSource, IDisposable
         // Width/height is set dynamically based on capture output and/or selected format.
         _formatManager = new MediaFormatManager<VideoFormat>(new List<VideoFormat>
         {
-            new(VideoCodecsEnum.H264, 1280, 720, 60, "packetization-mode=1"),
-            new(VideoCodecsEnum.H264, 1280, 720, 30, "packetization-mode=1"),
+            new(VideoCodecsEnum.H264, 1280, 720, 60),
+            new(VideoCodecsEnum.H264, 1280, 720, 30),
             new(VideoCodecsEnum.VP8, 1280, 720, 60),
             new(VideoCodecsEnum.VP8, 1280, 720, 30),
         });

@@ -18,7 +18,6 @@ public sealed class WebRtcIceServer
         {
             server.username = Username;
             server.credential = Credential;
-            server.credentialType = RTCCredentialType.password;
         }
         return server;
     }
