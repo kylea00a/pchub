@@ -60,9 +60,9 @@ public sealed class AdaptiveBitrateController : IDisposable
         _encodeMsEwma = _encodeMsEwma <= 0 ? ms : (_encodeMsEwma * 0.9 + ms * 0.1);
     }
 
-    private void OnSendReport(SDP.SDPMediaTypesEnum media, RTCPCompoundPacket report)
+    private void OnSendReport(SDPMediaTypesEnum media, RTCPCompoundPacket report)
     {
-        if (media != SDP.SDPMediaTypesEnum.video) return;
+        if (media != SDPMediaTypesEnum.video) return;
         var sr = report?.SenderReport;
         if (sr == null) return;
         // LSR is middle 32 bits of NTP timestamp.
@@ -70,9 +70,9 @@ public sealed class AdaptiveBitrateController : IDisposable
         _lastSrSentAt = DateTime.UtcNow;
     }
 
-    private void OnReceiveReport(System.Net.IPEndPoint ep, SDP.SDPMediaTypesEnum media, RTCPCompoundPacket report)
+    private void OnReceiveReport(System.Net.IPEndPoint ep, SDPMediaTypesEnum media, RTCPCompoundPacket report)
     {
-        if (media != SDP.SDPMediaTypesEnum.video) return;
+        if (media != SDPMediaTypesEnum.video) return;
         var rr = report?.ReceiverReport;
         if (rr?.ReceptionReports == null || rr.ReceptionReports.Count == 0) return;
 

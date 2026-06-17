@@ -53,6 +53,12 @@ public sealed class DxgiScreenSource : IVideoSource, IDisposable
 
     public bool HasEncodedVideoSubscribers() => OnVideoSourceEncodedSample != null;
 
+    public void ForceKeyFrame() { }
+
+    public void ExternalVideoSourceRawSample(uint duration, int width, int height, byte[] sample, VideoPixelFormatsEnum pixelFormat) { }
+
+    public void ExternalVideoSourceRawSampleFaster(uint duration, RawImage rawImage) { }
+
     public bool IsVideoSourcePaused() => false;
 
     public Task StartVideo() => Start();

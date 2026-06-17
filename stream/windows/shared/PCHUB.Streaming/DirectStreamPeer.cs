@@ -6,7 +6,6 @@ using SIPSorcery.Net;
 using SIPSorceryMedia.Abstractions;
 using SIPSorceryMedia.Encoders;
 using SIPSorceryMedia.FFmpeg;
-using SIPSorceryMedia.Source;
 using SIPSorceryMedia.Windows;
 using PCHUB.Streaming.Input;
 using Vortice.Direct3D11;
@@ -460,23 +459,28 @@ public sealed class DirectStreamPeer : IAsyncDisposable
 
     private void SetupTestPatternFallback()
     {
-        _videoEncoder = new VpxVideoEncoder();
-        var testPattern = new VideoTestPatternSource();
-        _videoSource = testPattern;
-        var formats = testPattern.GetVideoSourceFormats();
-        var track = new MediaStreamTrack(SDPMediaTypesEnum.video, false, formats, MediaStreamStatusEnum.SendOnly);
-        _pc.addTrack(track);
-
-        testPattern.OnVideoSourceRawSample += _videoEncoder.EncodeVideo;
-        _videoEncoder.OnVideoSourceEncodedSample += _pc.SendVideo;
-
-        _pc.OnVideoFormatsNegotiated += formats =>
+        try
         {
-            var fmt = formats.First();
-            testPattern.SetVideoSourceFormat(fmt);
-            testPattern.StartVideo();
-            Log($"Host test pattern started {fmt.Width}x{fmt.Height}");
-        };
+            StreamMediaBootstrap.EnsureFfmpeg();
+            _screenSource = HostScreenCapture.CreatePrimary(640, 480, 15);
+            _videoSource = _screenSource;
+            var formats = _screenSource.GetVideoSourceFormats();
+            var track = new MediaStreamTrack(SDPMediaTypesEnum.video, false, formats, MediaStreamStatusEnum.SendOnly);
+            _pc.addTrack(track);
+            _screenSource.OnVideoSourceEncodedSample += _pc.SendVideo;
+
+            _pc.OnVideoFormatsNegotiated += formats =>
+            {
+                var fmt = formats.First();
+                _screenSource!.SetVideoSourceFormat(fmt);
+                _ = _screenSource.StartVideo();
+                Log($"Host fallback capture started (VP8, 640x480 @ 15fps)");
+            };
+        }
+        catch (Exception ex)
+        {
+            Log($"Fallback video source failed: {ex.Message}");
+        }
     }
 
     public async Task<string> CreateOfferAsync()

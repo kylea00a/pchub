@@ -4,6 +4,7 @@ using SIPSorceryMedia.FFmpeg;
 using Vortice.Direct3D11;
 using D3D11Device = Vortice.Direct3D11.ID3D11Device;
 using D3D11Context = Vortice.Direct3D11.ID3D11DeviceContext;
+using D3D11Texture2D = Vortice.Direct3D11.ID3D11Texture2D;
 using FfmpegD3D11Device = FFmpeg.AutoGen.ID3D11Device;
 using FfmpegD3D11Context = FFmpeg.AutoGen.ID3D11DeviceContext;
 
@@ -104,11 +105,11 @@ public sealed unsafe class NvencD3D11Encoder : IDisposable
         }
     }
 
-    public byte[]? Encode(D3D11Context context, ID3D11Texture2D src)
+    public byte[]? Encode(D3D11Context context, D3D11Texture2D src)
     {
         if (_disposed || _codec == null || _frame == null) return null;
 
-        var dst = new ID3D11Texture2D((IntPtr)_frame->data[0]);
+        var dst = new D3D11Texture2D((IntPtr)_frame->data[0]);
         context.CopyResource(dst, src);
 
         _frame->pts = _pts++;

@@ -37,7 +37,7 @@ public static class WindowsInputInjector
         if (data.Length < 1) return;
         switch (data[0])
         {
-            case InputProtocol.MouseMove when data.Length >= 9:
+            case InputProtocol.OpMouseMove when data.Length >= 9:
                 if (!_relativeMouse)
                 {
                     MoveMouse(
@@ -45,13 +45,13 @@ public static class WindowsInputInjector
                         BitConverter.ToSingle(data, 5));
                 }
                 break;
-            case InputProtocol.MouseRelOn:
+            case InputProtocol.OpMouseRelOn:
                 _relativeMouse = true;
                 break;
-            case InputProtocol.MouseRelOff:
+            case InputProtocol.OpMouseRelOff:
                 _relativeMouse = false;
                 break;
-            case InputProtocol.MouseRelMove when data.Length >= 5:
+            case InputProtocol.OpMouseRelMove when data.Length >= 5:
                 if (_relativeMouse)
                 {
                     var dx = BitConverter.ToInt16(data, 1);
@@ -59,19 +59,19 @@ public static class WindowsInputInjector
                     MoveMouseRelative(dx, dy);
                 }
                 break;
-            case InputProtocol.MouseDown when data.Length >= 2:
+            case InputProtocol.OpMouseDown when data.Length >= 2:
                 ClickMouse(data[1], down: true);
                 break;
-            case InputProtocol.MouseUp when data.Length >= 2:
+            case InputProtocol.OpMouseUp when data.Length >= 2:
                 ClickMouse(data[1], down: false);
                 break;
-            case InputProtocol.MouseWheel when data.Length >= 3:
+            case InputProtocol.OpMouseWheel when data.Length >= 3:
                 WheelMouse(BitConverter.ToInt16(data, 1));
                 break;
-            case InputProtocol.KeyDown when data.Length >= 3:
+            case InputProtocol.OpKeyDown when data.Length >= 3:
                 KeyEvent(BitConverter.ToUInt16(data, 1), down: true, extended: data.Length >= 4 && data[3] != 0);
                 break;
-            case InputProtocol.KeyUp when data.Length >= 3:
+            case InputProtocol.OpKeyUp when data.Length >= 3:
                 KeyEvent(BitConverter.ToUInt16(data, 1), down: false, extended: data.Length >= 4 && data[3] != 0);
                 break;
         }
