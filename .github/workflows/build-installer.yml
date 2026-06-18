@@ -80,7 +80,6 @@ jobs:
           Get-ChildItem deploy/downloads/streamhost -Filter PCHUB-StreamHost.exe | Format-Table Name, Length
 
       - name: Publish PCHUB Renter zip
-        continue-on-error: true
         shell: pwsh
         run: |
           dotnet publish stream/windows/renter/PCHUB.Renter/PCHUB.Renter.csproj `
@@ -90,8 +89,10 @@ jobs:
             $log | Select-String 'error ' | ForEach-Object { Write-Host "::error::$_" }
             exit $LASTEXITCODE
           }
+          $renterExe = Get-ChildItem deploy/downloads/renter -Filter PCHUB-Renter.exe -Recurse | Select-Object -First 1
+          if (-not $renterExe) { throw "PCHUB-Renter.exe missing after publish" }
           if (Test-Path deploy/downloads/PCHUB-Renter.zip) { Remove-Item deploy/downloads/PCHUB-Renter.zip -Force }
-          Compress-Archive -Path "deploy/downloads/renter/*" -DestinationPath deploy/downloads/PCHUB-Renter.zip
+          Compress-Archive -Path (Join-Path deploy/downloads/renter '*') -DestinationPath deploy/downloads/PCHUB-Renter.zip
           Get-Item deploy/downloads/PCHUB-Renter.zip | Format-List Name, Length
 
       - name: Stage FFmpeg for host bundle
@@ -126,6 +127,8 @@ jobs:
           }
           if (Test-Path deploy/downloads/PCHUB-Renter.zip) {
             Copy-Item deploy/downloads/PCHUB-Renter.zip publish/ -Force
+          } else {
+            throw "PCHUB-Renter.zip missing — renter publish step failed"
           }
           if (Test-Path deploy/downloads/streamhost/PCHUB-StreamHost.exe) {
             if (Test-Path deploy/downloads/PCHUB-StreamHost.zip) {
@@ -195,4 +198,5 @@ jobs:
             tar -xzf /tmp/pchub-host-bundle.tgz
             rm -f /tmp/pchub-host-bundle.tgz
             ls -la streamhost | head -8
-            ls -la PCHUB-StreamHost.zip PCHUB-Renter.zip 2>/dev/null || true
+            ls -la PCHUB-StreamHost.zip PCHUB-Renter.zip
+            test -f PCHUB-Renter.zip || (echo "ERROR: PCHUB-Renter.zip missing after extract" && exit 1)
