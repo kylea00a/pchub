@@ -1,95 +1,64 @@
-. (Join-Path $PSScriptRoot "sunshine.ps1")
+. (Join-Path $PSScriptRoot "webrtc-signaling.ps1")
 
-function Get-LocalIPv4 {
-  $addrs = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
-    Where-Object { $_.IPAddress -notlike "127.*" -and $_.IPAddress -notlike "169.254.*" }
-  $dhcp = $addrs | Where-Object { $_.PrefixOrigin -eq "Dhcp" } | Select-Object -First 1
-  if ($dhcp) { return $dhcp.IPAddress }
-  return ($addrs | Select-Object -First 1).IPAddress
-}
+function Test-PchubStreamHostReady {
+  $exe = Join-Path $PSScriptRoot "PCHUB-StreamHost.exe"
+  $installed = Test-Path $exe
+  $running = $false
 
-function Get-PublicIPv4 {
-  try {
-    return (Invoke-RestMethod -Uri "https://api.ipify.org" -TimeoutSec 8).Trim()
-  } catch {
-    return $null
-  }
-}
-
-function Get-SunshineCredsFromSession {
-  param([object]$Session, [object]$State, [object]$Config)
-
-  if ($Session.sunshineUsername -and $Session.sunshinePassword) {
-    return @{
-      Username = $Session.sunshineUsername
-      Password = $Session.sunshinePassword
-    }
-  }
-  if ($State.sunshineUsername -and $State.sunshinePassword) {
-    return @{
-      Username = $State.sunshineUsername
-      Password = $State.sunshinePassword
-    }
+  if (Test-Path $script:SignalingPidPath) {
+    try {
+      $pid = [int](Get-Content $script:SignalingPidPath -Raw).Trim()
+      if ($pid -gt 0 -and (Get-Process -Id $pid -ErrorAction SilentlyContinue)) {
+        $running = $true
+      }
+    } catch { }
   }
 
-  $remote = Invoke-PchubApi -ApiRoot $Config.apiUrl -Path "/api/agents/streaming/config" -Method "GET" -Token $State.agentToken
+  if (-not $running) {
+    $proc = Get-Process -Name "PCHUB-StreamHost" -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($proc) { $running = $true }
+  }
+
   return @{
-    Username = $remote.sunshineUsername
-    Password = $remote.sunshinePassword
+    Installed = $installed
+    Running = $running
   }
 }
 
 function Get-StreamingStatus {
   param(
     [object]$Ready,
-    [string]$LocalIp,
-    [string]$PublicIp
+    [bool]$SessionActive
   )
 
   if (-not $Ready.Installed) {
     return @{
-      status = "needs_sunshine"
-      message = "Re-run RUN-PCHUB.cmd on the host PC to install Sunshine."
-      connectMode = "unavailable"
+      status = "needs_stream_host"
+      message = "PCHUB-StreamHost.exe missing. Reinstall PCHUB Host from pchub.cloud/host."
+      connectMode = "webrtc"
     }
   }
 
-  if (-not $Ready.ServiceRunning -and -not $Ready.PortOpen) {
+  if ($SessionActive -and -not $Ready.Running) {
     return @{
-      status = "sunshine_stopped"
-      message = "Sunshine is not running. Re-run RUN-PCHUB.cmd from C:\PCHUB-Host."
-      connectMode = "unavailable"
+      status = "starting"
+      message = "Starting PCHUB stream engine for this rental…"
+      connectMode = "webrtc"
     }
   }
 
-  if (-not $Ready.PortOpen -and -not $Ready.LanPortOpen) {
-    return @{
-      status = "firewall_blocked"
-      message = "Sunshine is running but port 47989 is blocked. Re-run RUN-PCHUB.cmd to fix firewall rules."
-      connectMode = "unavailable"
-    }
-  }
-
-  if ($LocalIp -and $Ready.LanPortOpen) {
-    return @{
-      status = "ready_local"
-      message = "Same WiFi: use $LocalIp in Moonlight. For internet, set router port forwarding for Moonlight ports."
-      connectMode = "local"
-    }
-  }
-
-  if ($PublicIp) {
+  if ($SessionActive) {
     return @{
       status = "ready"
-      message = "Internet: use your public IP in Moonlight after you set router port forwarding for Moonlight ports."
-      connectMode = "direct"
+      message = "Ready — renter can click Connect in PCHUB Renter."
+      connectMode = "webrtc"
     }
   }
 
   return @{
-    status = "ready"
-    message = "Add the host IP in Moonlight (IP only, no :port), then enter the PIN here."
-    connectMode = "unknown"
+    status = "idle"
+    message = "Waiting for an active rental."
+    connectMode = "webrtc"
   }
 }
 
@@ -102,59 +71,19 @@ function Update-StreamingSession {
 
   if (-not $Session.active -or -not $Session.rentalId) { return $State }
 
-  $creds = Get-SunshineCredsFromSession -Session $Session -State $State -Config $Config
-  if ($creds.Username -and $creds.Password) {
-    Enable-StreamingFirewall
-    Enable-SunshineUpnp -Username $creds.Username -Password $creds.Password | Out-Null
-    Start-SunshineProcess
-  }
-
-  $ready = Test-SunshineReady
-  $localIp = Get-LocalIPv4
-  $publicIp = Get-PublicIPv4
-  $stream = Get-StreamingStatus -Ready $ready -LocalIp $localIp -PublicIp $publicIp
-  $pairStatus = $null
-  $pairMessage = $null
-
-  if ($ready.Installed -and $ready.PortOpen -and $Session.pairRequest) {
-    if ($creds.Username -and $creds.Password) {
-      $pairStatus = "pairing"
-      $pairMessage = "Pairing Moonlight device…"
-      $result = Submit-MoonlightPair -Pin $Session.pairRequest.pin -ClientName $Session.pairRequest.clientName -Username $creds.Username -Password $creds.Password
-      if ($result.ExitCode -eq 0) {
-        $pairStatus = "paired"
-        $pairMessage = "Paired. Open Desktop in Moonlight to connect."
-        $stream.message = $pairMessage
-      } else {
-        $pairStatus = "failed"
-        $pairMessage = "Pairing failed. Check the PIN in Moonlight and try again."
-        $stream.message = $pairMessage
-        Write-Log "Sunshine pair failed: $($result.Output)"
-      }
-    }
-  }
-
-  if ($ready.Installed -and $ready.PortOpen -and $Session.rentalId -ne $State.lastRentalId) {
-    if ($creds.Username -and $creds.Password) {
-      Clear-SunshineClients -Username $creds.Username -Password $creds.Password | Out-Null
-    }
-    $State.lastRentalId = $Session.rentalId
-  }
+  $ready = Test-PchubStreamHostReady
+  $stream = Get-StreamingStatus -Ready $ready -SessionActive:$true
 
   $body = @{
     rentalId = $Session.rentalId
     status = $stream.status
-    localIp = $localIp
-    publicIp = $publicIp
-    port = 47989
-    httpsPort = 47990
     message = $stream.message
     connectMode = $stream.connectMode
     sunshineInstalled = $ready.Installed
-    sunshineRunning = $ready.ServiceRunning
-    portsOpen = $ready.PortOpen
-    pairStatus = $pairStatus
-    pairMessage = $pairMessage
+    sunshineRunning = $ready.Running
+    portsOpen = $ready.Running
+    pairStatus = if ($ready.Running) { "paired" } else { "idle" }
+    pairMessage = $null
   }
 
   try {

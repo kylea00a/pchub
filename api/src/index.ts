@@ -1421,27 +1421,9 @@ app.post("/api/agents/streaming", authAgent, async (req, res) => {
     return;
   }
 
-  // For direct-only mode, "ports open" must mean reachable from the public internet.
-  // We validate TCP reachability from the server side (host router port-forwarding).
-  let externallyReachable = false;
-  const publicIpTrim = publicIp?.trim();
-  const streamPort = port ?? 47989;
-  if (publicIpTrim) {
-    externallyReachable = await new Promise<boolean>((resolve) => {
-      const socket = new net.Socket();
-      const done = (ok: boolean) => {
-        try {
-          socket.destroy();
-        } catch { }
-        resolve(ok);
-      };
-      socket.setTimeout(2500);
-      socket.once("connect", () => done(true));
-      socket.once("timeout", () => done(false));
-      socket.once("error", () => done(false));
-      socket.connect(streamPort, publicIpTrim);
-    });
-  }
+  // WebRTC: host reports stream engine readiness (legacy DB columns reused).
+  const portsOpenFlag =
+    typeof portsOpen === "boolean" ? portsOpen : sunshineRunning === true;
 
   db.prepare(
     `UPDATE rentals SET
@@ -1464,13 +1446,13 @@ app.post("/api/agents/streaming", authAgent, async (req, res) => {
     status ?? "pending",
     localIp ?? null,
     publicIp ?? null,
-    streamPort,
-    httpsPort ?? 47990,
+    port ?? null,
+    httpsPort ?? null,
     pin ?? null,
     message ?? null,
     sunshineInstalled ? 1 : 0,
     sunshineRunning ? 1 : 0,
-    externallyReachable ? 1 : 0,
+    portsOpenFlag ? 1 : 0,
     connectMode ?? null,
     nowIso(),
     pairStatus ?? null,

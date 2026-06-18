@@ -82,8 +82,6 @@ function Register-Machine($Config) {
     agentToken = $result.agentToken
     name = $result.name
     pairingCode = "$($Config.pairingCode)".Trim().ToUpper()
-    sunshineUsername = $result.sunshineUsername
-    sunshinePassword = $result.sunshinePassword
     lastRentalId = $null
   }
   Save-State $state
@@ -193,16 +191,6 @@ try {
     $state = Register-Machine $config
   } else {
     Write-Log "Using saved machine `"$($state.name)`" ($($state.machineId))"
-    if (-not $state.sunshineUsername -or -not $state.sunshinePassword) {
-      try {
-        $remote = Invoke-PchubApi -ApiRoot $config.apiUrl -Path "/api/agents/streaming/config" -Method "GET" -Token $state.agentToken
-        $state.sunshineUsername = $remote.sunshineUsername
-        $state.sunshinePassword = $remote.sunshinePassword
-        Save-State $state
-      } catch {
-        Write-Log "Sunshine creds warn: $($_.Exception.Message)"
-      }
-    }
   }
 
   try { Send-Inventory $config $state } catch { Write-Log "Inventory warn: $($_.Exception.Message)" }

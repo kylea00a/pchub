@@ -66,7 +66,7 @@ function New-StatusRow($title, $y) {
 
 $valAgent = New-StatusRow "Website" 88
 $valHeartbeat = New-StatusRow "Heartbeat" 116
-$valSunshine = New-StatusRow "Sunshine" 144
+$valStream = New-StatusRow "Stream host" 144
 $valTunnel = New-StatusRow "Relay" 172
 
 $lblUpdated = New-Object System.Windows.Forms.Label
@@ -114,11 +114,20 @@ function Test-AgentProcess {
   return [bool]$procs
 }
 
-function Test-SunshineState {
-  $svc = Get-Service -Name SunshineService, Sunshine, sunshine -ErrorAction SilentlyContinue | Select-Object -First 1
-  $proc = Get-Process -Name sunshine -ErrorAction SilentlyContinue
-  $installed = Test-Path "${env:ProgramFiles}\Sunshine\sunshine.exe"
-  $running = ($svc -and $svc.Status -eq "Running") -or [bool]$proc
+function Test-StreamHostState {
+  $exe = Join-Path $Root "PCHUB-StreamHost.exe"
+  $installed = Test-Path $exe
+  $pidPath = Join-Path $Root "webrtc-signaling.pid"
+  $running = $false
+  if (Test-Path $pidPath) {
+    try {
+      $pid = [int](Get-Content $pidPath -Raw).Trim()
+      $running = $pid -gt 0 -and [bool](Get-Process -Id $pid -ErrorAction SilentlyContinue)
+    } catch { }
+  }
+  if (-not $running) {
+    $running = [bool](Get-Process -Name "PCHUB-StreamHost" -ErrorAction SilentlyContinue)
+  }
   return @{ Installed = $installed; Running = $running }
 }
 
@@ -133,7 +142,7 @@ function Update-Status {
   $lblPc.Text = "PC not registered yet"
   Set-Row $valAgent "Checking…" $false $true
   Set-Row $valHeartbeat "Checking…" $false $true
-  Set-Row $valSunshine "Checking…" $false $true
+  Set-Row $valStream "Checking…" $false $true
   Set-Row $valTunnel "Checking…" $false $true
 
   if (-not (Test-Path $StatePath)) {
@@ -160,13 +169,13 @@ function Update-Status {
   }
   Set-Row $valHeartbeat $(if ($hb) { "Running" } else { "Stopped" }) $hb (!$hb)
 
-  $sun = Test-SunshineState
-  if (-not $sun.Installed) {
-    Set-Row $valSunshine "Not installed" $false $false
-  } elseif ($sun.Running) {
-    Set-Row $valSunshine "Running" $true $false
+  $stream = Test-StreamHostState
+  if (-not $stream.Installed) {
+    Set-Row $valStream "Not installed" $false $false
+  } elseif ($stream.Running) {
+    Set-Row $valStream "Running" $true $false
   } else {
-    Set-Row $valSunshine "Stopped" $false $true
+    Set-Row $valStream "Idle" $false $false
   }
 
   $tun = Test-TunnelState

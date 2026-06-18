@@ -254,6 +254,8 @@ public sealed class DxgiScreenSource : IVideoSource, IDisposable
             staging?.Dispose();
             device.Dispose();
             context.Dispose();
+            adapter.Dispose();
+            output.Dispose();
         }
         catch (Exception ex)
         {

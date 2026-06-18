@@ -20,6 +20,7 @@ jobs:
           mkdir -p staging
           cp agent/windows-installer/setup-wizard.ps1 staging/PCHUB-Host-Setup.ps1
           cp deploy/downloads/PCHUB-Host-Setup.cmd staging/PCHUB-Host-Setup.cmd
+          cp agent/windows-prod/status-app.ps1 agent/windows-installer/status-app.ps1
 
       - uses: appleboy/scp-action@v0.1.7
         with:
@@ -48,17 +49,27 @@ jobs:
             -sta `
             -requireAdmin
           Invoke-ps2exe `
-            -inputFile "agent\windows-installer\status-app.ps1" `
+            -inputFile "agent\windows-prod\status-app.ps1" `
             -outputFile "staging\PCHUB-Status.exe" `
             -title "PCHUB Host" `
             -sta `
             -noConsole
           Get-Item staging\*.exe | Format-List Name, Length, LastWriteTime
 
+      - name: Publish PCHUB-StreamHost for host zip
+        shell: pwsh
+        run: |
+          dotnet publish stream/windows/host/PCHUB.StreamHost/PCHUB.StreamHost.csproj `
+            -c Release -r win-x64 --self-contained false `
+            -o deploy/downloads/streamhost
+          Get-ChildItem deploy/downloads/streamhost -Filter PCHUB-StreamHost.exe | Format-Table Name, Length
+
       - uses: actions/upload-artifact@v4
         with:
           name: PCHUB-windows-apps
-          path: staging/*.exe
+          path: |
+            staging/*.exe
+            deploy/downloads/streamhost/**
           retention-days: 14
 
   publish-exe:
@@ -78,3 +89,12 @@ jobs:
           source: "staging/PCHUB-Host-Setup.exe,staging/PCHUB-Status.exe"
           target: "/var/www/pchub/deploy/downloads"
           strip_components: 1
+
+      - uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.DROPLET_HOST }}
+          username: root
+          key: ${{ secrets.DROPLET_SSH_KEY }}
+          source: "deploy/downloads/streamhost/*"
+          target: "/var/www/pchub/deploy/downloads/streamhost"
+          strip_components: 3

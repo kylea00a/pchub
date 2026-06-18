@@ -1,6 +1,6 @@
 import type { RentalRow } from "./db.js";
 import { db, type MachineRow } from "./db.js";
-import { formatMoonlightConnect } from "./moonlight.js";
+import { formatPchubConnect } from "./pchub-connect.js";
 
 export function formatConnectInfo(rental: RentalRow) {
   const machine = db
@@ -9,5 +9,5 @@ export function formatConnectInfo(rental: RentalRow) {
   if (!machine) {
     return null;
   }
-  return formatMoonlightConnect(rental, machine);
+  return formatPchubConnect(rental, machine);
 }

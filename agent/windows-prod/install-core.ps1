@@ -19,7 +19,6 @@ function Invoke-PchubHostInstall {
   Write-PchubSetupLog -Root $Root -Message "PCHUB install starting (root: $Root)" -Silent:$Silent
 
   $hostPs1 = Join-Path $Root "pchub-host.ps1"
-  $sunshinePs1 = Join-Path $Root "sunshine.ps1"
   $tunnelPs1 = Join-Path $Root "tunnel.ps1"
   $statePath = Join-Path $Root ".agent-state.json"
   $configPath = Join-Path $Root "config.json"
@@ -99,28 +98,18 @@ function Invoke-PchubHostInstall {
     Write-PchubSetupLog -Root $Root -Message "Agent warned (exit $agentExit) but registered - continuing" -Silent:$Silent
   }
 
-  Write-PchubSetupLog -Root $Root -Message "[4/5] Sunshine (direct connect)..." -Silent:$Silent
-  if (Test-Path $sunshinePs1) {
-    try {
-      . (Join-Path $Root "pchub-api.ps1")
-      . $sunshinePs1
-      $state = Get-Content $statePath -Raw | ConvertFrom-Json
-      $config = Get-Content $configPath -Raw | ConvertFrom-Json
-      if (-not $state.sunshineUsername -or -not $state.sunshinePassword) {
-        Write-PchubSetupLog -Root $Root -Message "      Fetching streaming credentials..." -Silent:$Silent
-        $remote = Invoke-PchubApi -ApiRoot $config.apiUrl -Path "/api/agents/streaming/config" -Method "GET" -Token $state.agentToken
-        $state.sunshineUsername = $remote.sunshineUsername
-        $state.sunshinePassword = $remote.sunshinePassword
-      }
-      Write-PchubSetupLog -Root $Root -Message "      Installing Sunshine (may take a few minutes)..." -Silent:$Silent
-      Initialize-PchubSunshine -Username $state.sunshineUsername -Password $state.sunshinePassword
-      $state | ConvertTo-Json | Set-Content $statePath -Encoding UTF8
-      Write-PchubSetupLog -Root $Root -Message "      OK" -Silent:$Silent
-    } catch {
-      Write-PchubSetupLog -Root $Root -Message "      Warning: $($_.Exception.Message)" -Silent:$Silent
-    }
+  Write-PchubSetupLog -Root $Root -Message "[4/5] PCHUB StreamHost..." -Silent:$Silent
+  $streamHostExe = Join-Path $Root "PCHUB-StreamHost.exe"
+  if (Test-Path $streamHostExe) {
+    Write-PchubSetupLog -Root $Root -Message "      OK (PCHUB-StreamHost.exe)" -Silent:$Silent
   } else {
-    Write-PchubSetupLog -Root $Root -Message "      Skipped (scripts missing)" -Silent:$Silent
+    Write-PchubSetupLog -Root $Root -Message "      Warning: PCHUB-StreamHost.exe missing — reinstall from pchub.cloud/host" -Silent:$Silent
+  }
+  $ffmpeg = Get-Command ffmpeg -ErrorAction SilentlyContinue
+  if ($ffmpeg) {
+    Write-PchubSetupLog -Root $Root -Message "      FFmpeg: $($ffmpeg.Source)" -Silent:$Silent
+  } else {
+    Write-PchubSetupLog -Root $Root -Message "      Install FFmpeg for screen capture: winget install Gyan.FFmpeg" -Silent:$Silent
   }
 
   Write-PchubSetupLog -Root $Root -Message "[5/5] Starting agent + status app..." -Silent:$Silent

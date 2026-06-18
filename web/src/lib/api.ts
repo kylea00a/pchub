@@ -80,29 +80,15 @@ export type Rental = {
 };
 
 export type ConnectInfo = {
-  provider: "moonlight";
+  provider: "pchub";
   status: string;
-  host: string | null;
-  port: number;
-  localIp: string | null;
-  publicIp: string | null;
-  recommendedHost: string | null;
   connectMode: string;
   message: string | null;
-  sunshineInstalled: boolean;
-  sunshineRunning: boolean;
-  portsOpen: boolean;
-  pairStatus: string;
-  pairMessage: string | null;
+  streamHostInstalled: boolean;
+  streamHostRunning: boolean;
   ready: boolean;
   streamReady: boolean;
   updatedAt: string | null;
-  moonlightLinks: {
-    windows: string;
-    android: string;
-    ios: string;
-    mac: string;
-  };
   steps: string[];
 };
 

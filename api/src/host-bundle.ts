@@ -41,7 +41,6 @@ const HOST_SCRIPTS = [
   "pchub-api.ps1",
   "webrtc-signaling.ps1",
   "webrtc-signaling-worker.ps1",
-  "sunshine.ps1",
   "streaming.ps1",
   "status-app.ps1",
   "Start PCHUB Agent.bat",
@@ -136,12 +135,26 @@ function buildReadmeBundled() {
 3. "PCHUB Host Status" appears on your taskbar (Online / Offline)
 
 config.json with your pairing code is already included.
-Moonlight streaming via PCHUB relay — no router setup needed.
+PCHUB direct streaming — install PCHUB Renter on the renter PC to connect.
 `;
 }
 
-function bundlePath(name: string) {
-  return BUNDLE_ROOT ? `${BUNDLE_ROOT}/${name}` : name;
+const STREAMHOST_DIR = path.join(
+  __dirname,
+  "..",
+  "..",
+  "deploy",
+  "downloads",
+  "streamhost"
+);
+
+function appendStreamHost(archive: archiver.Archiver) {
+  if (!fs.existsSync(STREAMHOST_DIR)) return;
+  for (const name of fs.readdirSync(STREAMHOST_DIR)) {
+    const full = path.join(STREAMHOST_DIR, name);
+    if (!fs.statSync(full).isFile()) continue;
+    archive.file(full, { name: bundlePath(name) });
+  }
 }
 
 function appendHostScripts(archive: archiver.Archiver) {
@@ -151,6 +164,11 @@ function appendHostScripts(archive: archiver.Archiver) {
       archive.file(full, { name: bundlePath(script) });
     }
   }
+  appendStreamHost(archive);
+}
+
+function bundlePath(name: string) {
+  return BUNDLE_ROOT ? `${BUNDLE_ROOT}/${name}` : name;
 }
 
 function createZipBuffer(

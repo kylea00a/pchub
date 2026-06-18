@@ -180,7 +180,7 @@ public sealed class DirectStreamPeer : IAsyncDisposable
                 try { OnVideoFrame?.Invoke(0, 0, sample, VideoPixelFormatsEnum.I420); }
                 catch { }
             };
-            _pc.addTrack(new MediaStreamTrack(SDPMediaTypesEnum.video, false,
+            _pc.addTrack(new MediaStreamTrack(
                 new List<VideoFormat> { new VideoFormat(VideoCodecsEnum.VP8, 1280, 720, "") },
                 MediaStreamStatusEnum.RecvOnly));
         }
@@ -281,8 +281,9 @@ public sealed class DirectStreamPeer : IAsyncDisposable
                 maxBps: 16_000_000,
                 setVideoBitrateBps: bps =>
                 {
-                    _nvencGpu?.SetBitrate(bps);
-                    _ffmpegEncoder?.SetBitrate(bps, null, null, bps);
+                    var rate = (int)bps;
+                    _nvencGpu?.SetBitrate(rate);
+                    _ffmpegEncoder?.SetBitrate(rate, null, null, rate);
                 },
                 forceKeyFrame: () =>
                 {
@@ -296,8 +297,11 @@ public sealed class DirectStreamPeer : IAsyncDisposable
 
         // Fallback to VP8 (CPU) if peer doesn't accept H264.
         _videoEncoder = new VpxVideoEncoder();
-        _dxgiSource.OnVideoSourceRawSample += _videoEncoder.EncodeVideo;
-        _videoEncoder.OnVideoSourceEncodedSample += _pc.SendVideo;
+        _dxgiSource.OnVideoSourceRawSampleFaster += (dur, raw) =>
+        {
+            var encoded = _videoEncoder!.EncodeVideoFaster(raw, VideoCodecsEnum.VP8);
+            if (encoded != null) _pc.SendVideo(dur, encoded);
+        };
     }
 
     private void DetachH264Handlers()

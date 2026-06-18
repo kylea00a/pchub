@@ -208,7 +208,7 @@ $doneText.Text = @"
 Your PC is registered on pchub.cloud.
 
 PCHUB Host opens in your taskbar - keep it running.
-Renters connect with Moonlight (no router setup for you).
+Renters connect with PCHUB Renter (download from your rental page).
 "@
 $doneText.Location = New-Object System.Drawing.Point(28, 12)
 $doneText.Size = New-Object System.Drawing.Size(440, 120)
