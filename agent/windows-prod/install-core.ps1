@@ -51,6 +51,7 @@ function Invoke-PchubHostInstall {
   Write-PchubSetupLog -Root $Root -Message "[2/5] Stopping old agent..." -Silent:$Silent
   & cmd /c "taskkill /FI `"WINDOWTITLE eq PCHUB Agent Loop*`" /F >nul 2>&1"
   & cmd /c "taskkill /FI `"WINDOWTITLE eq PCHUB Host Status*`" /F >nul 2>&1"
+  & cmd /c "taskkill /IM PCHUB-Status.exe /F >nul 2>&1"
   if (Test-Path (Join-Path $Root "webrtc-signaling.ps1")) {
     try {
       . (Join-Path $Root "webrtc-signaling.ps1")
@@ -133,7 +134,8 @@ function Invoke-PchubHostInstall {
   } catch {
     Write-PchubSetupLog -Root $Root -Message "      Warning: could not start agent: $($_.Exception.Message)" -Silent:$Silent
   }
-  Start-Sleep -Seconds 2
+  Start-Sleep -Seconds 1
+  Get-Process -Name "PCHUB-Status" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
   if (Test-Path $statusExe) {
     Start-Process -FilePath $statusExe -WindowStyle Normal
   } elseif (Test-Path $statusPs1) {

@@ -1,3 +1,10 @@
+param(
+  [string]$Root = "C:\PCHUB-Host",
+  [switch]$CheckWebsite,
+  [ValidateSet("", "Json")]
+  [string]$Format = ""
+)
+
 function Get-PchubFfmpegReady {
   param([string]$Root)
   $bundled = Join-Path $Root "ffmpeg\bin\ffmpeg.exe"
@@ -115,7 +122,6 @@ function Get-PchubHostReadiness {
   $coreOk = $registered -and $hb -and $stream.Installed -and $ff.Ok
   $readyToStream = $coreOk -and (-not $CheckWebsite -or $online)
 
-  $failed = @($items | Where-Object { -not $_.Ok })
   $summary = if ($readyToStream) {
     "Ready to stream - renters can connect when booked"
   } elseif ($registered -and -not $stream.Installed) {
@@ -134,4 +140,27 @@ function Get-PchubHostReadiness {
     Summary = $summary
     StreamRunning = $stream.Running
   }
+}
+
+if ($Format -eq "Json") {
+  $r = Get-PchubHostReadiness -Root $Root -CheckWebsite:$CheckWebsite
+  $payload = [ordered]@{
+    ReadyToStream = [bool]$r.ReadyToStream
+    Registered = [bool]$r.Registered
+    MachineName = $r.MachineName
+    Summary = $r.Summary
+    StreamRunning = [bool]$r.StreamRunning
+    Items = @(
+      $r.Items | ForEach-Object {
+        [ordered]@{
+          Id = $_.Id
+          Ok = [bool]$_.Ok
+          Label = $_.Label
+          Detail = $_.Detail
+        }
+      }
+    )
+  }
+  Write-Output ($payload | ConvertTo-Json -Depth 6 -Compress)
+  exit 0
 }

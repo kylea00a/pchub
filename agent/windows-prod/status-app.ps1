@@ -1,32 +1,42 @@
 # PCHUB Host Status - readiness checklist (packaged as PCHUB-Status.exe)
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
+Add-Type -AssemblyName System.Threading
 
 $Root = if ($PSScriptRoot) { $PSScriptRoot } else { "C:\PCHUB-Host" }
+$script:AllowExit = $false
 
-function Import-PchubHostReadiness {
-  param([string]$Root)
-  $path = Join-Path $Root "host-readiness.ps1"
-  if (-not (Test-Path $path)) { throw "host-readiness.ps1 not found" }
-  . ([scriptblock]::Create([System.IO.File]::ReadAllText($path)))
-}
-
+$mutex = New-Object System.Threading.Mutex($false, "Global\PCHUB-Host-Status-v1")
+$ownsMutex = $false
 try {
-  Import-PchubHostReadiness -Root $Root
+  $ownsMutex = $mutex.WaitOne(0, $false)
 } catch {
+  $ownsMutex = $false
+}
+if (-not $ownsMutex) {
   [System.Windows.Forms.MessageBox]::Show(
-    "Could not load readiness checklist:`n`n$($_.Exception.Message)",
+    "PCHUB Host is already running in the system tray.`n`nRight-click the tray icon and choose Exit to close the old one.",
     "PCHUB Host",
     [System.Windows.Forms.MessageBoxButtons]::OK,
-    [System.Windows.Forms.MessageBoxIcon]::Warning
+    [System.Windows.Forms.MessageBoxIcon]::Information
   ) | Out-Null
-  exit 1
+  exit 0
 }
 
-function Get-StatusColor($ok, $warn) {
-  if ($ok) { return [System.Drawing.Color]::FromArgb(80, 220, 140) }
-  if ($warn) { return [System.Drawing.Color]::FromArgb(240, 190, 60) }
-  return [System.Drawing.Color]::FromArgb(240, 90, 90)
+function Query-PchubHostReadiness {
+  param(
+    [string]$Root,
+    [switch]$CheckWebsite
+  )
+  $ps1 = Join-Path $Root "host-readiness.ps1"
+  if (-not (Test-Path $ps1)) { throw "host-readiness.ps1 not found in $Root" }
+  $ps = "$env:WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe"
+  $invokeArgs = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $ps1, "-Root", $Root, "-Format", "Json")
+  if ($CheckWebsite) { $invokeArgs += "-CheckWebsite" }
+  $json = (& $ps @invokeArgs 2>&1 | Out-String).Trim()
+  if (-not $json) { throw "Readiness check returned no data" }
+  if ($json -match 'cannot be loaded|execution policy') { throw $json }
+  return ($json | ConvertFrom-Json)
 }
 
 $form = New-Object System.Windows.Forms.Form
@@ -43,6 +53,19 @@ $notify.Icon = [System.Drawing.SystemIcons]::Application
 $notify.Text = "PCHUB Host"
 $notify.Visible = $true
 $notify.Add_DoubleClick({ $form.Show(); $form.WindowState = "Normal"; $form.BringToFront() })
+
+$trayMenu = New-Object System.Windows.Forms.ContextMenuStrip
+$miOpen = $trayMenu.Items.Add("Open status")
+$miExit = $trayMenu.Items.Add("Exit")
+$miOpen.Add_Click({ $form.Show(); $form.WindowState = "Normal"; $form.BringToFront() })
+$miExit.Add_Click({
+  $script:AllowExit = $true
+  $timer.Stop()
+  $notify.Visible = $false
+  $notify.Dispose()
+  $form.Close()
+})
+$notify.ContextMenuStrip = $trayMenu
 
 $header = New-Object System.Windows.Forms.Label
 $header.Text = "PCHUB Host"
@@ -134,53 +157,63 @@ $btnRepair.FlatStyle = "Flat"
 $btnRepair.BackColor = [System.Drawing.Color]::FromArgb(60, 140, 220)
 $btnRepair.ForeColor = [System.Drawing.Color]::White
 $btnRepair.Add_Click({
-  $setupExe = Join-Path $env:USERPROFILE "Downloads\PCHUB-Host-Setup.exe"
-  if (Test-Path $setupExe) {
-    Start-Process $setupExe
-  } else {
-    Start-Process "https://pchub.cloud/downloads/PCHUB-Host-Setup.exe?v=2026.06.18.4"
-  }
+  Start-Process "https://pchub.cloud/downloads/PCHUB-Host-Setup.exe?v=2026.06.18.5"
 })
 $form.Controls.Add($btnRepair) | Out-Null
 
+$btnExit = New-Object System.Windows.Forms.Button
+$btnExit.Text = "Exit"
+$btnExit.Location = New-Object System.Drawing.Point(354, 404)
+$btnExit.Size = New-Object System.Drawing.Size(86, 32)
+$btnExit.FlatStyle = "Flat"
+$btnExit.BackColor = [System.Drawing.Color]::FromArgb(72, 40, 40)
+$btnExit.ForeColor = [System.Drawing.Color]::White
+$btnExit.Add_Click({ $miExit.PerformClick() })
+$form.Controls.Add($btnExit) | Out-Null
+
 function Update-Status {
-  $r = Get-PchubHostReadiness -Root $Root -CheckWebsite
+  try {
+    $r = Query-PchubHostReadiness -Root $Root -CheckWebsite
 
-  if ($r.MachineName) {
-    $lblPc.Text = $r.MachineName
-  } elseif ($r.Registered) {
-    $lblPc.Text = "Registered host PC"
-  } else {
-    $lblPc.Text = "Not registered"
-  }
+    if ($r.MachineName) {
+      $lblPc.Text = $r.MachineName
+    } elseif ($r.Registered) {
+      $lblPc.Text = "Registered host PC"
+    } else {
+      $lblPc.Text = "Not registered"
+    }
 
-  if ($r.ReadyToStream) {
-    $banner.BackColor = [System.Drawing.Color]::FromArgb(24, 72, 48)
-    $lblBanner.ForeColor = [System.Drawing.Color]::FromArgb(120, 255, 170)
-    $lblBanner.Text = "READY TO STREAM"
-    $lblHint.Text = "Keep this app running. When someone rents your PC, StreamHost starts automatically."
-    $notify.Text = "PCHUB Host - Ready to stream"
-  } else {
-    $banner.BackColor = [System.Drawing.Color]::FromArgb(72, 32, 32)
-    $lblBanner.ForeColor = [System.Drawing.Color]::FromArgb(255, 160, 140)
-    $lblBanner.Text = "NOT READY TO STREAM"
-    $lblHint.Text = $r.Summary + " Click Reinstall / Repair after pchub.cloud publishes StreamHost, or Retry setup with a new pairing code."
-    $notify.Text = "PCHUB Host - Setup incomplete"
-  }
+    if ($r.ReadyToStream) {
+      $banner.BackColor = [System.Drawing.Color]::FromArgb(24, 72, 48)
+      $lblBanner.ForeColor = [System.Drawing.Color]::FromArgb(120, 255, 170)
+      $lblBanner.Text = "READY TO STREAM"
+      $lblHint.Text = "Keep this app running. When someone rents your PC, StreamHost starts automatically."
+      $notify.Text = "PCHUB Host - Ready to stream"
+    } else {
+      $banner.BackColor = [System.Drawing.Color]::FromArgb(72, 32, 32)
+      $lblBanner.ForeColor = [System.Drawing.Color]::FromArgb(255, 160, 140)
+      $lblBanner.Text = "NOT READY TO STREAM"
+      $lblHint.Text = "$($r.Summary) Right-click tray icon -> Exit to remove duplicate icons, then Reinstall / Repair."
+      $notify.Text = "PCHUB Host - Setup incomplete"
+    }
 
-  $lines = New-Object System.Collections.Generic.List[string]
-  foreach ($item in $r.Items) {
-    $mark = if ($item.Ok) { "[OK]  " } else { "[X]   " }
-    $lines.Add("$mark $($item.Label)")
-    if ($item.Detail) { $lines.Add("      $($item.Detail)") }
+    $lines = New-Object System.Collections.Generic.List[string]
+    foreach ($item in $r.Items) {
+      $mark = if ($item.Ok) { "[OK]  " } else { "[X]   " }
+      $lines.Add("$mark $($item.Label)")
+      if ($item.Detail) { $lines.Add("      $($item.Detail)") }
+    }
+    if ($r.StreamRunning) {
+      $lines.Add("")
+      $lines.Add("[OK]  Stream engine active for current rental")
+    }
+    $txtChecklist.Text = ($lines -join [Environment]::NewLine)
+    $lblUpdated.Text = "Updated " + (Get-Date -Format "HH:mm:ss")
+  } catch {
+    $lblBanner.Text = "CHECK FAILED"
+    $txtChecklist.Text = $_.Exception.Message
+    $lblUpdated.Text = "Error " + (Get-Date -Format "HH:mm:ss")
   }
-  if ($r.StreamRunning) {
-    $lines.Add("")
-    $lines.Add("[OK]  Stream engine active for current rental")
-  }
-  $txtChecklist.Text = ($lines -join [Environment]::NewLine)
-
-  $lblUpdated.Text = "Updated " + (Get-Date -Format "HH:mm:ss")
 }
 
 $timer = New-Object System.Windows.Forms.Timer
@@ -192,13 +225,15 @@ $btnRefresh.Add_Click({ Update-Status })
 
 $form.Add_FormClosing({
   param($sender, $e)
+  if ($script:AllowExit) { return }
   if ($e.CloseReason -eq [System.Windows.Forms.CloseReason]::UserClosing) {
     $e.Cancel = $true
     $form.Hide()
-    $notify.ShowBalloonTip(4000, "PCHUB Host", "Running in the tray. Double-click to see readiness checklist.", [System.Windows.Forms.ToolTipIcon]::Info)
+    $notify.ShowBalloonTip(4000, "PCHUB Host", "Still in tray. Right-click -> Exit to quit.", [System.Windows.Forms.ToolTipIcon]::Info)
   }
 })
 
 $form.Add_Shown({ Update-Status })
 [void][System.Windows.Forms.Application]::Run($form)
-$notify.Dispose()
+if ($ownsMutex) { try { $mutex.ReleaseMutex() } catch { } }
+$mutex.Dispose()

@@ -37,7 +37,7 @@ Add-Type -AssemblyName System.Drawing
 [System.Windows.Forms.Application]::EnableVisualStyles()
 [System.Windows.Forms.Application]::SetCompatibleTextRenderingDefault($false)
 
-$script:InstallerBuild = "2026.06.18.4"
+$script:InstallerBuild = "2026.06.18.5"
 $script:SiteUrl = "https://pchub.cloud"
 $script:ApiUrl = "https://api.pchub.cloud"
 $script:Dest = "C:\PCHUB-Host"
@@ -211,11 +211,45 @@ $doneText.Font = New-Object System.Drawing.Font("Consolas", 9)
 $doneText.ForeColor = [System.Drawing.Color]::FromArgb(200, 200, 210)
 $panelDone.Controls.Add($doneText) | Out-Null
 
-function Import-PchubHostReadiness {
-  param([string]$Root)
-  $path = Join-Path $Root "host-readiness.ps1"
-  if (-not (Test-Path $path)) { throw "host-readiness.ps1 not found" }
-  . ([scriptblock]::Create([System.IO.File]::ReadAllText($path)))
+function Query-PchubHostReadiness {
+  param(
+    [string]$Root,
+    [switch]$CheckWebsite
+  )
+  $ps1 = Join-Path $Root "host-readiness.ps1"
+  if (-not (Test-Path $ps1)) { throw "host-readiness.ps1 not found" }
+  $ps = "$env:WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe"
+  $invokeArgs = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $ps1, "-Root", $Root, "-Format", "Json")
+  if ($CheckWebsite) { $invokeArgs += "-CheckWebsite" }
+  $json = (& $ps @invokeArgs 2>&1 | Out-String).Trim()
+  if (-not $json) { throw "Readiness check returned no data" }
+  return ($json | ConvertFrom-Json)
+}
+
+function Format-ReadinessText {
+  param($r)
+  $lines = New-Object System.Collections.Generic.List[string]
+  if ($r.ReadyToStream) {
+    $lines.Add("READY TO STREAM")
+    $lines.Add("")
+  } else {
+    $lines.Add("NOT READY TO STREAM YET")
+    $lines.Add($r.Summary)
+    $lines.Add("")
+  }
+  foreach ($item in $r.Items) {
+    $mark = if ($item.Ok) { "[OK]" } else { "[X] " }
+    $lines.Add("$mark $($item.Label)")
+    if ($item.Detail) { $lines.Add("    $($item.Detail)") }
+  }
+  $lines.Add("")
+  $lines.Add("PCHUB Host stays in your taskbar while online.")
+  $lines.Add("Renters use PCHUB Renter (WebRTC, not Moonlight).")
+  if (-not $r.ReadyToStream) {
+    $lines.Add("")
+    $lines.Add("Fix missing items, then Refresh in PCHUB Host.")
+  }
+  return ($lines -join [Environment]::NewLine)
 }
 
 function Update-DonePanel {
@@ -230,30 +264,8 @@ Open PCHUB Host from the taskbar after setup.
     return
   }
   try {
-    Import-PchubHostReadiness -Root $script:Dest
-    $r = Get-PchubHostReadiness -Root $script:Dest -CheckWebsite
-    $lines = New-Object System.Collections.Generic.List[string]
-    if ($r.ReadyToStream) {
-      $lines.Add("READY TO STREAM")
-      $lines.Add("")
-    } else {
-      $lines.Add("NOT READY TO STREAM YET")
-      $lines.Add($r.Summary)
-      $lines.Add("")
-    }
-    foreach ($item in $r.Items) {
-      $mark = if ($item.Ok) { "[OK]" } else { "[X] " }
-      $lines.Add("$mark $($item.Label)")
-      if ($item.Detail) { $lines.Add("    $($item.Detail)") }
-    }
-    $lines.Add("")
-    $lines.Add("PCHUB Host opens in your taskbar - keep it running.")
-    $lines.Add("Renters use PCHUB Renter (WebRTC, not Moonlight).")
-    if (-not $r.ReadyToStream) {
-      $lines.Add("")
-      $lines.Add("Fix missing items, then click Refresh in PCHUB Host.")
-    }
-    $doneText.Text = ($lines -join [Environment]::NewLine)
+    $r = Query-PchubHostReadiness -Root $script:Dest -CheckWebsite
+    $doneText.Text = Format-ReadinessText $r
   } catch {
     $doneText.Text = "Setup finished but readiness check failed: $($_.Exception.Message)"
   }
@@ -302,8 +314,7 @@ function Show-Step {
       try {
         $rp = Join-Path $script:Dest "host-readiness.ps1"
         if (Test-Path $rp) {
-          Import-PchubHostReadiness -Root $script:Dest
-          $readinessOk = (Get-PchubHostReadiness -Root $script:Dest).ReadyToStream
+          $readinessOk = [bool](Query-PchubHostReadiness -Root $script:Dest).ReadyToStream
         }
       } catch { }
       if ($readinessOk) {
