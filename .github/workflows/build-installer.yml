@@ -157,6 +157,9 @@ jobs:
           cd bundle
           find . -type f | head -40
           args=()
+          [ -d streamhost ] && args+=(streamhost)
+          [ -d ffmpeg ] && args+=(ffmpeg)
+          [ -f PCHUB-Renter.zip ] && args+=(PCHUB-Renter.zip)
           [ -d deploy/downloads/streamhost ] && args+=(deploy/downloads/streamhost)
           [ -d deploy/downloads/ffmpeg ] && args+=(deploy/downloads/ffmpeg)
           [ -f deploy/downloads/PCHUB-Renter.zip ] && args+=(deploy/downloads/PCHUB-Renter.zip)
@@ -183,7 +186,7 @@ jobs:
           script: |
             mkdir -p /var/www/pchub/deploy/downloads
             cd /var/www/pchub/deploy/downloads
-            tar -xzf /tmp/pchub-host-bundle.tgz --strip-components=2
+            tar -xzf /tmp/pchub-host-bundle.tgz
             rm -f /tmp/pchub-host-bundle.tgz
             ls -la streamhost 2>/dev/null | head -5
             ls -la ffmpeg/bin 2>/dev/null | head -3
