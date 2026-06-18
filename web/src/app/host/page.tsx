@@ -198,9 +198,6 @@ export default function HostPage() {
             <li>
               Start <strong className="text-foreground">PCHUB Host Agent</strong> from the Start menu
             </li>
-            <li>
-              Install FFmpeg for streaming: <code className="text-foreground">winget install Gyan.FFmpeg</code>
-            </li>
           </ol>
           <p className="mt-4 text-sm text-muted">
             Direct WebRTC streaming when a renter connects — no router setup for you.

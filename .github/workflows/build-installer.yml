@@ -64,12 +64,33 @@ jobs:
             -o deploy/downloads/streamhost
           Get-ChildItem deploy/downloads/streamhost -Filter PCHUB-StreamHost.exe | Format-Table Name, Length
 
+      - name: Stage FFmpeg for host bundle
+        shell: pwsh
+        run: |
+          $zip = "$env:RUNNER_TEMP/ffmpeg-essentials.zip"
+          $url = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"
+          Write-Host "Downloading FFmpeg essentials..."
+          Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing
+          $extract = "$env:RUNNER_TEMP/ffmpeg-extract"
+          if (Test-Path $extract) { Remove-Item $extract -Recurse -Force }
+          Expand-Archive -Path $zip -DestinationPath $extract -Force
+          $root = Get-ChildItem $extract -Directory | Select-Object -First 1
+          if (-not $root) { throw "FFmpeg extract failed" }
+          $out = "deploy/downloads/ffmpeg/bin"
+          if (Test-Path "deploy/downloads/ffmpeg") { Remove-Item "deploy/downloads/ffmpeg" -Recurse -Force }
+          New-Item -ItemType Directory -Force -Path $out | Out-Null
+          Copy-Item "$($root.FullName)\bin\*" $out -Recurse -Force
+          Get-ChildItem $out -File | Measure-Object -Property Length -Sum | ForEach-Object {
+            Write-Host "FFmpeg staged: $($_.Count) files, $([math]::Round($_.Sum / 1MB, 1)) MB"
+          }
+
       - uses: actions/upload-artifact@v4
         with:
           name: PCHUB-windows-apps
           path: |
             staging/*.exe
             deploy/downloads/streamhost/**
+            deploy/downloads/ffmpeg/**
           retention-days: 14
 
   publish-exe:
@@ -97,4 +118,13 @@ jobs:
           key: ${{ secrets.DROPLET_SSH_KEY }}
           source: "deploy/downloads/streamhost/*"
           target: "/var/www/pchub/deploy/downloads/streamhost"
+          strip_components: 3
+
+      - uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.DROPLET_HOST }}
+          username: root
+          key: ${{ secrets.DROPLET_SSH_KEY }}
+          source: "deploy/downloads/ffmpeg/*"
+          target: "/var/www/pchub/deploy/downloads/ffmpeg"
           strip_components: 3

@@ -2,6 +2,7 @@
 $Root = if ($PSScriptRoot) { $PSScriptRoot } else { "C:\PCHUB-Host" }
 
 . (Join-Path $Root "pchub-api.ps1")
+. (Join-Path $Root "ffmpeg.ps1")
 . (Join-Path $Root "webrtc-signaling.ps1")
 
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
@@ -31,11 +32,11 @@ if (-not (Test-Path $exe)) {
 Write-Host "OK: $exe"
 
 Write-Host "[2/3] FFmpeg (screen capture)..."
-$ffmpeg = Get-Command ffmpeg -ErrorAction SilentlyContinue
-if ($ffmpeg) {
-  Write-Host "OK: $($ffmpeg.Source)"
-} else {
-  Write-Host "Install: winget install Gyan.FFmpeg"
+try {
+  $ffBin = Install-PchubFfmpegIfNeeded -Root $Root
+  Write-Host "OK: $ffBin"
+} catch {
+  Write-Host "FFmpeg error: $($_.Exception.Message)"
 }
 
 Write-Host "[3/3] Restarting stream signaling..."

@@ -39,6 +39,7 @@ const HOST_SCRIPTS = [
   "RUN-PCHUB.cmd",
   "pchub-host.ps1",
   "pchub-api.ps1",
+  "ffmpeg.ps1",
   "webrtc-signaling.ps1",
   "webrtc-signaling-worker.ps1",
   "streaming.ps1",
@@ -147,6 +148,14 @@ const STREAMHOST_DIR = path.join(
   "downloads",
   "streamhost"
 );
+const FFMPEG_DIR = path.join(
+  __dirname,
+  "..",
+  "..",
+  "deploy",
+  "downloads",
+  "ffmpeg"
+);
 
 function appendStreamHost(archive: archiver.Archiver) {
   if (!fs.existsSync(STREAMHOST_DIR)) return;
@@ -157,6 +166,11 @@ function appendStreamHost(archive: archiver.Archiver) {
   }
 }
 
+function appendFfmpeg(archive: archiver.Archiver) {
+  if (!fs.existsSync(FFMPEG_DIR)) return;
+  archive.directory(FFMPEG_DIR, bundlePath("ffmpeg"));
+}
+
 function appendHostScripts(archive: archiver.Archiver) {
   for (const script of HOST_SCRIPTS) {
     const full = path.join(PROD_SCRIPTS, script);
@@ -165,6 +179,7 @@ function appendHostScripts(archive: archiver.Archiver) {
     }
   }
   appendStreamHost(archive);
+  appendFfmpeg(archive);
 }
 
 function bundlePath(name: string) {

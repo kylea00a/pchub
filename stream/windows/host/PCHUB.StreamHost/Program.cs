@@ -42,6 +42,7 @@ var token = Arg(args, "--token") ?? Arg(args, "-AgentToken");
 var logFile = Arg(args, "--log") ?? Arg(args, "-LogFile");
 var stunRaw = Arg(args, "--stun") ?? Arg(args, "-Stun");
 var iceJson = Arg(args, "--ice-json");
+var ffmpegDir = Arg(args, "--ffmpeg-dir");
 
 if (string.IsNullOrWhiteSpace(signalUrl) || string.IsNullOrWhiteSpace(rentalId) || string.IsNullOrWhiteSpace(token))
 {
@@ -76,7 +77,7 @@ Log($"StreamHost starting rental={rentalId}");
 
 try
 {
-    StreamMediaBootstrap.EnsureFfmpeg();
+    StreamMediaBootstrap.EnsureFfmpeg(ffmpegDir);
     Log("FFmpeg initialised for screen capture");
 }
 catch (Exception ex)

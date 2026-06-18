@@ -98,18 +98,22 @@ function Invoke-PchubHostInstall {
     Write-PchubSetupLog -Root $Root -Message "Agent warned (exit $agentExit) but registered - continuing" -Silent:$Silent
   }
 
-  Write-PchubSetupLog -Root $Root -Message "[4/5] PCHUB StreamHost..." -Silent:$Silent
+  Write-PchubSetupLog -Root $Root -Message "[4/5] PCHUB StreamHost + FFmpeg..." -Silent:$Silent
   $streamHostExe = Join-Path $Root "PCHUB-StreamHost.exe"
   if (Test-Path $streamHostExe) {
     Write-PchubSetupLog -Root $Root -Message "      OK (PCHUB-StreamHost.exe)" -Silent:$Silent
   } else {
     Write-PchubSetupLog -Root $Root -Message "      Warning: PCHUB-StreamHost.exe missing — reinstall from pchub.cloud/host" -Silent:$Silent
   }
-  $ffmpeg = Get-Command ffmpeg -ErrorAction SilentlyContinue
-  if ($ffmpeg) {
-    Write-PchubSetupLog -Root $Root -Message "      FFmpeg: $($ffmpeg.Source)" -Silent:$Silent
-  } else {
-    Write-PchubSetupLog -Root $Root -Message "      Install FFmpeg for screen capture: winget install Gyan.FFmpeg" -Silent:$Silent
+  $ffmpegPs1 = Join-Path $Root "ffmpeg.ps1"
+  if (Test-Path $ffmpegPs1) {
+    try {
+      . $ffmpegPs1
+      $ffBin = Install-PchubFfmpegIfNeeded -Root $Root
+      Write-PchubSetupLog -Root $Root -Message "      FFmpeg: $ffBin" -Silent:$Silent
+    } catch {
+      Write-PchubSetupLog -Root $Root -Message "      FFmpeg warning: $($_.Exception.Message)" -Silent:$Silent
+    }
   }
 
   Write-PchubSetupLog -Root $Root -Message "[5/5] Starting agent + status app..." -Silent:$Silent
