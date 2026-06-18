@@ -1,7 +1,7 @@
 "use client";
 
 import type { ConnectInfo } from "@/lib/api";
-import { RENTER_INSTALLER_MSI } from "@/lib/host-installer";
+import { RENTER_INSTALLER_ZIP } from "@/lib/host-installer";
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "Preparing",
@@ -40,7 +40,7 @@ export function ConnectPanel({
       )}
 
       <a
-        href={RENTER_INSTALLER_MSI}
+        href={RENTER_INSTALLER_ZIP}
         className="mt-4 inline-block pchub-btn-primary px-4 py-2 text-[11px] font-medium text-background"
       >
         Download PCHUB Renter

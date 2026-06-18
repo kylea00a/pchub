@@ -132,7 +132,7 @@ public sealed class DxgiScreenSource : IVideoSource, IDisposable
                 lastTick = now;
 
                 IDXGIResource? desktopResource = null;
-                OutputDuplicateFrameInformation frameInfo;
+                OutduplFrameInfo frameInfo;
                 try
                 {
                     // Non-blocking-ish: short timeout.
@@ -144,13 +144,15 @@ public sealed class DxgiScreenSource : IVideoSource, IDisposable
                     continue;
                 }
 
+                if (desktopResource is null) continue;
+
                 try
                 {
                     using var tex = desktopResource.QueryInterface<ID3D11Texture2D>();
                     var desc = tex.Description;
 
-                    var width = Math.Min(desc.Width, targetW);
-                    var height = Math.Min(desc.Height, targetH);
+                    var width = (int)Math.Min(desc.Width, (uint)targetW);
+                    var height = (int)Math.Min(desc.Height, (uint)targetH);
 
                     if (OnVideoSourceGpuTexture != null)
                     {
@@ -201,7 +203,7 @@ public sealed class DxgiScreenSource : IVideoSource, IDisposable
 
                     context.CopyResource(staging!, tex);
 
-                    var dataBox = context.Map(staging!, 0, MapMode.Read, MapFlags.None);
+                    var dataBox = context.Map(staging!, 0, MapMode.Read, Vortice.Direct3D11.MapFlags.None);
                     try
                     {
                         // Fast path: hand a pointer directly to the consumer (valid until Unmap).
@@ -212,7 +214,7 @@ public sealed class DxgiScreenSource : IVideoSource, IDisposable
                             {
                                 Width = width,
                                 Height = height,
-                                Stride = dataBox.RowPitch,
+                                Stride = (int)dataBox.RowPitch,
                                 Sample = dataBox.DataPointer,
                                 PixelFormat = VideoPixelFormatsEnum.Bgra,
                             };

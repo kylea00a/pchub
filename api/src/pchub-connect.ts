@@ -22,7 +22,7 @@ export function formatPchubConnect(rental: RentalRow, _machine: MachineRow) {
   }
 
   const steps = [
-    "Download and install PCHUB Renter (Windows).",
+    "Download PCHUB-Renter.zip, extract, and run PCHUB.Renter.exe.",
     "Log in with your pchub.cloud account.",
     "Start your rental, then click Connect in the renter app.",
     "Click the video panel to capture keyboard and mouse.",
