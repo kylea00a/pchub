@@ -114,16 +114,26 @@ jobs:
             Write-Host "FFmpeg staged: $($_.Count) files, $([math]::Round($_.Sum / 1MB, 1)) MB"
           }
 
+      - name: Stage publish folder
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path publish/streamhost, publish/ffmpeg | Out-Null
+          if (Test-Path deploy/downloads/streamhost) {
+            Copy-Item deploy/downloads/streamhost/* publish/streamhost/ -Recurse -Force
+          }
+          if (Test-Path deploy/downloads/ffmpeg) {
+            Copy-Item deploy/downloads/ffmpeg/* publish/ffmpeg/ -Recurse -Force
+          }
+          if (Test-Path deploy/downloads/PCHUB-Renter.zip) {
+            Copy-Item deploy/downloads/PCHUB-Renter.zip publish/ -Force
+          }
+          Get-ChildItem publish -Recurse -File | Select-Object -First 20 FullName, Length
+
       - uses: actions/upload-artifact@v4
         with:
           name: PCHUB-host-bundle
-          path: |
-            deploy/downloads/streamhost/**
-            deploy/downloads/ffmpeg/**
-            deploy/downloads/PCHUB-Renter.zip
+          path: publish/**
           retention-days: 14
-          if-no-files-found: ignore
-
   publish-exe:
     needs: build-exe
     runs-on: ubuntu-latest
@@ -156,18 +166,9 @@ jobs:
         run: |
           cd bundle
           find . -type f | head -40
-          args=()
-          [ -d streamhost ] && args+=(streamhost)
-          [ -d ffmpeg ] && args+=(ffmpeg)
-          [ -f PCHUB-Renter.zip ] && args+=(PCHUB-Renter.zip)
-          [ -d deploy/downloads/streamhost ] && args+=(deploy/downloads/streamhost)
-          [ -d deploy/downloads/ffmpeg ] && args+=(deploy/downloads/ffmpeg)
-          [ -f deploy/downloads/PCHUB-Renter.zip ] && args+=(deploy/downloads/PCHUB-Renter.zip)
-          if [ ${#args[@]} -eq 0 ]; then
-            echo "No bundle files to publish"
-            exit 1
-          fi
-          tar -czf /tmp/pchub-host-bundle.tgz "${args[@]}"
+          tar -czf /tmp/pchub-host-bundle.tgz streamhost ffmpeg PCHUB-Renter.zip 2>/dev/null || \
+          tar -czf /tmp/pchub-host-bundle.tgz streamhost ffmpeg 2>/dev/null || \
+          tar -czf /tmp/pchub-host-bundle.tgz streamhost
           ls -la /tmp/pchub-host-bundle.tgz
 
       - uses: appleboy/scp-action@v0.1.7
