@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using SharpGen.Runtime;
 using SIPSorceryMedia.Abstractions;
 using Vortice.Direct3D;
 using Vortice.Direct3D11;
@@ -30,8 +31,17 @@ public sealed class D3D11VideoPresenter : IDisposable
         _height = Math.Max(1, height);
 
         _factory = DXGI.CreateDXGIFactory2<IDXGIFactory2>(CreateFactoryFlags.None);
-        _device = D3D11.D3D11CreateDevice(DriverType.Hardware, DeviceCreationFlags.BgraSupport);
-        _context = _device.ImmediateContext;
+        FeatureLevel[] featureLevels = [FeatureLevel.Level_11_0];
+        D3D11.D3D11CreateDevice(
+            null,
+            DriverType.Hardware,
+            DeviceCreationFlags.BgraSupport,
+            featureLevels,
+            out ID3D11Device device,
+            out _,
+            out ID3D11DeviceContext context).CheckError();
+        _device = device;
+        _context = context;
 
         CreateSwapChain(hwnd, _width, _height);
     }
@@ -79,13 +89,15 @@ public sealed class D3D11VideoPresenter : IDisposable
         if (_disposed || _context is null || _swapChain is null || _backBuffer is null) return false;
         if (raw.Width <= 0 || raw.Height <= 0 || raw.Sample == IntPtr.Zero) return false;
 
-        if (NeedsResize(raw.Width, raw.Height))
-            Resize(raw.Width, raw.Height);
+        if (NeedsResize((int)raw.Width, (int)raw.Height))
+            Resize((int)raw.Width, (int)raw.Height);
 
         var frameBytes = PackBgra(raw);
         if (frameBytes is null) return false;
 
-        var box = new Box(0, 0, 0, raw.Width, raw.Height, 1);
+        var w = (int)raw.Width;
+        var h = (int)raw.Height;
+        var box = new Box(0, 0, 0, w, h, 1);
         fixed (byte* ptr = frameBytes)
         {
             _context.UpdateSubresource(
@@ -93,7 +105,7 @@ public sealed class D3D11VideoPresenter : IDisposable
                 0,
                 box,
                 (IntPtr)ptr,
-                (uint)(raw.Width * 4),
+                (uint)(w * 4),
                 0);
         }
 

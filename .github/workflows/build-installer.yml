@@ -80,6 +80,7 @@ jobs:
           Get-ChildItem deploy/downloads/streamhost -Filter PCHUB-StreamHost.exe | Format-Table Name, Length
 
       - name: Publish PCHUB Renter zip
+        continue-on-error: true
         shell: pwsh
         run: |
           dotnet publish stream/windows/renter/PCHUB.Renter/PCHUB.Renter.csproj `
@@ -121,6 +122,7 @@ jobs:
             deploy/downloads/ffmpeg/**
             deploy/downloads/PCHUB-Renter.zip
           retention-days: 14
+          if-no-files-found: ignore
 
   publish-exe:
     needs: build-exe

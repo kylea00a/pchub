@@ -102,8 +102,8 @@ public sealed class GpuVideoHost : HwndHost
     {
         if (_presenter is null) return false;
 
-        _streamWidth = raw.Width;
-        _streamHeight = raw.Height;
+        _streamWidth = (int)raw.Width;
+        _streamHeight = (int)raw.Height;
         UpdateLetterboxLayout();
         return _presenter.Present(raw);
     }
