@@ -150,43 +150,37 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: PCHUB-host-bundle
-          path: staging
+          path: bundle
 
-      - name: List staged bundle files
-        run: find staging -type f | head -40
+      - name: Pack host streaming artifacts
+        run: |
+          cd bundle
+          find . -type f | head -40
+          args=(deploy/downloads/streamhost deploy/downloads/ffmpeg)
+          if [ -f deploy/downloads/PCHUB-Renter.zip ]; then
+            args+=(deploy/downloads/PCHUB-Renter.zip)
+          fi
+          tar -czf /tmp/pchub-host-bundle.tgz "${args[@]}"
+          ls -la /tmp/pchub-host-bundle.tgz
+
+      - uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.DROPLET_HOST }}
+          username: root
+          key: ${{ secrets.DROPLET_SSH_KEY }}
+          source: "/tmp/pchub-host-bundle.tgz"
+          target: "/tmp"
 
       - uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.DROPLET_HOST }}
           username: root
           key: ${{ secrets.DROPLET_SSH_KEY }}
-          script: mkdir -p /var/www/pchub/deploy/downloads/streamhost /var/www/pchub/deploy/downloads/ffmpeg
-
-      - uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.DROPLET_HOST }}
-          username: root
-          key: ${{ secrets.DROPLET_SSH_KEY }}
-          source: "staging/deploy/downloads/streamhost/*"
-          target: "/var/www/pchub/deploy/downloads/streamhost"
-          strip_components: 4
-
-      - uses: appleboy/scp-action@v0.1.7
-        continue-on-error: true
-        with:
-          host: ${{ secrets.DROPLET_HOST }}
-          username: root
-          key: ${{ secrets.DROPLET_SSH_KEY }}
-          source: "staging/deploy/downloads/ffmpeg/*"
-          target: "/var/www/pchub/deploy/downloads/ffmpeg"
-          strip_components: 4
-
-      - uses: appleboy/scp-action@v0.1.7
-        continue-on-error: true
-        with:
-          host: ${{ secrets.DROPLET_HOST }}
-          username: root
-          key: ${{ secrets.DROPLET_SSH_KEY }}
-          source: "staging/deploy/downloads/PCHUB-Renter.zip"
-          target: "/var/www/pchub/deploy/downloads"
-          strip_components: 3
+          script: |
+            mkdir -p /var/www/pchub/deploy/downloads
+            cd /var/www/pchub/deploy/downloads
+            tar -xzf /tmp/pchub-host-bundle.tgz --strip-components=2
+            rm -f /tmp/pchub-host-bundle.tgz
+            ls -la streamhost 2>/dev/null | head -5
+            ls -la ffmpeg/bin 2>/dev/null | head -3
+            ls -la PCHUB-Renter.zip 2>/dev/null || true
