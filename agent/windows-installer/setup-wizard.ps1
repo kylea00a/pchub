@@ -37,7 +37,7 @@ Add-Type -AssemblyName System.Drawing
 [System.Windows.Forms.Application]::EnableVisualStyles()
 [System.Windows.Forms.Application]::SetCompatibleTextRenderingDefault($false)
 
-$script:InstallerBuild = "2026.06.10.9"
+$script:InstallerBuild = "2026.06.17.1"
 $script:SiteUrl = "https://pchub.cloud"
 $script:ApiUrl = "https://api.pchub.cloud"
 $script:Dest = "C:\PCHUB-Host"
@@ -400,9 +400,18 @@ function Install-PchubHost {
     } catch { }
   }
 
+  $onceLog = Join-Path $script:Dest "agent-once.log"
+  if (Test-Path $onceLog) {
+    Add-InstallLog "--- agent-once.log ---"
+    Get-Content $onceLog -Tail 20 | ForEach-Object { Add-InstallLog $_ }
+  }
+
   if ($installExit -ne 0 -and -not $registered) {
     $lblInstall.Text = "Setup failed. See log below."
     Add-InstallLog "Install exit code: $installExit"
+    if (-not (Test-Path $setupLog) -or -not (Get-Content $setupLog -ErrorAction SilentlyContinue)) {
+      Add-InstallLog "No setup.log — check Desktop\PCHUB-Setup-Log.txt and C:\PCHUB-Host\agent-once.log"
+    }
     Complete-InstallUi $true
     return
   }

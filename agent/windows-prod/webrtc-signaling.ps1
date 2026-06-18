@@ -1,5 +1,6 @@
 # Host WebRTC signaling helpers (direct P2P via ICE/STUN)
-. (Join-Path $PSScriptRoot "ffmpeg.ps1")
+$ffmpegPs1 = Join-Path $PSScriptRoot "ffmpeg.ps1"
+if (Test-Path $ffmpegPs1) { . $ffmpegPs1 }
 $script:SignalingWorkerPath = Join-Path $PSScriptRoot "webrtc-signaling-worker.ps1"
 $script:SignalingPidPath = Join-Path $PSScriptRoot "webrtc-signaling.pid"
 $script:SignalingLogPath = Join-Path $PSScriptRoot "webrtc-signaling.log"
@@ -73,8 +74,10 @@ function Start-HostWebRtcSignaling {
       "--log", $script:SignalingLogPath
     )
     if ($iceJson) { $args += @("--ice-json", $iceJson) }
-    $ffmpegDir = Get-PchubFfmpegLibPath -Root $PSScriptRoot
-    if ($ffmpegDir) { $args += @("--ffmpeg-dir", $ffmpegDir) }
+    if (Get-Command Get-PchubFfmpegLibPath -ErrorAction SilentlyContinue) {
+      $ffmpegDir = Get-PchubFfmpegLibPath -Root $PSScriptRoot
+      if ($ffmpegDir) { $args += @("--ffmpeg-dir", $ffmpegDir) }
+    }
     $proc = Start-Process -FilePath $streamHostExe -ArgumentList $args -WindowStyle Hidden -PassThru
   } elseif (Test-Path $script:SignalingWorkerPath) {
     $args = @(
