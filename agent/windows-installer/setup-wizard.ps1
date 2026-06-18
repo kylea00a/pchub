@@ -37,7 +37,7 @@ Add-Type -AssemblyName System.Drawing
 [System.Windows.Forms.Application]::EnableVisualStyles()
 [System.Windows.Forms.Application]::SetCompatibleTextRenderingDefault($false)
 
-$script:InstallerBuild = "2026.06.18.2"
+$script:InstallerBuild = "2026.06.18.3"
 $script:SiteUrl = "https://pchub.cloud"
 $script:ApiUrl = "https://api.pchub.cloud"
 $script:Dest = "C:\PCHUB-Host"
@@ -204,17 +204,53 @@ $panelDone.Visible = $false
 $form.Controls.Add($panelDone) | Out-Null
 
 $doneText = New-Object System.Windows.Forms.Label
-$doneText.Text = @"
-Your PC is registered on pchub.cloud.
-
-PCHUB Host opens in your taskbar - keep it running.
-Renters connect with PCHUB Renter (native WebRTC streaming - not Moonlight).
-"@
+$doneText.Text = "Checking readiness..."
 $doneText.Location = New-Object System.Drawing.Point(28, 12)
-$doneText.Size = New-Object System.Drawing.Size(440, 120)
-$doneText.Font = New-Object System.Drawing.Font("Segoe UI", 10)
+$doneText.Size = New-Object System.Drawing.Size(440, 200)
+$doneText.Font = New-Object System.Drawing.Font("Consolas", 9)
 $doneText.ForeColor = [System.Drawing.Color]::FromArgb(200, 200, 210)
 $panelDone.Controls.Add($doneText) | Out-Null
+
+function Update-DonePanel {
+  $readinessPath = Join-Path $script:Dest "host-readiness.ps1"
+  if (-not (Test-Path $readinessPath)) {
+    $doneText.Text = @"
+Registered on pchub.cloud.
+
+Could not load readiness checklist (host-readiness.ps1 missing).
+Open PCHUB Host from the taskbar after setup.
+"@
+    return
+  }
+  try {
+    . $readinessPath
+    $r = Get-PchubHostReadiness -Root $script:Dest -CheckWebsite
+    $lines = New-Object System.Collections.Generic.List[string]
+    if ($r.ReadyToStream) {
+      $lines.Add("READY TO STREAM")
+      $lines.Add("")
+    } else {
+      $lines.Add("NOT READY TO STREAM YET")
+      $lines.Add($r.Summary)
+      $lines.Add("")
+    }
+    foreach ($item in $r.Items) {
+      $mark = if ($item.Ok) { "[OK]" } else { "[X] " }
+      $lines.Add("$mark $($item.Label)")
+      if ($item.Detail) { $lines.Add("    $($item.Detail)") }
+    }
+    $lines.Add("")
+    $lines.Add("PCHUB Host opens in your taskbar - keep it running.")
+    $lines.Add("Renters use PCHUB Renter (WebRTC, not Moonlight).")
+    if (-not $r.ReadyToStream) {
+      $lines.Add("")
+      $lines.Add("Fix missing items, then click Refresh in PCHUB Host.")
+    }
+    $doneText.Text = ($lines -join [Environment]::NewLine)
+  } catch {
+    $doneText.Text = "Setup finished but readiness check failed: $($_.Exception.Message)"
+  }
+}
 
 $btnBack = New-Object System.Windows.Forms.Button
 $btnBack.Text = "Back"
@@ -253,7 +289,24 @@ function Show-Step {
     0 { $subtitle.Text = "Step 1 of 3 - Welcome"; $btnNext.Text = "Next" }
     1 { $subtitle.Text = "Step 2 of 3 - Pair your PC"; $btnNext.Text = "Install" }
     2 { $subtitle.Text = "Installing..."; $btnNext.Enabled = $false; $btnBack.Enabled = $false }
-    3 { $subtitle.Text = "Finished"; $btnNext.Text = "Finish"; $btnBack.Enabled = $false }
+    3 {
+      Update-DonePanel
+      $readinessOk = $false
+      try {
+        $rp = Join-Path $script:Dest "host-readiness.ps1"
+        if (Test-Path $rp) {
+          . $rp
+          $readinessOk = (Get-PchubHostReadiness -Root $script:Dest).ReadyToStream
+        }
+      } catch { }
+      if ($readinessOk) {
+        $subtitle.Text = "Ready to stream"
+      } else {
+        $subtitle.Text = "Registered - streaming not ready yet"
+      }
+      $btnNext.Text = "Finish"
+      $btnBack.Enabled = $false
+    }
   }
 }
 

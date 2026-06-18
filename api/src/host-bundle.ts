@@ -40,6 +40,7 @@ const HOST_SCRIPTS = [
   "pchub-host.ps1",
   "pchub-api.ps1",
   "ffmpeg.ps1",
+  "host-readiness.ps1",
   "webrtc-signaling.ps1",
   "webrtc-signaling-worker.ps1",
   "streaming.ps1",

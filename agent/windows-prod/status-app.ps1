@@ -1,11 +1,19 @@
-# PCHUB Host Status — small status window (packaged as PCHUB-Status.exe)
+# PCHUB Host Status - readiness checklist (packaged as PCHUB-Status.exe)
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
 $Root = if ($PSScriptRoot) { $PSScriptRoot } else { "C:\PCHUB-Host" }
-$StatePath = Join-Path $Root ".agent-state.json"
-$ConfigPath = Join-Path $Root "config.json"
-$LogPath = Join-Path $Root "agent.log"
+$readinessPs1 = Join-Path $Root "host-readiness.ps1"
+if (-not (Test-Path $readinessPs1)) {
+  [System.Windows.Forms.MessageBox]::Show(
+    "host-readiness.ps1 is missing.`n`nRe-run setup from https://pchub.cloud/host",
+    "PCHUB Host",
+    [System.Windows.Forms.MessageBoxButtons]::OK,
+    [System.Windows.Forms.MessageBoxIcon]::Warning
+  ) | Out-Null
+  exit 1
+}
+. $readinessPs1
 
 function Get-StatusColor($ok, $warn) {
   if ($ok) { return [System.Drawing.Color]::FromArgb(80, 220, 140) }
@@ -13,14 +21,9 @@ function Get-StatusColor($ok, $warn) {
   return [System.Drawing.Color]::FromArgb(240, 90, 90)
 }
 
-function Set-Row($label, $value, $ok, $warn) {
-  $label.Text = $value
-  $label.ForeColor = Get-StatusColor $ok $warn
-}
-
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "PCHUB Host"
-$form.Size = New-Object System.Drawing.Size(400, 340)
+$form.Size = New-Object System.Drawing.Size(460, 520)
 $form.StartPosition = "CenterScreen"
 $form.FormBorderStyle = "FixedSingle"
 $form.MaximizeBox = $false
@@ -36,50 +39,70 @@ $notify.Add_DoubleClick({ $form.Show(); $form.WindowState = "Normal"; $form.Brin
 $header = New-Object System.Windows.Forms.Label
 $header.Text = "PCHUB Host"
 $header.Font = New-Object System.Drawing.Font("Segoe UI", 14, [System.Drawing.FontStyle]::Bold)
-$header.Location = New-Object System.Drawing.Point(20, 16)
-$header.Size = New-Object System.Drawing.Size(360, 32)
+$header.Location = New-Object System.Drawing.Point(20, 14)
+$header.Size = New-Object System.Drawing.Size(420, 28)
 $header.ForeColor = [System.Drawing.Color]::FromArgb(120, 200, 255)
 $form.Controls.Add($header) | Out-Null
 
 $lblPc = New-Object System.Windows.Forms.Label
-$lblPc.Location = New-Object System.Drawing.Point(20, 52)
-$lblPc.Size = New-Object System.Drawing.Size(360, 22)
+$lblPc.Location = New-Object System.Drawing.Point(20, 44)
+$lblPc.Size = New-Object System.Drawing.Size(420, 20)
 $lblPc.Font = New-Object System.Drawing.Font("Segoe UI", 9)
 $lblPc.ForeColor = [System.Drawing.Color]::FromArgb(160, 160, 170)
 $form.Controls.Add($lblPc) | Out-Null
 
-function New-StatusRow($title, $y) {
-  $t = New-Object System.Windows.Forms.Label
-  $t.Text = $title
-  $t.Location = New-Object System.Drawing.Point(20, $y)
-  $t.Size = New-Object System.Drawing.Size(120, 22)
-  $t.Font = New-Object System.Drawing.Font("Segoe UI", 9)
-  $t.ForeColor = [System.Drawing.Color]::FromArgb(140, 140, 150)
-  $form.Controls.Add($t) | Out-Null
-  $v = New-Object System.Windows.Forms.Label
-  $v.Location = New-Object System.Drawing.Point(140, $y)
-  $v.Size = New-Object System.Drawing.Size(240, 22)
-  $v.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
-  $form.Controls.Add($v) | Out-Null
-  return $v
-}
+$banner = New-Object System.Windows.Forms.Panel
+$banner.Location = New-Object System.Drawing.Point(20, 72)
+$banner.Size = New-Object System.Drawing.Size(420, 52)
+$banner.BackColor = [System.Drawing.Color]::FromArgb(40, 40, 48)
+$form.Controls.Add($banner) | Out-Null
 
-$valAgent = New-StatusRow "Website" 88
-$valHeartbeat = New-StatusRow "Heartbeat" 116
-$valStream = New-StatusRow "Stream host" 144
-$valTunnel = New-StatusRow "Relay" 172
+$lblBanner = New-Object System.Windows.Forms.Label
+$lblBanner.Location = New-Object System.Drawing.Point(12, 8)
+$lblBanner.Size = New-Object System.Drawing.Size(396, 36)
+$lblBanner.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
+$lblBanner.ForeColor = [System.Drawing.Color]::White
+$lblBanner.Text = "Checking..."
+$banner.Controls.Add($lblBanner) | Out-Null
+
+$lblCheckTitle = New-Object System.Windows.Forms.Label
+$lblCheckTitle.Text = "Readiness checklist"
+$lblCheckTitle.Location = New-Object System.Drawing.Point(20, 134)
+$lblCheckTitle.Size = New-Object System.Drawing.Size(200, 20)
+$lblCheckTitle.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+$lblCheckTitle.ForeColor = [System.Drawing.Color]::FromArgb(180, 180, 190)
+$form.Controls.Add($lblCheckTitle) | Out-Null
+
+$txtChecklist = New-Object System.Windows.Forms.TextBox
+$txtChecklist.Location = New-Object System.Drawing.Point(20, 158)
+$txtChecklist.Size = New-Object System.Drawing.Size(420, 168)
+$txtChecklist.Multiline = $true
+$txtChecklist.ReadOnly = $true
+$txtChecklist.BorderStyle = "FixedSingle"
+$txtChecklist.BackColor = [System.Drawing.Color]::FromArgb(14, 14, 18)
+$txtChecklist.ForeColor = [System.Drawing.Color]::FromArgb(220, 220, 230)
+$txtChecklist.Font = New-Object System.Drawing.Font("Consolas", 9)
+$txtChecklist.ScrollBars = "Vertical"
+$form.Controls.Add($txtChecklist) | Out-Null
+
+$lblHint = New-Object System.Windows.Forms.Label
+$lblHint.Location = New-Object System.Drawing.Point(20, 332)
+$lblHint.Size = New-Object System.Drawing.Size(420, 40)
+$lblHint.Font = New-Object System.Drawing.Font("Segoe UI", 8)
+$lblHint.ForeColor = [System.Drawing.Color]::FromArgb(140, 140, 150)
+$form.Controls.Add($lblHint) | Out-Null
 
 $lblUpdated = New-Object System.Windows.Forms.Label
-$lblUpdated.Location = New-Object System.Drawing.Point(20, 204)
-$lblUpdated.Size = New-Object System.Drawing.Size(360, 20)
+$lblUpdated.Location = New-Object System.Drawing.Point(20, 374)
+$lblUpdated.Size = New-Object System.Drawing.Size(420, 18)
 $lblUpdated.Font = New-Object System.Drawing.Font("Segoe UI", 8)
 $lblUpdated.ForeColor = [System.Drawing.Color]::FromArgb(120, 120, 130)
 $form.Controls.Add($lblUpdated) | Out-Null
 
 $btnRefresh = New-Object System.Windows.Forms.Button
 $btnRefresh.Text = "Refresh"
-$btnRefresh.Location = New-Object System.Drawing.Point(20, 236)
-$btnRefresh.Size = New-Object System.Drawing.Size(90, 30)
+$btnRefresh.Location = New-Object System.Drawing.Point(20, 404)
+$btnRefresh.Size = New-Object System.Drawing.Size(90, 32)
 $btnRefresh.FlatStyle = "Flat"
 $btnRefresh.BackColor = [System.Drawing.Color]::FromArgb(40, 40, 48)
 $btnRefresh.ForeColor = [System.Drawing.Color]::White
@@ -87,108 +110,69 @@ $form.Controls.Add($btnRefresh) | Out-Null
 
 $btnSite = New-Object System.Windows.Forms.Button
 $btnSite.Text = "pchub.cloud"
-$btnSite.Location = New-Object System.Drawing.Point(120, 236)
-$btnSite.Size = New-Object System.Drawing.Size(110, 30)
+$btnSite.Location = New-Object System.Drawing.Point(118, 404)
+$btnSite.Size = New-Object System.Drawing.Size(100, 32)
 $btnSite.FlatStyle = "Flat"
 $btnSite.BackColor = [System.Drawing.Color]::FromArgb(40, 40, 48)
 $btnSite.ForeColor = [System.Drawing.Color]::White
-$btnSite.Add_Click({ Start-Process "https://pchub.cloud" })
+$btnSite.Add_Click({ Start-Process "https://pchub.cloud/host" })
 $form.Controls.Add($btnSite) | Out-Null
 
 $btnRepair = New-Object System.Windows.Forms.Button
-$btnRepair.Text = "Repair"
-$btnRepair.Location = New-Object System.Drawing.Point(240, 236)
-$btnRepair.Size = New-Object System.Drawing.Size(90, 30)
+$btnRepair.Text = "Reinstall / Repair"
+$btnRepair.Location = New-Object System.Drawing.Point(226, 404)
+$btnRepair.Size = New-Object System.Drawing.Size(120, 32)
 $btnRepair.FlatStyle = "Flat"
 $btnRepair.BackColor = [System.Drawing.Color]::FromArgb(60, 140, 220)
 $btnRepair.ForeColor = [System.Drawing.Color]::White
 $btnRepair.Add_Click({
-  $setup = Join-Path $Root "RUN-PCHUB.cmd"
-  if (Test-Path $setup) { Start-Process $setup } else { Start-Process "https://pchub.cloud/host" }
+  $setupExe = Join-Path $env:USERPROFILE "Downloads\PCHUB-Host-Setup.exe"
+  if (Test-Path $setupExe) {
+    Start-Process $setupExe
+  } else {
+    Start-Process "https://pchub.cloud/downloads/PCHUB-Host-Setup.exe?v=2026.06.18.3"
+  }
 })
 $form.Controls.Add($btnRepair) | Out-Null
 
-function Test-AgentProcess {
-  $procs = Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue |
-    Where-Object { $_.CommandLine -like "*pchub-host.ps1*" }
-  return [bool]$procs
-}
-
-function Test-StreamHostState {
-  $exe = Join-Path $Root "PCHUB-StreamHost.exe"
-  $installed = Test-Path $exe
-  $pidPath = Join-Path $Root "webrtc-signaling.pid"
-  $running = $false
-  if (Test-Path $pidPath) {
-    try {
-      $pid = [int](Get-Content $pidPath -Raw).Trim()
-      $running = $pid -gt 0 -and [bool](Get-Process -Id $pid -ErrorAction SilentlyContinue)
-    } catch { }
-  }
-  if (-not $running) {
-    $running = [bool](Get-Process -Name "PCHUB-StreamHost" -ErrorAction SilentlyContinue)
-  }
-  return @{ Installed = $installed; Running = $running }
-}
-
-function Test-TunnelState {
-  $wg = Get-Service -Name "WireGuardTunnel`$pchub-tunnel" -ErrorAction SilentlyContinue
-  $installed = Test-Path "${env:ProgramFiles}\WireGuard\wireguard.exe"
-  $running = $wg -and $wg.Status -eq "Running"
-  return @{ Installed = $installed; Running = $running }
-}
-
 function Update-Status {
-  $lblPc.Text = "PC not registered yet"
-  Set-Row $valAgent "Checking…" $false $true
-  Set-Row $valHeartbeat "Checking…" $false $true
-  Set-Row $valStream "Checking…" $false $true
-  Set-Row $valTunnel "Checking…" $false $true
+  $r = Get-PchubHostReadiness -Root $Root -CheckWebsite
 
-  if (-not (Test-Path $StatePath)) {
-    Set-Row $valAgent "Not registered" $false $false
-    Set-Row $valHeartbeat "Stopped" $false $false
-    $lblUpdated.Text = "Run PCHUB Host Setup first"
-    return
-  }
-
-  try {
-    $state = Get-Content $StatePath -Raw | ConvertFrom-Json
-    $config = Get-Content $ConfigPath -Raw | ConvertFrom-Json
-    $api = $config.apiUrl.TrimEnd("/")
-    $machine = Invoke-RestMethod -Uri "$api/api/machines/$($state.machineId)" -TimeoutSec 8
-    $lblPc.Text = "$($machine.name) · $($machine.city)"
-    Set-Row $valAgent $(if ($machine.online) { "Online" } else { "Offline" }) $machine.online (!$machine.online)
-  } catch {
-    Set-Row $valAgent "Unreachable" $false $true
-  }
-
-  $hb = Test-AgentProcess
-  if (-not $hb -and (Test-Path $LogPath)) {
-    $hb = (Get-Item $LogPath).LastWriteTime -gt (Get-Date).AddSeconds(-90)
-  }
-  Set-Row $valHeartbeat $(if ($hb) { "Running" } else { "Stopped" }) $hb (!$hb)
-
-  $stream = Test-StreamHostState
-  if (-not $stream.Installed) {
-    Set-Row $valStream "Not installed" $false $false
-  } elseif ($stream.Running) {
-    Set-Row $valStream "Running" $true $false
+  if ($r.MachineName) {
+    $lblPc.Text = $r.MachineName
+  } elseif ($r.Registered) {
+    $lblPc.Text = "Registered host PC"
   } else {
-    Set-Row $valStream "Idle" $false $false
+    $lblPc.Text = "Not registered"
   }
 
-  $tun = Test-TunnelState
-  if (-not $tun.Installed) {
-    Set-Row $valTunnel "Not installed" $false $false
-  } elseif ($tun.Running) {
-    Set-Row $valTunnel "Connected" $true $false
+  if ($r.ReadyToStream) {
+    $banner.BackColor = [System.Drawing.Color]::FromArgb(24, 72, 48)
+    $lblBanner.ForeColor = [System.Drawing.Color]::FromArgb(120, 255, 170)
+    $lblBanner.Text = "READY TO STREAM"
+    $lblHint.Text = "Keep this app running. When someone rents your PC, StreamHost starts automatically."
+    $notify.Text = "PCHUB Host - Ready to stream"
   } else {
-    Set-Row $valTunnel "Stopped" $false $true
+    $banner.BackColor = [System.Drawing.Color]::FromArgb(72, 32, 32)
+    $lblBanner.ForeColor = [System.Drawing.Color]::FromArgb(255, 160, 140)
+    $lblBanner.Text = "NOT READY TO STREAM"
+    $lblHint.Text = $r.Summary + " Click Reinstall / Repair after pchub.cloud publishes StreamHost, or Retry setup with a new pairing code."
+    $notify.Text = "PCHUB Host - Setup incomplete"
   }
+
+  $lines = New-Object System.Collections.Generic.List[string]
+  foreach ($item in $r.Items) {
+    $mark = if ($item.Ok) { "[OK]  " } else { "[X]   " }
+    $lines.Add("$mark $($item.Label)")
+    if ($item.Detail) { $lines.Add("      $($item.Detail)") }
+  }
+  if ($r.StreamRunning) {
+    $lines.Add("")
+    $lines.Add("[OK]  Stream engine active for current rental")
+  }
+  $txtChecklist.Text = ($lines -join [Environment]::NewLine)
 
   $lblUpdated.Text = "Updated " + (Get-Date -Format "HH:mm:ss")
-  $notify.Text = "PCHUB Host — $(if ($hb) { 'Running' } else { 'Check status' })"
 }
 
 $timer = New-Object System.Windows.Forms.Timer
@@ -203,7 +187,7 @@ $form.Add_FormClosing({
   if ($e.CloseReason -eq [System.Windows.Forms.CloseReason]::UserClosing) {
     $e.Cancel = $true
     $form.Hide()
-    $notify.ShowBalloonTip(3000, "PCHUB Host", "Still running in the tray. Double-click the icon to reopen.", [System.Windows.Forms.ToolTipIcon]::Info)
+    $notify.ShowBalloonTip(4000, "PCHUB Host", "Running in the tray. Double-click to see readiness checklist.", [System.Windows.Forms.ToolTipIcon]::Info)
   }
 })
 
