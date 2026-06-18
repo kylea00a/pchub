@@ -8,14 +8,9 @@ if (-not (Test-Path $core)) {
   exit 1
 }
 
-. $core
-try {
-  $result = Invoke-PchubHostInstall -Root $Root -Silent:$Silent
-} catch {
-  $setupLog = Join-Path $Root "setup.log"
-  $line = "[{0}] ERROR: {1}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"), $_.Exception.Message
-  try { Add-Content -Path $setupLog -Value $line -Encoding UTF8 } catch { }
-  exit 1
-}
-if (-not $result.Success) { exit $(if ($result.ExitCode) { $result.ExitCode } else { 1 }) }
-exit 0
+$ps = "$env:WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe"
+$args = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $core, "-Root", $Root)
+if ($Silent) { $args += "-Silent" }
+
+& $ps @args
+exit $LASTEXITCODE

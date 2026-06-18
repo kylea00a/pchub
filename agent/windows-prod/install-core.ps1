@@ -1,4 +1,9 @@
 # Shared PCHUB host install logic (used by wizard + PCHUB-Setup.ps1)
+param(
+  [string]$Root = $PSScriptRoot,
+  [switch]$Silent
+)
+
 function Write-PchubSetupLog {
   param([string]$Root, [string]$Message, [switch]$Silent)
   $setupLog = Join-Path $Root "setup.log"
@@ -107,7 +112,7 @@ function Invoke-PchubHostInstall {
   if (Test-Path $streamHostExe) {
     Write-PchubSetupLog -Root $Root -Message "      OK (PCHUB-StreamHost.exe)" -Silent:$Silent
   } else {
-    Write-PchubSetupLog -Root $Root -Message "      Warning: PCHUB-StreamHost.exe missing — reinstall from pchub.cloud/host" -Silent:$Silent
+    Write-PchubSetupLog -Root $Root -Message "      Warning: PCHUB-StreamHost.exe missing - reinstall from pchub.cloud/host" -Silent:$Silent
   }
   $ffmpegPs1 = Join-Path $Root "ffmpeg.ps1"
   if (Test-Path $ffmpegPs1) {
@@ -150,4 +155,13 @@ function Invoke-PchubHostInstall {
 
   Write-PchubSetupLog -Root $Root -Message "DONE - check pchub.cloud for Online status" -Silent:$Silent
   return @{ Success = $true; ExitCode = 0 }
+}
+
+if ($MyInvocation.InvocationName -ne '.') {
+  $result = Invoke-PchubHostInstall -Root $Root -Silent:$Silent
+  if (-not $result.Success) {
+    $code = if ($result.ExitCode) { [int]$result.ExitCode } else { 1 }
+    exit $code
+  }
+  exit 0
 }
