@@ -82,15 +82,27 @@ jobs:
       - name: Publish PCHUB Renter zip
         shell: pwsh
         run: |
-          dotnet publish stream/windows/renter/PCHUB.Renter/PCHUB.Renter.csproj `
-            -c Release -r win-x64 --self-contained false `
-            -o deploy/downloads/renter 2>&1 | Tee-Object -Variable log
-          if ($LASTEXITCODE -ne 0) {
-            $log | Select-String 'error ' | ForEach-Object { Write-Host "::error::$_" }
-            exit $LASTEXITCODE
+          $attempt = 0
+          $maxAttempts = 2
+          while ($attempt -lt $maxAttempts) {
+            $attempt++
+            Write-Host "Renter publish attempt $attempt/$maxAttempts"
+            dotnet publish stream/windows/renter/PCHUB.Renter/PCHUB.Renter.csproj `
+              -c Release -r win-x64 --self-contained false `
+              -o deploy/downloads/renter 2>&1 | Tee-Object -Variable log
+            if ($LASTEXITCODE -eq 0) { break }
+            $log | Select-String 'error ' | ForEach-Object { Write-Host "::warning::$_" }
+            if ($attempt -ge $maxAttempts) {
+              $log | Select-String 'error ' | ForEach-Object { Write-Host "::error::$_" }
+              exit $LASTEXITCODE
+            }
+            Start-Sleep -Seconds 15
           }
-          $renterExe = Get-ChildItem deploy/downloads/renter -Filter PCHUB-Renter.exe -Recurse | Select-Object -First 1
-          if (-not $renterExe) { throw "PCHUB-Renter.exe missing after publish" }
+          $renterExe = Join-Path deploy/downloads/renter "PCHUB-Renter.exe"
+          if (-not (Test-Path $renterExe)) {
+            Get-ChildItem deploy/downloads/renter -Recurse | Select-Object FullName
+            throw "PCHUB-Renter.exe missing after publish"
+          }
           if (Test-Path deploy/downloads/PCHUB-Renter.zip) { Remove-Item deploy/downloads/PCHUB-Renter.zip -Force }
           Compress-Archive -Path (Join-Path deploy/downloads/renter '*') -DestinationPath deploy/downloads/PCHUB-Renter.zip
           Get-Item deploy/downloads/PCHUB-Renter.zip | Format-List Name, Length
@@ -136,7 +148,8 @@ jobs:
             }
             Compress-Archive -Path "deploy/downloads/streamhost/*" -DestinationPath publish/PCHUB-StreamHost.zip
           }
-          Get-ChildItem publish -Recurse -File | Select-Object -First 25 FullName, Length
+          Get-ChildItem publish -Recurse -File | Select-Object -First 30 FullName, Length
+          if (-not (Test-Path publish/PCHUB-Renter.zip)) { throw "publish/PCHUB-Renter.zip missing before artifact upload" }
 
       - uses: actions/upload-artifact@v4
         with:
