@@ -3,17 +3,25 @@ Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
 $Root = if ($PSScriptRoot) { $PSScriptRoot } else { "C:\PCHUB-Host" }
-$readinessPs1 = Join-Path $Root "host-readiness.ps1"
-if (-not (Test-Path $readinessPs1)) {
+
+function Import-PchubHostReadiness {
+  param([string]$Root)
+  $path = Join-Path $Root "host-readiness.ps1"
+  if (-not (Test-Path $path)) { throw "host-readiness.ps1 not found" }
+  . ([scriptblock]::Create([System.IO.File]::ReadAllText($path)))
+}
+
+try {
+  Import-PchubHostReadiness -Root $Root
+} catch {
   [System.Windows.Forms.MessageBox]::Show(
-    "host-readiness.ps1 is missing.`n`nRe-run setup from https://pchub.cloud/host",
+    "Could not load readiness checklist:`n`n$($_.Exception.Message)",
     "PCHUB Host",
     [System.Windows.Forms.MessageBoxButtons]::OK,
     [System.Windows.Forms.MessageBoxIcon]::Warning
   ) | Out-Null
   exit 1
 }
-. $readinessPs1
 
 function Get-StatusColor($ok, $warn) {
   if ($ok) { return [System.Drawing.Color]::FromArgb(80, 220, 140) }
@@ -130,7 +138,7 @@ $btnRepair.Add_Click({
   if (Test-Path $setupExe) {
     Start-Process $setupExe
   } else {
-    Start-Process "https://pchub.cloud/downloads/PCHUB-Host-Setup.exe?v=2026.06.18.3"
+    Start-Process "https://pchub.cloud/downloads/PCHUB-Host-Setup.exe?v=2026.06.18.4"
   }
 })
 $form.Controls.Add($btnRepair) | Out-Null

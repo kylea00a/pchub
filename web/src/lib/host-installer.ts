@@ -10,7 +10,7 @@ export type HostInstallerConfig = {
 export const HOST_INSTALLER_MSI = "/downloads/PCHUB-Host.msi";
 
 /** Live host bootstrap until PCHUB-Host.msi is published */
-export const HOST_INSTALLER_EXE = "/downloads/PCHUB-Host-Setup.exe?v=2026.06.18.3";
+export const HOST_INSTALLER_EXE = "/downloads/PCHUB-Host-Setup.exe?v=2026.06.18.4";
 
 /** Renter streaming app (zip until MSI CI is green). */
 export const RENTER_INSTALLER_ZIP = "/downloads/PCHUB-Renter.zip";

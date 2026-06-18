@@ -37,7 +37,7 @@ Add-Type -AssemblyName System.Drawing
 [System.Windows.Forms.Application]::EnableVisualStyles()
 [System.Windows.Forms.Application]::SetCompatibleTextRenderingDefault($false)
 
-$script:InstallerBuild = "2026.06.18.3"
+$script:InstallerBuild = "2026.06.18.4"
 $script:SiteUrl = "https://pchub.cloud"
 $script:ApiUrl = "https://api.pchub.cloud"
 $script:Dest = "C:\PCHUB-Host"
@@ -211,6 +211,13 @@ $doneText.Font = New-Object System.Drawing.Font("Consolas", 9)
 $doneText.ForeColor = [System.Drawing.Color]::FromArgb(200, 200, 210)
 $panelDone.Controls.Add($doneText) | Out-Null
 
+function Import-PchubHostReadiness {
+  param([string]$Root)
+  $path = Join-Path $Root "host-readiness.ps1"
+  if (-not (Test-Path $path)) { throw "host-readiness.ps1 not found" }
+  . ([scriptblock]::Create([System.IO.File]::ReadAllText($path)))
+}
+
 function Update-DonePanel {
   $readinessPath = Join-Path $script:Dest "host-readiness.ps1"
   if (-not (Test-Path $readinessPath)) {
@@ -223,7 +230,7 @@ Open PCHUB Host from the taskbar after setup.
     return
   }
   try {
-    . $readinessPath
+    Import-PchubHostReadiness -Root $script:Dest
     $r = Get-PchubHostReadiness -Root $script:Dest -CheckWebsite
     $lines = New-Object System.Collections.Generic.List[string]
     if ($r.ReadyToStream) {
@@ -295,7 +302,7 @@ function Show-Step {
       try {
         $rp = Join-Path $script:Dest "host-readiness.ps1"
         if (Test-Path $rp) {
-          . $rp
+          Import-PchubHostReadiness -Root $script:Dest
           $readinessOk = (Get-PchubHostReadiness -Root $script:Dest).ReadyToStream
         }
       } catch { }
