@@ -156,9 +156,13 @@ jobs:
         run: |
           cd bundle
           find . -type f | head -40
-          args=(deploy/downloads/streamhost deploy/downloads/ffmpeg)
-          if [ -f deploy/downloads/PCHUB-Renter.zip ]; then
-            args+=(deploy/downloads/PCHUB-Renter.zip)
+          args=()
+          [ -d deploy/downloads/streamhost ] && args+=(deploy/downloads/streamhost)
+          [ -d deploy/downloads/ffmpeg ] && args+=(deploy/downloads/ffmpeg)
+          [ -f deploy/downloads/PCHUB-Renter.zip ] && args+=(deploy/downloads/PCHUB-Renter.zip)
+          if [ ${#args[@]} -eq 0 ]; then
+            echo "No bundle files to publish"
+            exit 1
           fi
           tar -czf /tmp/pchub-host-bundle.tgz "${args[@]}"
           ls -la /tmp/pchub-host-bundle.tgz
