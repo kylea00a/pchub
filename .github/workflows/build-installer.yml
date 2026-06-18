@@ -56,15 +56,33 @@ jobs:
             -noConsole
           Get-Item staging\*.exe | Format-List Name, Length, LastWriteTime
 
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PCHUB-windows-exe
+          path: staging/*.exe
+          retention-days: 14
+
+  build-host-bundle:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
       - name: Publish PCHUB-StreamHost for host zip
+        id: streamhost
+        continue-on-error: true
         shell: pwsh
         run: |
           dotnet publish stream/windows/host/PCHUB.StreamHost/PCHUB.StreamHost.csproj `
             -c Release -r win-x64 --self-contained false `
-            -o deploy/downloads/streamhost
+            -o deploy/downloads/streamhost 2>&1 | Tee-Object -Variable log
+          if ($LASTEXITCODE -ne 0) {
+            $log | Select-String 'error ' | ForEach-Object { Write-Host "::error::$_" }
+            exit $LASTEXITCODE
+          }
           Get-ChildItem deploy/downloads/streamhost -Filter PCHUB-StreamHost.exe | Format-Table Name, Length
 
       - name: Stage FFmpeg for host bundle
+        continue-on-error: true
         shell: pwsh
         run: |
           $zip = "$env:RUNNER_TEMP/ffmpeg-essentials.zip"
@@ -85,13 +103,14 @@ jobs:
           }
 
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: PCHUB-windows-apps
+          name: PCHUB-host-bundle
           path: |
-            staging/*.exe
             deploy/downloads/streamhost/**
             deploy/downloads/ffmpeg/**
           retention-days: 14
+          if-no-files-found: ignore
 
   publish-exe:
     needs: build-exe
@@ -99,7 +118,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: PCHUB-windows-apps
+          name: PCHUB-windows-exe
           path: staging
 
       - uses: appleboy/scp-action@v0.1.7
@@ -111,7 +130,18 @@ jobs:
           target: "/var/www/pchub/deploy/downloads"
           strip_components: 1
 
+  publish-host-bundle:
+    needs: build-host-bundle
+    if: success()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: PCHUB-host-bundle
+          path: staging
+
       - uses: appleboy/scp-action@v0.1.7
+        continue-on-error: true
         with:
           host: ${{ secrets.DROPLET_HOST }}
           username: root
@@ -121,6 +151,7 @@ jobs:
           strip_components: 3
 
       - uses: appleboy/scp-action@v0.1.7
+        continue-on-error: true
         with:
           host: ${{ secrets.DROPLET_HOST }}
           username: root
