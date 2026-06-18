@@ -157,7 +157,7 @@ $btnRepair.FlatStyle = "Flat"
 $btnRepair.BackColor = [System.Drawing.Color]::FromArgb(60, 140, 220)
 $btnRepair.ForeColor = [System.Drawing.Color]::White
 $btnRepair.Add_Click({
-  Start-Process "https://pchub.cloud/downloads/PCHUB-Host-Setup.exe?v=2026.06.18.5"
+  Start-Process "https://pchub.cloud/downloads/PCHUB-Host-Setup.exe?v=2026.06.18.6"
 })
 $form.Controls.Add($btnRepair) | Out-Null
 

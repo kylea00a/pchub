@@ -127,7 +127,13 @@ jobs:
           if (Test-Path deploy/downloads/PCHUB-Renter.zip) {
             Copy-Item deploy/downloads/PCHUB-Renter.zip publish/ -Force
           }
-          Get-ChildItem publish -Recurse -File | Select-Object -First 20 FullName, Length
+          if (Test-Path deploy/downloads/streamhost/PCHUB-StreamHost.exe) {
+            if (Test-Path deploy/downloads/PCHUB-StreamHost.zip) {
+              Remove-Item deploy/downloads/PCHUB-StreamHost.zip -Force
+            }
+            Compress-Archive -Path "deploy/downloads/streamhost/*" -DestinationPath publish/PCHUB-StreamHost.zip
+          }
+          Get-ChildItem publish -Recurse -File | Select-Object -First 25 FullName, Length
 
       - uses: actions/upload-artifact@v4
         with:
@@ -162,22 +168,20 @@ jobs:
           name: PCHUB-host-bundle
           path: bundle
 
-      - name: Pack host streaming artifacts
+      - name: Pack bundle for upload
         run: |
-          cd bundle
-          find . -type f | head -40
-          tar -czf /tmp/pchub-host-bundle.tgz streamhost ffmpeg PCHUB-Renter.zip 2>/dev/null || \
-          tar -czf /tmp/pchub-host-bundle.tgz streamhost ffmpeg 2>/dev/null || \
-          tar -czf /tmp/pchub-host-bundle.tgz streamhost
-          ls -la /tmp/pchub-host-bundle.tgz
+          find bundle -type f | head -50
+          tar -czf pchub-host-bundle.tgz -C bundle .
+          ls -la pchub-host-bundle.tgz
 
       - uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.DROPLET_HOST }}
           username: root
           key: ${{ secrets.DROPLET_SSH_KEY }}
-          source: "/tmp/pchub-host-bundle.tgz"
+          source: "pchub-host-bundle.tgz"
           target: "/tmp"
+          overwrite: true
 
       - uses: appleboy/ssh-action@v1.2.0
         with:
@@ -185,10 +189,10 @@ jobs:
           username: root
           key: ${{ secrets.DROPLET_SSH_KEY }}
           script: |
+            set -e
             mkdir -p /var/www/pchub/deploy/downloads
             cd /var/www/pchub/deploy/downloads
             tar -xzf /tmp/pchub-host-bundle.tgz
             rm -f /tmp/pchub-host-bundle.tgz
-            ls -la streamhost 2>/dev/null | head -5
-            ls -la ffmpeg/bin 2>/dev/null | head -3
-            ls -la PCHUB-Renter.zip 2>/dev/null || true
+            ls -la streamhost | head -8
+            ls -la PCHUB-StreamHost.zip PCHUB-Renter.zip 2>/dev/null || true

@@ -24,10 +24,14 @@ $config = Get-Content $configPath -Raw | ConvertFrom-Json
 $state = Get-Content $statePath -Raw | ConvertFrom-Json
 
 Write-Host "[1/3] Checking PCHUB-StreamHost..."
+. (Join-Path $Root "streamhost.ps1")
 $exe = Join-Path $Root "PCHUB-StreamHost.exe"
 if (-not (Test-Path $exe)) {
-  Write-Host "MISSING: PCHUB-StreamHost.exe — reinstall from https://pchub.cloud/host"
-  exit 1
+  Write-Host "Downloading PCHUB-StreamHost.zip from pchub.cloud..."
+  if (-not (Install-PchubStreamHostIfNeeded -Root $Root)) {
+    Write-Host "MISSING: PCHUB-StreamHost.exe - not on server yet (pchub.cloud/downloads/PCHUB-StreamHost.zip)"
+    exit 1
+  }
 }
 Write-Host "OK: $exe"
 

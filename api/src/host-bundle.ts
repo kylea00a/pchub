@@ -40,6 +40,7 @@ const HOST_SCRIPTS = [
   "pchub-host.ps1",
   "pchub-api.ps1",
   "ffmpeg.ps1",
+  "streamhost.ps1",
   "host-readiness.ps1",
   "webrtc-signaling.ps1",
   "webrtc-signaling-worker.ps1",
@@ -160,10 +161,15 @@ const FFMPEG_DIR = path.join(
 
 function appendStreamHost(archive: archiver.Archiver) {
   if (!fs.existsSync(STREAMHOST_DIR)) return;
+  let added = 0;
   for (const name of fs.readdirSync(STREAMHOST_DIR)) {
     const full = path.join(STREAMHOST_DIR, name);
     if (!fs.statSync(full).isFile()) continue;
     archive.file(full, { name: bundlePath(name) });
+    added++;
+  }
+  if (added === 0) {
+    console.warn(`[host-bundle] streamhost dir exists but no files: ${STREAMHOST_DIR}`);
   }
 }
 

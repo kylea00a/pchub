@@ -18,7 +18,18 @@ function Get-PchubStreamHostReady {
   param([string]$Root)
   $exe = Join-Path $Root "PCHUB-StreamHost.exe"
   if (-not (Test-Path $exe)) {
-    return @{ Installed = $false; Running = $false; Detail = "Missing - reinstall from pchub.cloud/host" }
+    $streamhostPs1 = Join-Path $Root "streamhost.ps1"
+    if (Test-Path $streamhostPs1) {
+      try {
+        . $streamhostPs1
+        if (Install-PchubStreamHostIfNeeded -Root $Root) {
+          # downloaded from pchub.cloud/downloads/PCHUB-StreamHost.zip
+        }
+      } catch { }
+    }
+  }
+  if (-not (Test-Path $exe)) {
+    return @{ Installed = $false; Running = $false; Detail = "Missing - run repair-streaming.ps1 or reinstall from pchub.cloud/host" }
   }
   $running = $false
   $pidPath = Join-Path $Root "webrtc-signaling.pid"
