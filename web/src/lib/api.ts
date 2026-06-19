@@ -226,6 +226,22 @@ export async function endRental(rentalId: string) {
   );
 }
 
+export type WebRtcConfig = {
+  signalUrl: string;
+  stunServers: string[];
+  iceServers: Array<{ urls: string; username?: string; credential?: string }>;
+  turnEnabled?: boolean;
+};
+
+export async function prepareBrowserStream(rentalId: string) {
+  return apiFetch<{
+    rentalId: string;
+    machineId: string;
+    webrtc: WebRtcConfig;
+    message?: string;
+  }>(`/api/me/rentals/${rentalId}/stream/connect`, { method: "POST" });
+}
+
 export async function uploadCloudFile(path: string, contentBase64: string) {
   return apiFetch<{ ok: boolean }>("/api/me/files", {
     method: "POST",
