@@ -50,7 +50,7 @@ export class SignalingClient {
         resolve();
       };
 
-      ws.onerror = () => reject(new Error("Signaling connection failed"));
+      ws.onerror = () => reject(new Error(`Signaling connection failed (${this.signalUrl})`));
       ws.onclose = () => this.log("Signaling closed");
 
       ws.onmessage = (ev) => {

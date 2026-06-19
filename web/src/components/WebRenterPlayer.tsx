@@ -6,6 +6,7 @@ import { prepareBrowserStream } from "@/lib/api";
 import { getToken } from "@/lib/auth-session";
 import { BrowserInputCapture } from "@/lib/webrtc/browser-input";
 import { PchubStreamSession } from "@/lib/webrtc/stream-session";
+import { normalizeSignalUrl } from "@/lib/webrtc/signal-url";
 
 type Props = {
   rentalId: string;
@@ -56,7 +57,9 @@ export function WebRenterPlayer({ rentalId, machineName }: Props) {
     try {
       const prep = await prepareBrowserStream(rentalId);
       const webrtc = prep.webrtc;
+      const signalUrl = normalizeSignalUrl(webrtc.signalUrl);
       appendLog(prep.message ?? "Starting browser stream…");
+      appendLog(`Signal: ${signalUrl}`);
 
       const session = new PchubStreamSession(
         prep.rentalId,
