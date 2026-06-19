@@ -1435,40 +1435,46 @@ app.post("/api/agents/streaming", authAgent, async (req, res) => {
   const portsOpenFlag =
     typeof portsOpen === "boolean" ? portsOpen : sunshineRunning === true;
 
-  db.prepare(
-    `UPDATE rentals SET
-      stream_status = ?,
-      stream_local_ip = ?,
-      stream_public_ip = ?,
-      stream_port = ?,
-      stream_https_port = ?,
-      stream_pin = ?,
-      stream_message = ?,
-      stream_sunshine_installed = ?,
-      stream_sunshine_running = ?,
-      stream_ports_open = ?,
-      stream_connect_mode = ?,
-      stream_updated_at = ?,
-      stream_pair_status = COALESCE(?, stream_pair_status),
-      stream_pair_message = COALESCE(?, stream_pair_message)
-    WHERE id = ?`
-  ).run(
-    status ?? "pending",
-    localIp ?? null,
-    publicIp ?? null,
-    port ?? null,
-    httpsPort ?? null,
-    pin ?? null,
-    message ?? null,
-    sunshineInstalled ? 1 : 0,
-    sunshineRunning ? 1 : 0,
-    portsOpenFlag ? 1 : 0,
-    connectMode ?? null,
-    nowIso(),
-    pairStatus ?? null,
-    pairMessage ?? null,
-    rentalId
-  );
+  try {
+    db.prepare(
+      `UPDATE rentals SET
+        stream_status = ?,
+        stream_local_ip = COALESCE(?, stream_local_ip),
+        stream_public_ip = COALESCE(?, stream_public_ip),
+        stream_port = COALESCE(?, stream_port),
+        stream_https_port = COALESCE(?, stream_https_port),
+        stream_pin = COALESCE(?, stream_pin),
+        stream_message = ?,
+        stream_sunshine_installed = ?,
+        stream_sunshine_running = ?,
+        stream_ports_open = ?,
+        stream_connect_mode = COALESCE(?, stream_connect_mode),
+        stream_updated_at = ?,
+        stream_pair_status = COALESCE(?, stream_pair_status),
+        stream_pair_message = COALESCE(?, stream_pair_message)
+      WHERE id = ?`
+    ).run(
+      status ?? "pending",
+      localIp ?? null,
+      publicIp ?? null,
+      port ?? null,
+      httpsPort ?? null,
+      pin ?? null,
+      message ?? null,
+      sunshineInstalled ? 1 : 0,
+      sunshineRunning ? 1 : 0,
+      portsOpenFlag ? 1 : 0,
+      connectMode ?? null,
+      nowIso(),
+      pairStatus ?? null,
+      pairMessage ?? null,
+      rentalId
+    );
+  } catch (err) {
+    console.error("[agents/streaming] update failed:", err);
+    res.status(500).json({ error: "Failed to update stream status" });
+    return;
+  }
 
   if (pairStatus === "paired") {
     db.prepare(
