@@ -29,14 +29,21 @@ export class PchubStreamSession {
     private readonly handlers: StreamSessionHandlers = {}
   ) {}
 
+  private pendingPeerJoin = false;
+
   async start(): Promise<void> {
+    this.setupPeer();
     this.signal = new SignalingClient(this.signalUrl, this.rentalId, this.token);
     this.signal.setHandlers({
       onLog: (line) => this.log(line),
       onMessage: (msg) => this.handleSignal(msg),
     });
     await this.signal.connect();
-    this.setupPeer();
+    if (this.pendingPeerJoin && !this.negotiationStarted) {
+      this.pendingPeerJoin = false;
+      this.negotiationStarted = true;
+      void this.startNegotiation();
+    }
   }
 
   private setupPeer() {
@@ -85,9 +92,22 @@ export class PchubStreamSession {
   }
 
   private handleSignal(msg: SignalMessage) {
+    if (msg.type === "joined") {
+      this.log(`Signaling joined (${msg.role ?? "renter"})`);
+      return;
+    }
     if (msg.type === "peer" && msg.status === "joined" && !this.negotiationStarted) {
+      if (!this.pc) {
+        this.pendingPeerJoin = true;
+        this.log("Host is ready — starting WebRTC…");
+        return;
+      }
       this.negotiationStarted = true;
       void this.startNegotiation();
+      return;
+    }
+    if (msg.type === "peer" && msg.status === "left") {
+      this.log(`Peer left (${msg.role ?? "host"})`);
       return;
     }
     if (msg.type === "answer" && msg.sdp) {

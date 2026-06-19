@@ -8,6 +8,9 @@ $script:LastSignalingRentalId = $null
 
 function Get-WebRtcSignalUrl([string]$ApiRoot) {
   $base = $ApiRoot.TrimEnd("/")
+  if ($base -match "pchub\.cloud") {
+    return "wss://pchub.cloud/api/webrtc/signal"
+  }
   if ($base -match "^https://") {
     return ($base -replace "^https://", "wss://") + "/api/webrtc/signal"
   }

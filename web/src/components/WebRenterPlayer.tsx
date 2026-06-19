@@ -30,17 +30,21 @@ export function WebRenterPlayer({ rentalId, machineName }: Props) {
     setLog((prev) => [...prev.slice(-40), `[${new Date().toLocaleTimeString()}] ${line}`]);
   }, []);
 
-  const disconnect = useCallback(() => {
+  const disposeSession = useCallback(() => {
     inputRef.current?.detach();
     inputRef.current = null;
     sessionRef.current?.dispose();
     sessionRef.current = null;
     if (videoRef.current) videoRef.current.srcObject = null;
     mediaStreamRef.current = null;
+  }, []);
+
+  const disconnect = useCallback(() => {
+    disposeSession();
     setConnected(false);
     setConnecting(false);
     setStatus("Disconnected");
-  }, []);
+  }, [disposeSession]);
 
   const connect = useCallback(async () => {
     const token = getToken();
@@ -52,7 +56,7 @@ export function WebRenterPlayer({ rentalId, machineName }: Props) {
     setError(null);
     setConnecting(true);
     setStatus("Preparing…");
-    disconnect();
+    disposeSession();
 
     try {
       const prep = await prepareBrowserStream(rentalId);
@@ -64,14 +68,18 @@ export function WebRenterPlayer({ rentalId, machineName }: Props) {
       const session = new PchubStreamSession(
         prep.rentalId,
         token,
-        webrtc.signalUrl,
+        signalUrl,
         webrtc.iceServers.length > 0
           ? webrtc.iceServers
           : webrtc.stunServers.map((url) => ({ urls: url })),
         {
           onLog: appendLog,
           onConnectionState: (state) => {
-            setStatus(state);
+            if (state === "connecting") {
+              setStatus("Negotiating stream…");
+            } else {
+              setStatus(state);
+            }
             if (state === "connected") {
               setConnected(true);
               setConnecting(false);
@@ -79,6 +87,7 @@ export function WebRenterPlayer({ rentalId, machineName }: Props) {
             if (state === "failed" || state === "closed") {
               setConnected(false);
               setConnecting(false);
+              setError("Stream connection lost — click Connect to retry.");
             }
           },
           onVideoStream: (stream) => {
@@ -118,13 +127,14 @@ export function WebRenterPlayer({ rentalId, machineName }: Props) {
       sessionRef.current = session;
       setStatus("Connecting signaling…");
       await session.start();
+      setStatus("Waiting for host PC…");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Connect failed");
       setConnecting(false);
       setStatus("Error");
-      disconnect();
+      disposeSession();
     }
-  }, [appendLog, disconnect, rentalId]);
+  }, [appendLog, disposeSession, rentalId]);
 
   useEffect(() => {
     return () => disconnect();
@@ -206,7 +216,11 @@ export function WebRenterPlayer({ rentalId, machineName }: Props) {
           />
           {!connected && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/80 text-sm text-muted">
-              {connecting ? "Waiting for host stream…" : "Click Connect to start"}
+              {connecting
+                ? status === "Waiting for host PC…"
+                  ? "Waiting for host PC to start StreamHost…"
+                  : "Connecting…"
+                : "Click Connect to start"}
             </div>
           )}
         </div>
