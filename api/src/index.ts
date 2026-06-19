@@ -812,10 +812,20 @@ app.post("/api/agents/rejoin", (req, res) => {
 app.post("/api/agents/heartbeat", authAgent, (req, res) => {
   const machine = (req as express.Request & { machine: MachineRow }).machine;
   const { status } = req.body as { status?: string };
-  const nextStatus =
-    status === "rented" || status === "online" || status === "idle"
-      ? status
-      : "online";
+  const activeRental = db
+    .prepare(
+      `SELECT id FROM rentals WHERE machine_id = ? AND status IN ${streamableStatusSql()} LIMIT 1`
+    )
+    .get(machine.id) as { id: string } | undefined;
+
+  let nextStatus: string;
+  if (activeRental) {
+    nextStatus = "rented";
+  } else if (status === "rented" || status === "online" || status === "idle") {
+    nextStatus = status;
+  } else {
+    nextStatus = "online";
+  }
 
   db.prepare(
     `UPDATE machines SET last_seen_at = ?, status = ? WHERE id = ?`

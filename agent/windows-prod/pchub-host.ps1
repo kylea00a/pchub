@@ -155,12 +155,12 @@ function Handle-ActiveSession($Config, $State) {
     $session = Get-AgentSession $Config $State
     if ($script:WebRtcSignalingLoaded) {
       Sync-HostWebRtcSignaling -Config $Config -State $State -Session $session
-    }
-    if ($session.active) {
-      if ($script:StreamingLoaded) {
-        $State = Update-StreamingSession -Config $Config -State $State -Session $session
-        Save-State $State
+      if ($session.active) {
+        Update-PchubStreamingSession -Config $Config -State $State -Session $session
       }
+    } elseif ($session.active -and $script:StreamingLoaded) {
+      $State = Update-StreamingSession -Config $Config -State $State -Session $session
+      Save-State $State
     }
   } catch {
     Write-Log "Session check failed: $($_.Exception.Message)"
@@ -200,7 +200,7 @@ try {
     Write-Log "Heartbeat warn: $($_.Exception.Message)"
   }
   try {
-    if ($script:StreamingLoaded) {
+    if ($script:StreamingLoaded -or $script:WebRtcSignalingLoaded) {
       $state = Handle-ActiveSession $config $state
     }
   } catch {
@@ -215,11 +215,22 @@ try {
   $interval = if ($config.heartbeatMs) { [int]$config.heartbeatMs } else { 30000 }
   Write-Log "Heartbeat every $([int]($interval / 1000))s. Keep this process running."
 
+  $fastPollUntil = 0
+
   while ($true) {
-    Start-Sleep -Milliseconds $interval
+    $sleepMs = $interval
+    if ($fastPollUntil -gt [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()) {
+      $sleepMs = [Math]::Min($interval, 10000)
+    }
+    Start-Sleep -Milliseconds $sleepMs
     try {
       Send-Heartbeat $config $state
-      if ($script:StreamingLoaded) {
+      if ($script:StreamingLoaded -or $script:WebRtcSignalingLoaded) {
+        $session = $null
+        try { $session = Get-AgentSession $config $state } catch { }
+        if ($session -and $session.active) {
+          $fastPollUntil = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() + 300000
+        }
         $state = Handle-ActiveSession $config $state
       }
     } catch {

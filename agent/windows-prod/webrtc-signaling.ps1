@@ -125,4 +125,109 @@ function Sync-HostWebRtcSignaling {
   }
 
   Start-HostWebRtcSignaling -Config $Config -State $State -RentalId $Session.rentalId
+  Update-PchubStreamingSession -Config $Config -State $State -Session $Session
+}
+
+function Test-PchubStreamHostReady {
+  $exe = Join-Path $PSScriptRoot "PCHUB-StreamHost.exe"
+  $installed = Test-Path $exe
+  $running = $false
+
+  if (Test-Path $script:SignalingPidPath) {
+    try {
+      $pid = [int](Get-Content $script:SignalingPidPath -Raw).Trim()
+      if ($pid -gt 0 -and (Get-Process -Id $pid -ErrorAction SilentlyContinue)) {
+        $running = $true
+      }
+    } catch { }
+  }
+
+  if (-not $running) {
+    $proc = Get-Process -Name "PCHUB-StreamHost" -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($proc) { $running = $true }
+  }
+
+  return @{
+    Installed = $installed
+    Running = $running
+  }
+}
+
+function Get-PchubStreamingStatus {
+  param(
+    [object]$Ready,
+    [bool]$SessionActive
+  )
+
+  if (-not $Ready.Installed) {
+    return @{
+      status = "needs_stream_host"
+      message = "PCHUB-StreamHost.exe missing. Reinstall PCHUB Host from pchub.cloud/host."
+      connectMode = "webrtc"
+    }
+  }
+
+  if ($SessionActive -and -not $Ready.Running) {
+    return @{
+      status = "starting"
+      message = "Starting PCHUB stream engine for this rental…"
+      connectMode = "webrtc"
+    }
+  }
+
+  if ($SessionActive) {
+    return @{
+      status = "ready"
+      message = "Ready — renter can click Connect in PCHUB Renter or browser."
+      connectMode = "webrtc"
+    }
+  }
+
+  return @{
+    status = "idle"
+    message = "Waiting for an active rental."
+    connectMode = "webrtc"
+  }
+}
+
+function Update-PchubStreamingSession {
+  param(
+    [object]$Config,
+    [object]$State,
+    [object]$Session
+  )
+
+  if (-not $Session -or -not $Session.active -or -not $Session.rentalId) { return }
+
+  $ready = Test-PchubStreamHostReady
+  $stream = Get-PchubStreamingStatus -Ready $ready -SessionActive:$true
+
+  $body = @{
+    rentalId = "$($Session.rentalId)"
+    status = $stream.status
+    message = $stream.message
+    connectMode = $stream.connectMode
+    sunshineInstalled = [bool]$ready.Installed
+    sunshineRunning = [bool]$ready.Running
+    portsOpen = [bool]$ready.Running
+    pairStatus = if ($ready.Running) { "paired" } else { "idle" }
+    pairMessage = $null
+  }
+
+  try {
+    if (-not (Get-Command Invoke-PchubApi -ErrorAction SilentlyContinue)) {
+      if (Get-Command Write-Log -ErrorAction SilentlyContinue) {
+        Write-Log "Streaming update skipped (API helper not loaded)"
+      }
+      return
+    }
+    Invoke-PchubApi -ApiRoot $Config.apiUrl -Path "/api/agents/streaming" -Method "POST" -Body $body -Token $State.agentToken | Out-Null
+    if (Get-Command Write-Log -ErrorAction SilentlyContinue) {
+      Write-Log "Streaming status: $($stream.status) (installed=$($ready.Installed) running=$($ready.Running))"
+    }
+  } catch {
+    if (Get-Command Write-Log -ErrorAction SilentlyContinue) {
+      Write-Log "Streaming update failed: $($_.Exception.Message)"
+    }
+  }
 }
