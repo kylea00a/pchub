@@ -12,6 +12,46 @@ function Write-PchubSetupLog {
   if (-not $Silent) { Write-Host $Message }
 }
 
+function Install-PchubHostScripts {
+  param(
+    [Parameter(Mandatory = $true)][string]$Root,
+    [switch]$Silent
+  )
+
+  $required = @("pchub-host.ps1", "pchub-api.ps1", "streamhost.ps1", "webrtc-signaling.ps1", "install-core.ps1")
+  $scriptsZip = Join-Path $env:TEMP "PCHUB-Host-Scripts-$([Guid]::NewGuid().ToString('n')).zip"
+  $staging = Join-Path $env:TEMP "PCHUB-Host-Scripts-expand-$(Get-Random)"
+
+  try {
+    Invoke-WebRequest -Uri "https://pchub.cloud/downloads/PCHUB-Host-Scripts.zip" -OutFile $scriptsZip -UseBasicParsing
+    if (-not (Test-Path $scriptsZip)) { throw "download failed" }
+
+    if (Test-Path $staging) { Remove-Item $staging -Recurse -Force -ErrorAction SilentlyContinue }
+    New-Item -ItemType Directory -Force -Path $staging | Out-Null
+
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    [System.IO.Compression.ZipFile]::ExtractToDirectory($scriptsZip, $staging)
+
+    Get-ChildItem $staging -Recurse -File | ForEach-Object {
+      $dest = Join-Path $Root $_.Name
+      Copy-Item -Path $_.FullName -Destination $dest -Force
+    }
+
+    foreach ($name in $required) {
+      if (-not (Test-Path (Join-Path $Root $name))) {
+        throw "missing $name after script update"
+      }
+    }
+    return $true
+  } catch {
+    Write-PchubSetupLog -Root $Root -Message "      Script update failed: $($_.Exception.Message)" -Silent:$Silent
+    return $false
+  } finally {
+    Remove-Item $scriptsZip -Force -ErrorAction SilentlyContinue
+    Remove-Item $staging -Recurse -Force -ErrorAction SilentlyContinue
+  }
+}
+
 function Invoke-PchubHostInstall {
   param(
     [Parameter(Mandatory = $true)][string]$Root,
@@ -23,21 +63,35 @@ function Invoke-PchubHostInstall {
   Set-Content -Path $setupLog -Value "" -Encoding UTF8 -ErrorAction SilentlyContinue
   Write-PchubSetupLog -Root $Root -Message "PCHUB install starting (root: $Root)" -Silent:$Silent
 
-  Write-PchubSetupLog -Root $Root -Message "[0/5] Updating host scripts from pchub.cloud..." -Silent:$Silent
+  Write-PchubSetupLog -Root $Root -Message "[1/5] Windows Defender exclusion..." -Silent:$Silent
   try {
-    $scriptsZip = Join-Path $env:TEMP "PCHUB-Host-Scripts-$([Guid]::NewGuid().ToString('n')).zip"
-    Invoke-WebRequest -Uri "https://pchub.cloud/downloads/PCHUB-Host-Scripts.zip" -OutFile $scriptsZip -UseBasicParsing
-    if (Test-Path $scriptsZip) {
-      Expand-Archive -Path $scriptsZip -DestinationPath $Root -Force
-      Write-PchubSetupLog -Root $Root -Message "      OK" -Silent:$Silent
-    }
-    Remove-Item $scriptsZip -Force -ErrorAction SilentlyContinue
+    Add-MpPreference -ExclusionPath $Root -ErrorAction Stop
+    Write-PchubSetupLog -Root $Root -Message "      OK" -Silent:$Silent
   } catch {
-    Write-PchubSetupLog -Root $Root -Message "      Skipped (using bundled scripts): $($_.Exception.Message)" -Silent:$Silent
+    Write-PchubSetupLog -Root $Root -Message "      Skipped: $($_.Exception.Message)" -Silent:$Silent
+  }
+
+  Write-PchubSetupLog -Root $Root -Message "[2/5] Stopping old agent..." -Silent:$Silent
+  & cmd /c "taskkill /FI `"WINDOWTITLE eq PCHUB Agent Loop*`" /F >nul 2>&1"
+  & cmd /c "taskkill /FI `"WINDOWTITLE eq PCHUB Host Status*`" /F >nul 2>&1"
+  & cmd /c "taskkill /IM PCHUB-Status.exe /F >nul 2>&1"
+  & cmd /c "wmic process where `"CommandLine like '%pchub-host.ps1%'`" call terminate >nul 2>&1"
+  Start-Sleep -Seconds 1
+
+  Write-PchubSetupLog -Root $Root -Message "[3/5] Updating host scripts from pchub.cloud..." -Silent:$Silent
+  if (Install-PchubHostScripts -Root $Root -Silent:$Silent) {
+    Write-PchubSetupLog -Root $Root -Message "      OK" -Silent:$Silent
+  } elseif (-not (Test-Path (Join-Path $Root "pchub-host.ps1"))) {
+    Write-PchubSetupLog -Root $Root -Message "ERROR: pchub-host.ps1 not found (re-download zip from pchub.cloud/host)" -Silent:$Silent
+    Get-ChildItem $Root -ErrorAction SilentlyContinue | ForEach-Object {
+      Write-PchubSetupLog -Root $Root -Message "  file: $($_.Name)" -Silent:$Silent
+    }
+    return @{ Success = $false; ExitCode = 1 }
+  } else {
+    Write-PchubSetupLog -Root $Root -Message "      Using existing scripts" -Silent:$Silent
   }
 
   $hostPs1 = Join-Path $Root "pchub-host.ps1"
-  $tunnelPs1 = Join-Path $Root "tunnel.ps1"
   $statePath = Join-Path $Root ".agent-state.json"
   $configPath = Join-Path $Root "config.json"
 
@@ -53,32 +107,17 @@ function Invoke-PchubHostInstall {
     return @{ Success = $false; ExitCode = 1 }
   }
 
-  Write-PchubSetupLog -Root $Root -Message "[1/5] Windows Defender exclusion..." -Silent:$Silent
-  try {
-    Add-MpPreference -ExclusionPath $Root -ErrorAction Stop
-    Write-PchubSetupLog -Root $Root -Message "      OK" -Silent:$Silent
-  } catch {
-    Write-PchubSetupLog -Root $Root -Message "      Skipped: $($_.Exception.Message)" -Silent:$Silent
-  }
-
-  Write-PchubSetupLog -Root $Root -Message "[2/5] Stopping old agent..." -Silent:$Silent
-  & cmd /c "taskkill /FI `"WINDOWTITLE eq PCHUB Agent Loop*`" /F >nul 2>&1"
-  & cmd /c "taskkill /FI `"WINDOWTITLE eq PCHUB Host Status*`" /F >nul 2>&1"
-  & cmd /c "taskkill /IM PCHUB-Status.exe /F >nul 2>&1"
   if (Test-Path (Join-Path $Root "webrtc-signaling.ps1")) {
     try {
       . (Join-Path $Root "webrtc-signaling.ps1")
       Stop-HostWebRtcSignaling
-    } catch {
-      Write-PchubSetupLog -Root $Root -Message "      Warning: could not stop stream host: $($_.Exception.Message)" -Silent:$Silent
-    }
+    } catch { }
   }
-  & cmd /c "wmic process where `"CommandLine like '%pchub-host.ps1%'`" call terminate >nul 2>&1"
 
   if (Test-Path $statePath) {
-    Write-PchubSetupLog -Root $Root -Message "[3/5] Repairing registration..." -Silent:$Silent
+    Write-PchubSetupLog -Root $Root -Message "[4/5] Repairing registration..." -Silent:$Silent
   } else {
-    Write-PchubSetupLog -Root $Root -Message "[3/5] Registering PC..." -Silent:$Silent
+    Write-PchubSetupLog -Root $Root -Message "[4/5] Registering PC..." -Silent:$Silent
   }
 
   $agentExit = 0
@@ -121,7 +160,7 @@ function Invoke-PchubHostInstall {
     Write-PchubSetupLog -Root $Root -Message "Agent warned (exit $agentExit) but registered - continuing" -Silent:$Silent
   }
 
-  Write-PchubSetupLog -Root $Root -Message "[4/5] PCHUB StreamHost (no extra installs needed)..." -Silent:$Silent
+  Write-PchubSetupLog -Root $Root -Message "[5/6] PCHUB StreamHost (no extra installs needed)..." -Silent:$Silent
   $streamhostPs1 = Join-Path $Root "streamhost.ps1"
   $streamHostOk = $false
   if (Test-Path $streamhostPs1) {
@@ -156,7 +195,7 @@ function Invoke-PchubHostInstall {
     }
   }
 
-  Write-PchubSetupLog -Root $Root -Message "[5/5] Starting agent + status app..." -Silent:$Silent
+  Write-PchubSetupLog -Root $Root -Message "[6/6] Starting agent + status app..." -Silent:$Silent
   $statusExe = Join-Path $Root "PCHUB-Status.exe"
   $statusPs1 = Join-Path $Root "status-app.ps1"
   try {
