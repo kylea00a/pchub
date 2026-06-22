@@ -1,6 +1,21 @@
 import { INPUT_CHANNEL_LABEL } from "./input-protocol";
 import { IcePayload, SignalingClient, SignalMessage } from "./signaling-client";
 
+function extractMediaMids(sdp: string): string[] {
+  const mids: string[] = [];
+  let inApplication = false;
+  for (const line of sdp.split(/\r?\n/)) {
+    if (line.startsWith("m=application")) {
+      inApplication = true;
+      continue;
+    }
+    if (line.startsWith("m=")) inApplication = false;
+    const mid = line.match(/^a=mid:(\S+)/);
+    if (mid && !inApplication) mids.push(mid[1]);
+  }
+  return mids;
+}
+
 function normalizeRemoteIceCandidate(payload: IcePayload): RTCIceCandidateInit | null {
   let line = payload.candidate?.trim();
   if (!line) return null;
@@ -26,13 +41,49 @@ async function addIceCandidateSafe(
   pc: RTCPeerConnection,
   init: RTCIceCandidateInit
 ): Promise<void> {
-  try {
-    await pc.addIceCandidate(init);
-    return;
-  } catch {
-    if (!init.candidate) throw new Error("missing candidate");
-    await pc.addIceCandidate({ candidate: init.candidate });
+  const attempts: RTCIceCandidateInit[] = [init];
+  if (!init.sdpMid && init.candidate && pc.remoteDescription?.sdp) {
+    for (const mid of extractMediaMids(pc.remoteDescription.sdp)) {
+      attempts.push({ candidate: init.candidate, sdpMid: mid });
+    }
   }
+
+  let lastError: unknown;
+  for (const attempt of attempts) {
+    try {
+      await pc.addIceCandidate(attempt);
+      return;
+    } catch (err) {
+      lastError = err;
+      if (!attempt.sdpMid && attempt.candidate) {
+        try {
+          await pc.addIceCandidate({ candidate: attempt.candidate });
+          return;
+        } catch (inner) {
+          lastError = inner;
+        }
+      }
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error("ICE add failed");
+}
+
+function waitForIceGathering(pc: RTCPeerConnection, timeoutMs = 8000): Promise<void> {
+  if (pc.iceGatheringState === "complete") return Promise.resolve();
+  return new Promise((resolve) => {
+    const timer = window.setTimeout(() => {
+      pc.removeEventListener("icegatheringstatechange", onChange);
+      resolve();
+    }, timeoutMs);
+    const onChange = () => {
+      if (pc.iceGatheringState === "complete") {
+        window.clearTimeout(timer);
+        pc.removeEventListener("icegatheringstatechange", onChange);
+        resolve();
+      }
+    };
+    pc.addEventListener("icegatheringstatechange", onChange);
+  });
 }
 
 export type IceServerConfig = {
@@ -91,7 +142,11 @@ export class PchubStreamSession {
       credential: s.credential,
     }));
 
-    this.pc = new RTCPeerConnection({ iceServers: servers });
+    this.pc = new RTCPeerConnection({
+      iceServers: servers,
+      bundlePolicy: "max-bundle",
+      rtcpMuxPolicy: "require",
+    });
 
     this.pc.onconnectionstatechange = () => {
       const state = this.pc?.connectionState ?? "closed";
@@ -119,11 +174,10 @@ export class PchubStreamSession {
       }
     };
 
+    this.pc.addTransceiver("audio", { direction: "recvonly" });
+    this.pc.addTransceiver("video", { direction: "recvonly" });
     this.inputChannel = this.pc.createDataChannel(INPUT_CHANNEL_LABEL);
     this.wireInputChannel(this.inputChannel);
-
-    this.pc.addTransceiver("video", { direction: "recvonly" });
-    this.pc.addTransceiver("audio", { direction: "recvonly" });
   }
 
   private wireInputChannel(channel: RTCDataChannel) {
@@ -174,8 +228,10 @@ export class PchubStreamSession {
     try {
       const offer = await this.pc.createOffer();
       await this.pc.setLocalDescription(offer);
-      if (offer.sdp) {
-        this.signal.sendOffer(offer.sdp);
+      await waitForIceGathering(this.pc);
+      const sdp = this.pc.localDescription?.sdp ?? offer.sdp;
+      if (sdp) {
+        this.signal.sendOffer(sdp);
         this.log("Sent WebRTC offer");
       }
     } catch (err) {

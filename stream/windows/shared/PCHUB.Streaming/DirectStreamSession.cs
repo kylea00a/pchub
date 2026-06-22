@@ -56,12 +56,17 @@ public sealed class DirectStreamSession : IAsyncDisposable
         };
         _signal.OnAnswer += sdp => _peer.SetRemoteAnswer(sdp);
         _signal.OnIce += ice => _peer.AddRemoteIce(ice);
-        _peer.OnLocalIce += cand => _ = _signal.SendIceAsync(new
+        _peer.OnLocalIce += cand =>
         {
-            candidate = cand.candidate,
-            sdpMid = string.IsNullOrWhiteSpace(cand.sdpMid) ? null : cand.sdpMid,
-            sdpMLineIndex = string.IsNullOrWhiteSpace(cand.sdpMid) ? (int?)null : cand.sdpMLineIndex,
-        });
+            // Host bundles ICE into the answer SDP; trickle payloads often lack sdpMid.
+            if (_role == "host") return;
+            _ = _signal.SendIceAsync(new
+            {
+                candidate = cand.candidate,
+                sdpMid = string.IsNullOrWhiteSpace(cand.sdpMid) ? null : cand.sdpMid,
+                sdpMLineIndex = string.IsNullOrWhiteSpace(cand.sdpMid) ? (int?)null : cand.sdpMLineIndex,
+            });
+        };
     }
 
     public string SignalUrl { get; }

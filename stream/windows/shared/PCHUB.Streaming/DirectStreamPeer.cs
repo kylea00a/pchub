@@ -494,16 +494,46 @@ public sealed class DirectStreamPeer : IAsyncDisposable
             await _input.EnsureClientChannelAsync();
         var offer = _pc.createOffer();
         await _pc.setLocalDescription(offer);
-        return offer.sdp;
+        return await WaitForLocalSdpWithIceAsync();
     }
 
     public async Task<string> CreateAnswerAsync(string offerSdp)
     {
-        _pc.setRemoteDescription(new RTCSessionDescriptionInit { type = RTCSdpType.offer, sdp = offerSdp });
+        await _pc.setRemoteDescription(new RTCSessionDescriptionInit { type = RTCSdpType.offer, sdp = offerSdp });
         FlushPendingRemoteIce();
         var answer = _pc.createAnswer();
         await _pc.setLocalDescription(answer);
-        return answer.sdp;
+        return await WaitForLocalSdpWithIceAsync();
+    }
+
+    private async Task<string> WaitForLocalSdpWithIceAsync()
+    {
+        if (_pc.iceGatheringState == RTCIceGatheringState.complete)
+            return _pc.localDescription?.sdp ?? "";
+
+        var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        void OnGather(RTCIceGatheringState state)
+        {
+            if (state == RTCIceGatheringState.complete)
+                tcs.TrySetResult(true);
+        }
+
+        _pc.onicegatheringstatechange += OnGather;
+        try
+        {
+            if (_pc.iceGatheringState != RTCIceGatheringState.complete)
+                await tcs.Task.WaitAsync(TimeSpan.FromSeconds(8));
+        }
+        catch (TimeoutException)
+        {
+            Log("ICE gathering timeout - sending partial SDP");
+        }
+        finally
+        {
+            _pc.onicegatheringstatechange -= OnGather;
+        }
+
+        return _pc.localDescription?.sdp ?? "";
     }
 
     public void SetRemoteAnswer(string answerSdp)
