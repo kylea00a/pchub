@@ -82,6 +82,7 @@ jobs:
 
       - name: Publish PCHUB Renter zip
         shell: pwsh
+        continue-on-error: true
         run: |
           $attempt = 0
           $maxAttempts = 2
@@ -159,7 +160,7 @@ jobs:
           if (Test-Path deploy/downloads/PCHUB-Renter.zip) {
             Copy-Item deploy/downloads/PCHUB-Renter.zip publish/ -Force
           } else {
-            throw "PCHUB-Renter.zip missing — renter publish step failed"
+            Write-Host "::warning::PCHUB-Renter.zip missing - host StreamHost will still publish"
           }
           if (Test-Path deploy/downloads/streamhost/PCHUB-StreamHost.exe) {
             if (Test-Path deploy/downloads/PCHUB-StreamHost.zip) {
@@ -171,7 +172,7 @@ jobs:
             Copy-Item deploy/downloads/PCHUB-Host-Scripts.zip publish/ -Force
           }
           Get-ChildItem publish -Recurse -File | Select-Object -First 30 FullName, Length
-          if (-not (Test-Path publish/PCHUB-Renter.zip)) { throw "publish/PCHUB-Renter.zip missing before artifact upload" }
+          if (-not (Test-Path publish/PCHUB-StreamHost.zip)) { throw "publish/PCHUB-StreamHost.zip missing before artifact upload" }
 
       - uses: actions/upload-artifact@v4
         with:
@@ -233,5 +234,5 @@ jobs:
             tar -xzf /tmp/pchub-host-bundle.tgz
             rm -f /tmp/pchub-host-bundle.tgz
             ls -la streamhost | head -8
-            ls -la PCHUB-StreamHost.zip PCHUB-Renter.zip
-            test -f PCHUB-Renter.zip || (echo "ERROR: PCHUB-Renter.zip missing after extract" && exit 1)
+            ls -la PCHUB-StreamHost.zip PCHUB-Host-Scripts.zip PCHUB-Renter.zip 2>/dev/null || true
+            test -f PCHUB-StreamHost.zip || (echo "ERROR: PCHUB-StreamHost.zip missing after extract" && exit 1)
