@@ -23,6 +23,7 @@ export class PchubStreamSession {
   private negotiationStarted = false;
   private inputChannel: RTCDataChannel | null = null;
   private disposed = false;
+  private pendingRemoteIce: RTCIceCandidateInit[] = [];
 
   constructor(
     private readonly rentalId: string,
@@ -62,6 +63,11 @@ export class PchubStreamSession {
       const state = this.pc?.connectionState ?? "closed";
       this.log(`WebRTC: ${state}`);
       this.handlers.onConnectionState?.(state);
+    };
+
+    this.pc.oniceconnectionstatechange = () => {
+      const state = this.pc?.iceConnectionState ?? "closed";
+      this.log(`ICE: ${state}`);
     };
 
     this.pc.onicecandidate = (ev) => {
@@ -148,20 +154,41 @@ export class PchubStreamSession {
     try {
       await this.pc.setRemoteDescription({ type: "answer", sdp });
       this.log("Applied remote answer");
+      await this.flushPendingRemoteIce();
     } catch (err) {
       this.log(`Answer failed: ${err instanceof Error ? err.message : "unknown"}`);
     }
   }
 
+  private async flushPendingRemoteIce() {
+    if (!this.pc) return;
+    const queued = this.pendingRemoteIce.splice(0);
+    for (const candidate of queued) {
+      try {
+        await this.pc.addIceCandidate(candidate);
+      } catch (err) {
+        this.log(`ICE add failed: ${err instanceof Error ? err.message : "unknown"}`);
+      }
+    }
+    if (queued.length > 0) {
+      this.log(`Applied ${queued.length} queued ICE candidate(s)`);
+    }
+  }
+
   private async addRemoteIce(candidate: IcePayload) {
     if (!this.pc || !candidate.candidate) return;
+    const init: RTCIceCandidateInit = {
+      candidate: candidate.candidate,
+      sdpMid: candidate.sdpMid ?? undefined,
+      sdpMLineIndex:
+        candidate.sdpMLineIndex != null ? candidate.sdpMLineIndex : undefined,
+    };
+    if (!this.pc.remoteDescription) {
+      this.pendingRemoteIce.push(init);
+      return;
+    }
     try {
-      await this.pc.addIceCandidate({
-        candidate: candidate.candidate,
-        sdpMid: candidate.sdpMid ?? undefined,
-        sdpMLineIndex:
-          candidate.sdpMLineIndex != null ? candidate.sdpMLineIndex : undefined,
-      });
+      await this.pc.addIceCandidate(init);
     } catch (err) {
       this.log(`ICE add failed: ${err instanceof Error ? err.message : "unknown"}`);
     }
@@ -185,6 +212,7 @@ export class PchubStreamSession {
       // ignore
     }
     this.signal?.close();
+    this.pendingRemoteIce = [];
     this.pc = null;
     this.signal = null;
     this.inputChannel = null;

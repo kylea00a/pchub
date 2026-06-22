@@ -142,6 +142,8 @@ public sealed class DirectStreamPeer : IAsyncDisposable
 
     public event Action<RTCIceCandidate>? OnLocalIce;
 
+    private readonly List<RTCIceCandidateInit> _pendingRemoteIce = new();
+
     private void SetupRenterVideoRecv()
     {
         try
@@ -497,6 +499,7 @@ public sealed class DirectStreamPeer : IAsyncDisposable
     public async Task<string> CreateAnswerAsync(string offerSdp)
     {
         _pc.setRemoteDescription(new RTCSessionDescriptionInit { type = RTCSdpType.offer, sdp = offerSdp });
+        FlushPendingRemoteIce();
         var answer = _pc.createAnswer();
         await _pc.setLocalDescription(answer);
         return answer.sdp;
@@ -505,6 +508,7 @@ public sealed class DirectStreamPeer : IAsyncDisposable
     public void SetRemoteAnswer(string answerSdp)
     {
         _pc.setRemoteDescription(new RTCSessionDescriptionInit { type = RTCSdpType.answer, sdp = answerSdp });
+        FlushPendingRemoteIce();
     }
 
     public void AddRemoteIce(string candidateJson)
@@ -520,12 +524,31 @@ public sealed class DirectStreamPeer : IAsyncDisposable
                 sdpMLineIndex = root.TryGetProperty("sdpMLineIndex", out var idx) && idx.ValueKind == System.Text.Json.JsonValueKind.Number
                     ? (ushort)idx.GetInt32() : (ushort)0,
             };
+            if (_pc.remoteDescription == null)
+            {
+                _pendingRemoteIce.Add(init);
+                return;
+            }
             _pc.addIceCandidate(init);
         }
         catch (Exception ex)
         {
             Log($"ICE add failed: {ex.Message}");
         }
+    }
+
+    private void FlushPendingRemoteIce()
+    {
+        if (_pc.remoteDescription == null || _pendingRemoteIce.Count == 0) return;
+        var queued = _pendingRemoteIce.ToList();
+        _pendingRemoteIce.Clear();
+        foreach (var init in queued)
+        {
+            try { _pc.addIceCandidate(init); }
+            catch (Exception ex) { Log($"ICE add failed: {ex.Message}"); }
+        }
+        if (queued.Count > 0)
+            Log($"Applied {queued.Count} queued ICE candidate(s)");
     }
 
     private void Log(string msg) => OnLog?.Invoke(msg);
