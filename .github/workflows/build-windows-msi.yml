@@ -33,7 +33,12 @@ jobs:
               exit $LASTEXITCODE
             }
           }
-          Publish-Project stream/windows/host/PCHUB.StreamHost/PCHUB.StreamHost.csproj staging/streamhost
+          dotnet publish stream/windows/host/PCHUB.StreamHost/PCHUB.StreamHost.csproj -c Release -r win-x64 --self-contained true -o staging/streamhost 2>&1 | Tee-Object -Variable log
+          if ($LASTEXITCODE -ne 0) {
+            $log | Select-String 'error ' | ForEach-Object { Write-Host "::error::$_" }
+            exit $LASTEXITCODE
+          }
+          Set-Content -Path staging/streamhost/STREAMHOST_MODE.txt -Value "self-contained" -Encoding UTF8
           Publish-Project stream/windows/renter/PCHUB.Renter/PCHUB.Renter.csproj staging/renter
           Get-ChildItem staging/streamhost, staging/renter | Format-Table Name, Length
 

@@ -71,8 +71,9 @@ jobs:
         shell: pwsh
         run: |
           dotnet publish stream/windows/host/PCHUB.StreamHost/PCHUB.StreamHost.csproj `
-            -c Release -r win-x64 --self-contained false `
+            -c Release -r win-x64 --self-contained true `
             -o deploy/downloads/streamhost 2>&1 | Tee-Object -Variable log
+          Set-Content -Path deploy/downloads/streamhost/STREAMHOST_MODE.txt -Value "self-contained" -Encoding UTF8
           if ($LASTEXITCODE -ne 0) {
             $log | Select-String 'error ' | ForEach-Object { Write-Host "::error::$_" }
             exit $LASTEXITCODE
@@ -106,6 +107,24 @@ jobs:
           if (Test-Path deploy/downloads/PCHUB-Renter.zip) { Remove-Item deploy/downloads/PCHUB-Renter.zip -Force }
           Compress-Archive -Path (Join-Path deploy/downloads/renter '*') -DestinationPath deploy/downloads/PCHUB-Renter.zip
           Get-Item deploy/downloads/PCHUB-Renter.zip | Format-List Name, Length
+
+      - name: Pack host agent scripts zip
+        shell: pwsh
+        run: |
+          $scripts = @(
+            "pchub-host.ps1", "pchub-api.ps1", "streamhost.ps1", "webrtc-signaling.ps1",
+            "webrtc-signaling-worker.ps1", "ffmpeg.ps1", "install-core.ps1", "run-install.ps1",
+            "host-readiness.ps1", "repair-streaming.ps1"
+          )
+          $stage = "deploy/downloads/host-scripts"
+          if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+          foreach ($name in $scripts) {
+            $src = Join-Path "agent/windows-prod" $name
+            if (Test-Path $src) { Copy-Item $src (Join-Path $stage $name) -Force }
+          }
+          if (Test-Path deploy/downloads/PCHUB-Host-Scripts.zip) { Remove-Item deploy/downloads/PCHUB-Host-Scripts.zip -Force }
+          Compress-Archive -Path "$stage/*" -DestinationPath deploy/downloads/PCHUB-Host-Scripts.zip
 
       - name: Stage FFmpeg for host bundle
         shell: pwsh
@@ -147,6 +166,9 @@ jobs:
               Remove-Item deploy/downloads/PCHUB-StreamHost.zip -Force
             }
             Compress-Archive -Path "deploy/downloads/streamhost/*" -DestinationPath publish/PCHUB-StreamHost.zip
+          }
+          if (Test-Path deploy/downloads/PCHUB-Host-Scripts.zip) {
+            Copy-Item deploy/downloads/PCHUB-Host-Scripts.zip publish/ -Force
           }
           Get-ChildItem publish -Recurse -File | Select-Object -First 30 FullName, Length
           if (-not (Test-Path publish/PCHUB-Renter.zip)) { throw "publish/PCHUB-Renter.zip missing before artifact upload" }

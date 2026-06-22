@@ -23,6 +23,19 @@ function Invoke-PchubHostInstall {
   Set-Content -Path $setupLog -Value "" -Encoding UTF8 -ErrorAction SilentlyContinue
   Write-PchubSetupLog -Root $Root -Message "PCHUB install starting (root: $Root)" -Silent:$Silent
 
+  Write-PchubSetupLog -Root $Root -Message "[0/5] Updating host scripts from pchub.cloud..." -Silent:$Silent
+  try {
+    $scriptsZip = Join-Path $env:TEMP "PCHUB-Host-Scripts-$([Guid]::NewGuid().ToString('n')).zip"
+    Invoke-WebRequest -Uri "https://pchub.cloud/downloads/PCHUB-Host-Scripts.zip" -OutFile $scriptsZip -UseBasicParsing
+    if (Test-Path $scriptsZip) {
+      Expand-Archive -Path $scriptsZip -DestinationPath $Root -Force
+      Write-PchubSetupLog -Root $Root -Message "      OK" -Silent:$Silent
+    }
+    Remove-Item $scriptsZip -Force -ErrorAction SilentlyContinue
+  } catch {
+    Write-PchubSetupLog -Root $Root -Message "      Skipped (using bundled scripts): $($_.Exception.Message)" -Silent:$Silent
+  }
+
   $hostPs1 = Join-Path $Root "pchub-host.ps1"
   $tunnelPs1 = Join-Path $Root "tunnel.ps1"
   $statePath = Join-Path $Root ".agent-state.json"
@@ -108,25 +121,29 @@ function Invoke-PchubHostInstall {
     Write-PchubSetupLog -Root $Root -Message "Agent warned (exit $agentExit) but registered - continuing" -Silent:$Silent
   }
 
-  Write-PchubSetupLog -Root $Root -Message "[4/5] PCHUB StreamHost + FFmpeg..." -Silent:$Silent
-  $streamHostExe = Join-Path $Root "PCHUB-StreamHost.exe"
-  if (-not (Test-Path $streamHostExe)) {
-    $streamhostPs1 = Join-Path $Root "streamhost.ps1"
-    if (Test-Path $streamhostPs1) {
-      try {
-        . $streamhostPs1
-        if (Install-PchubStreamHostIfNeeded -Root $Root) {
-          Write-PchubSetupLog -Root $Root -Message "      OK (downloaded PCHUB-StreamHost.zip)" -Silent:$Silent
-        }
-      } catch {
-        Write-PchubSetupLog -Root $Root -Message "      StreamHost download failed: $($_.Exception.Message)" -Silent:$Silent
+  Write-PchubSetupLog -Root $Root -Message "[4/5] PCHUB StreamHost (no extra installs needed)..." -Silent:$Silent
+  $streamhostPs1 = Join-Path $Root "streamhost.ps1"
+  $streamHostOk = $false
+  if (Test-Path $streamhostPs1) {
+    try {
+      . $streamhostPs1
+      Write-PchubSetupLog -Root $Root -Message "      Downloading latest stream engine from pchub.cloud..." -Silent:$Silent
+      if (Install-PchubStreamHostIfNeeded -Root $Root -Force) {
+        $streamHostOk = $true
+        $exe = Join-Path $Root "PCHUB-StreamHost.exe"
+        $sizeMb = if (Test-Path $exe) { [math]::Round((Get-Item $exe).Length / 1MB, 1) } else { 0 }
+        Write-PchubSetupLog -Root $Root -Message "      OK (self-contained PCHUB-StreamHost, ${sizeMb} MB)" -Silent:$Silent
+      } else {
+        Write-PchubSetupLog -Root $Root -Message "      StreamHost download failed - check internet and retry" -Silent:$Silent
       }
+    } catch {
+      Write-PchubSetupLog -Root $Root -Message "      StreamHost error: $($_.Exception.Message)" -Silent:$Silent
     }
-  }
-  if (Test-Path $streamHostExe) {
-    Write-PchubSetupLog -Root $Root -Message "      OK (PCHUB-StreamHost.exe)" -Silent:$Silent
   } else {
-    Write-PchubSetupLog -Root $Root -Message "      MISSING: PCHUB-StreamHost.exe (not in bundle or on pchub.cloud/downloads)" -Silent:$Silent
+    Write-PchubSetupLog -Root $Root -Message "      MISSING: streamhost.ps1 - re-download from pchub.cloud/host" -Silent:$Silent
+  }
+  if (-not $streamHostOk) {
+    Write-PchubSetupLog -Root $Root -Message "      WARNING: streaming may not work until StreamHost installs" -Silent:$Silent
   }
   $ffmpegPs1 = Join-Path $Root "ffmpeg.ps1"
   if (Test-Path $ffmpegPs1) {
