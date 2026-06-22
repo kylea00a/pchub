@@ -115,7 +115,7 @@ jobs:
           $scripts = @(
             "pchub-host.ps1", "pchub-api.ps1", "streamhost.ps1", "webrtc-signaling.ps1",
             "webrtc-signaling-worker.ps1", "ffmpeg.ps1", "install-core.ps1", "run-install.ps1",
-            "host-readiness.ps1", "repair-streaming.ps1"
+            "PCHUB-Setup.ps1", "host-readiness.ps1", "repair-streaming.ps1"
           )
           $stage = "deploy/downloads/host-scripts"
           if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
