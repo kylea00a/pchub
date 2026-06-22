@@ -66,7 +66,8 @@ public sealed class DirectStreamPeer : IAsyncDisposable
         };
         _pc.onicecandidate += cand =>
         {
-            if (cand != null) OnLocalIce?.Invoke(cand);
+            if (cand != null && !string.IsNullOrWhiteSpace(cand.candidate))
+                OnLocalIce?.Invoke(cand);
         };
 
         if (_role == "host")
@@ -520,10 +521,17 @@ public sealed class DirectStreamPeer : IAsyncDisposable
             var init = new RTCIceCandidateInit
             {
                 candidate = root.GetProperty("candidate").GetString(),
-                sdpMid = root.TryGetProperty("sdpMid", out var mid) ? mid.GetString() : null,
-                sdpMLineIndex = root.TryGetProperty("sdpMLineIndex", out var idx) && idx.ValueKind == System.Text.Json.JsonValueKind.Number
-                    ? (ushort)idx.GetInt32() : (ushort)0,
             };
+            if (root.TryGetProperty("sdpMid", out var mid) && mid.ValueKind == JsonValueKind.String)
+            {
+                var midStr = mid.GetString();
+                if (!string.IsNullOrWhiteSpace(midStr))
+                {
+                    init.sdpMid = midStr;
+                    if (root.TryGetProperty("sdpMLineIndex", out var idx) && idx.ValueKind == JsonValueKind.Number)
+                        init.sdpMLineIndex = (ushort)idx.GetInt32();
+                }
+            }
             if (_pc.remoteDescription == null)
             {
                 _pendingRemoteIce.Add(init);

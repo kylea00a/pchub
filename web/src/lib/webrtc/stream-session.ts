@@ -1,6 +1,40 @@
 import { INPUT_CHANNEL_LABEL } from "./input-protocol";
 import { IcePayload, SignalingClient, SignalMessage } from "./signaling-client";
 
+function normalizeRemoteIceCandidate(payload: IcePayload): RTCIceCandidateInit | null {
+  let line = payload.candidate?.trim();
+  if (!line) return null;
+
+  if (line.startsWith("a=")) line = line.slice(2);
+  if (!line.startsWith("candidate:")) {
+    if (line.includes(" typ ")) line = `candidate:${line}`;
+    else return null;
+  }
+
+  const init: RTCIceCandidateInit = { candidate: line };
+  const mid = payload.sdpMid?.trim();
+  if (mid) {
+    init.sdpMid = mid;
+    if (payload.sdpMLineIndex != null && payload.sdpMLineIndex >= 0) {
+      init.sdpMLineIndex = Number(payload.sdpMLineIndex);
+    }
+  }
+  return init;
+}
+
+async function addIceCandidateSafe(
+  pc: RTCPeerConnection,
+  init: RTCIceCandidateInit
+): Promise<void> {
+  try {
+    await pc.addIceCandidate(init);
+    return;
+  } catch {
+    if (!init.candidate) throw new Error("missing candidate");
+    await pc.addIceCandidate({ candidate: init.candidate });
+  }
+}
+
 export type IceServerConfig = {
   urls: string;
   username?: string;
@@ -163,32 +197,30 @@ export class PchubStreamSession {
   private async flushPendingRemoteIce() {
     if (!this.pc) return;
     const queued = this.pendingRemoteIce.splice(0);
+    let applied = 0;
     for (const candidate of queued) {
       try {
-        await this.pc.addIceCandidate(candidate);
+        await addIceCandidateSafe(this.pc, candidate);
+        applied++;
       } catch (err) {
         this.log(`ICE add failed: ${err instanceof Error ? err.message : "unknown"}`);
       }
     }
-    if (queued.length > 0) {
-      this.log(`Applied ${queued.length} queued ICE candidate(s)`);
+    if (applied > 0) {
+      this.log(`Applied ${applied} queued ICE candidate(s)`);
     }
   }
 
   private async addRemoteIce(candidate: IcePayload) {
-    if (!this.pc || !candidate.candidate) return;
-    const init: RTCIceCandidateInit = {
-      candidate: candidate.candidate,
-      sdpMid: candidate.sdpMid ?? undefined,
-      sdpMLineIndex:
-        candidate.sdpMLineIndex != null ? candidate.sdpMLineIndex : undefined,
-    };
+    if (!this.pc) return;
+    const init = normalizeRemoteIceCandidate(candidate);
+    if (!init) return;
     if (!this.pc.remoteDescription) {
       this.pendingRemoteIce.push(init);
       return;
     }
     try {
-      await this.pc.addIceCandidate(init);
+      await addIceCandidateSafe(this.pc, init);
     } catch (err) {
       this.log(`ICE add failed: ${err instanceof Error ? err.message : "unknown"}`);
     }

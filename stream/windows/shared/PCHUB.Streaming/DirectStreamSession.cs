@@ -59,8 +59,8 @@ public sealed class DirectStreamSession : IAsyncDisposable
         _peer.OnLocalIce += cand => _ = _signal.SendIceAsync(new
         {
             candidate = cand.candidate,
-            sdpMid = cand.sdpMid,
-            sdpMLineIndex = cand.sdpMLineIndex,
+            sdpMid = string.IsNullOrWhiteSpace(cand.sdpMid) ? null : cand.sdpMid,
+            sdpMLineIndex = string.IsNullOrWhiteSpace(cand.sdpMid) ? (int?)null : cand.sdpMLineIndex,
         });
     }
 
