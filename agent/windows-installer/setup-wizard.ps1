@@ -402,6 +402,28 @@ function Install-PchubHost {
   Expand-Archive -Path $zipPath -DestinationPath $script:Dest -Force
   Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
 
+  if (-not (Test-Path (Join-Path $script:Dest "pchub-host.ps1"))) {
+    Add-InstallLog "pchub-host.ps1 missing from bundle - downloading scripts..."
+    $scriptsZip = Join-Path $env:TEMP "PCHUB-Host-Scripts.zip"
+    $staging = Join-Path $env:TEMP "PCHUB-Host-Scripts-staging"
+    try {
+      Invoke-WebRequest -Uri "$($script:SiteUrl)/downloads/PCHUB-Host-Scripts.zip" -OutFile $scriptsZip -UseBasicParsing
+      if (Test-Path $staging) { Remove-Item $staging -Recurse -Force -ErrorAction SilentlyContinue }
+      New-Item -ItemType Directory -Force -Path $staging | Out-Null
+      Add-Type -AssemblyName System.IO.Compression.FileSystem
+      [System.IO.Compression.ZipFile]::ExtractToDirectory($scriptsZip, $staging)
+      Get-ChildItem $staging -Recurse -File | ForEach-Object {
+        Copy-Item $_.FullName (Join-Path $script:Dest $_.Name) -Force
+      }
+      Add-InstallLog "Scripts downloaded."
+    } catch {
+      Add-InstallLog "Script download failed: $($_.Exception.Message)"
+    } finally {
+      Remove-Item $scriptsZip -Force -ErrorAction SilentlyContinue
+      Remove-Item $staging -Recurse -Force -ErrorAction SilentlyContinue
+    }
+  }
+
   $configPath = Join-Path $script:Dest "config.json"
   if (-not (Test-Path $configPath)) {
     $lblInstall.Text = "Install files incomplete (config.json missing)."
