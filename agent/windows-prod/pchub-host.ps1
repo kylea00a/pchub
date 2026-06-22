@@ -142,25 +142,83 @@ function Send-Inventory($Config, $State) {
 }
 
 function Send-Heartbeat($Config, $State) {
-  Invoke-PchubApi -ApiRoot $Config.apiUrl -Path "/api/agents/heartbeat" -Method "POST" -Body @{ status = "online" } -Token $State.agentToken | Out-Null
+  $resp = Invoke-PchubApi -ApiRoot $Config.apiUrl -Path "/api/agents/heartbeat" -Method "POST" -Body @{ status = "online" } -Token $State.agentToken
   Write-Log "Heartbeat OK"
+  return $resp
+}
+
+function Apply-StreamDirective {
+  param(
+    [object]$Config,
+    [object]$State,
+    [object]$Directive
+  )
+  if (-not $Directive -or -not $Directive.rentalId) { return $false }
+
+  $streamhostPs1 = Join-Path $Root "streamhost.ps1"
+  if (-not (Test-Path $streamhostPs1)) { return $false }
+  . $streamhostPs1
+
+  $force = ($Directive.force -eq $true) -or ($Directive.action -eq "restart")
+  $started = Start-PchubStreamHostProcess -Root $Root -RentalId "$($Directive.rentalId)" -AgentToken $State.agentToken -ApiUrl $Config.apiUrl -Force:$force
+  if ($started) {
+    Write-Log "StreamHost started via heartbeat directive (rental $($Directive.rentalId))"
+  }
+  return $started
 }
 
 function Get-AgentSession($Config, $State) {
   return Invoke-PchubApi -ApiRoot $Config.apiUrl -Path "/api/agents/session" -Method "GET" -Token $State.agentToken
 }
 
+function Start-StreamHostFallback {
+  param(
+    [object]$Config,
+    [object]$State,
+    [object]$Session,
+    [switch]$Force
+  )
+  if (-not $Session -or -not $Session.active -or -not $Session.rentalId) { return }
+
+  $streamhostPs1 = Join-Path $Root "streamhost.ps1"
+  if (-not (Test-Path $streamhostPs1)) {
+    Write-Log "StreamHost fallback: streamhost.ps1 missing"
+    return
+  }
+  . $streamhostPs1
+  $started = Start-PchubStreamHostProcess -Root $Root -RentalId "$($Session.rentalId)" -AgentToken $State.agentToken -ApiUrl $Config.apiUrl -Force:$Force
+  if ($started) {
+    Write-Log "StreamHost fallback started for $($Session.rentalId)"
+  } else {
+    Write-Log "StreamHost fallback failed for $($Session.rentalId)"
+  }
+}
+
 function Handle-ActiveSession($Config, $State) {
   try {
+    if (-not $script:WebRtcSignalingLoaded) {
+      $webrtcPs1 = Join-Path $Root "webrtc-signaling.ps1"
+      if (Test-Path $webrtcPs1) {
+        try {
+          . $webrtcPs1
+          $script:WebRtcSignalingLoaded = $true
+        } catch {
+          Write-Log "WebRTC module load failed: $($_.Exception.Message)"
+        }
+      }
+    }
     $session = Get-AgentSession $Config $State
+    if ($session.stream) {
+      Apply-StreamDirective $Config $State $session.stream | Out-Null
+    }
     if ($script:WebRtcSignalingLoaded) {
       Sync-HostWebRtcSignaling -Config $Config -State $State -Session $session
-      if ($session.active) {
-        Update-PchubStreamingSession -Config $Config -State $State -Session $session
-      }
     } elseif ($session.active -and $script:StreamingLoaded) {
       $State = Update-StreamingSession -Config $Config -State $State -Session $session
       Save-State $State
+    } elseif ($session.active) {
+      $force = ($session.streamWakeRequested -eq $true) -or ($session.renterWaiting -eq $true -and $session.hostInSignaling -ne $true)
+      Start-StreamHostFallback -Config $Config -State $State -Session $session -Force:$force
     }
   } catch {
     Write-Log "Session check failed: $($_.Exception.Message)"
@@ -195,14 +253,13 @@ try {
 
   try { Send-Inventory $config $state } catch { Write-Log "Inventory warn: $($_.Exception.Message)" }
   try {
-    Send-Heartbeat $config $state
+    $hb = Send-Heartbeat $config $state
+    if ($hb.stream) { Apply-StreamDirective $config $state $hb.stream | Out-Null }
   } catch {
     Write-Log "Heartbeat warn: $($_.Exception.Message)"
   }
   try {
-    if ($script:StreamingLoaded -or $script:WebRtcSignalingLoaded) {
-      $state = Handle-ActiveSession $config $state
-    }
+    $state = Handle-ActiveSession $config $state
   } catch {
     Write-Log "Session warn: $($_.Exception.Message)"
   }
@@ -212,27 +269,37 @@ try {
     exit 0
   }
 
-  $interval = if ($config.heartbeatMs) { [int]$config.heartbeatMs } else { 30000 }
+  $interval = if ($config.heartbeatMs) { [int]$config.heartbeatMs } else { 5000 }
   Write-Log "Heartbeat every $([int]($interval / 1000))s. Keep this process running."
 
   $fastPollUntil = 0
+  $urgentPollUntil = 0
 
   while ($true) {
     $sleepMs = $interval
-    if ($fastPollUntil -gt [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()) {
-      $sleepMs = [Math]::Min($interval, 10000)
+    if ($urgentPollUntil -gt [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()) {
+      $sleepMs = 3000
+    } elseif ($fastPollUntil -gt [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()) {
+      $sleepMs = [Math]::Min($interval, 5000)
     }
     Start-Sleep -Milliseconds $sleepMs
     try {
-      Send-Heartbeat $config $state
-      if ($script:StreamingLoaded -or $script:WebRtcSignalingLoaded) {
-        $session = $null
-        try { $session = Get-AgentSession $config $state } catch { }
-        if ($session -and $session.active) {
-          $fastPollUntil = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() + 300000
+      $hb = Send-Heartbeat $config $state
+      if ($hb.stream) {
+        Apply-StreamDirective $config $state $hb.stream | Out-Null
+        if ($hb.stream.renterWaiting) {
+          $urgentPollUntil = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() + 120000
         }
-        $state = Handle-ActiveSession $config $state
       }
+      $session = $null
+      try { $session = Get-AgentSession $config $state } catch { }
+      if ($session -and $session.active) {
+        $fastPollUntil = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() + 300000
+        if ($session.renterWaiting -eq $true) {
+          $urgentPollUntil = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() + 120000
+        }
+      }
+      $state = Handle-ActiveSession $config $state
     } catch {
       Write-Log "Heartbeat failed: $($_.Exception.Message)"
     }

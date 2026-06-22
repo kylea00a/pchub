@@ -214,16 +214,34 @@ $panelDone.Controls.Add($doneText) | Out-Null
 function Query-PchubHostReadiness {
   param(
     [string]$Root,
-    [switch]$CheckWebsite
+    [switch]$CheckWebsite,
+    [switch]$TryRepairHeartbeat,
+    [switch]$RestartAgentIfOffline
   )
   $ps1 = Join-Path $Root "host-readiness.ps1"
   if (-not (Test-Path $ps1)) { throw "host-readiness.ps1 not found" }
   $ps = "$env:WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe"
   $invokeArgs = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $ps1, "-Root", $Root, "-Format", "Json")
   if ($CheckWebsite) { $invokeArgs += "-CheckWebsite" }
+  if ($TryRepairHeartbeat) { $invokeArgs += "-TryRepairHeartbeat" }
+  if ($RestartAgentIfOffline) { $invokeArgs += "-RestartAgentIfOffline" }
   $json = (& $ps @invokeArgs 2>&1 | Out-String).Trim()
   if (-not $json) { throw "Readiness check returned no data" }
   return ($json | ConvertFrom-Json)
+}
+
+function Wait-InstallReadiness {
+  $deadline = (Get-Date).AddSeconds(50)
+  while ((Get-Date) -lt $deadline) {
+    $lblInstall.Text = "Starting host agent..."
+    [System.Windows.Forms.Application]::DoEvents()
+    try {
+      $r = Query-PchubHostReadiness -Root $script:Dest -CheckWebsite -TryRepairHeartbeat -RestartAgentIfOffline
+      if ($r.ReadyToStream) { return $true }
+    } catch { }
+    Start-Sleep -Milliseconds 2000
+  }
+  return $false
 }
 
 function Format-ReadinessText {
@@ -247,7 +265,8 @@ function Format-ReadinessText {
   $lines.Add("Renters use PCHUB Renter (WebRTC, not Moonlight).")
   if (-not $r.ReadyToStream) {
     $lines.Add("")
-    $lines.Add("Fix missing items, then Refresh in PCHUB Host.")
+    $lines.Add("The agent should start automatically within 30 seconds.")
+    $lines.Add("If still red, click Finish and open PCHUB Host from the taskbar.")
   }
   return ($lines -join [Environment]::NewLine)
 }
@@ -264,8 +283,13 @@ Open PCHUB Host from the taskbar after setup.
     return
   }
   try {
-    $r = Query-PchubHostReadiness -Root $script:Dest -CheckWebsite
+    $r = Query-PchubHostReadiness -Root $script:Dest -CheckWebsite -TryRepairHeartbeat -RestartAgentIfOffline
     $doneText.Text = Format-ReadinessText $r
+    if ($r.ReadyToStream) {
+      $subtitle.Text = "Ready to stream"
+    } else {
+      $subtitle.Text = "Registered - streaming not ready yet"
+    }
   } catch {
     $doneText.Text = "Setup finished but readiness check failed: $($_.Exception.Message)"
   }
@@ -314,7 +338,7 @@ function Show-Step {
       try {
         $rp = Join-Path $script:Dest "host-readiness.ps1"
         if (Test-Path $rp) {
-          $readinessOk = [bool](Query-PchubHostReadiness -Root $script:Dest).ReadyToStream
+          $readinessOk = [bool](Query-PchubHostReadiness -Root $script:Dest -CheckWebsite -TryRepairHeartbeat).ReadyToStream
         }
       } catch { }
       if ($readinessOk) {
@@ -324,6 +348,14 @@ function Show-Step {
       }
       $btnNext.Text = "Finish"
       $btnBack.Enabled = $false
+      if (-not $script:DoneRefreshTimer) {
+        $script:DoneRefreshTimer = New-Object System.Windows.Forms.Timer
+        $script:DoneRefreshTimer.Interval = 5000
+        $script:DoneRefreshTimer.Add_Tick({
+          if ($script:Step -eq 3) { Update-DonePanel }
+        })
+      }
+      $script:DoneRefreshTimer.Start()
     }
   }
 }
@@ -512,6 +544,9 @@ function Install-PchubHost {
   if ($installExit -ne 0) {
     Add-InstallLog "Finished with warnings - PC is registered."
   }
+
+  Add-InstallLog "Waiting for host agent heartbeat..."
+  [void](Wait-InstallReadiness)
 
   $script:Step = 3
   $progress.Visible = $false

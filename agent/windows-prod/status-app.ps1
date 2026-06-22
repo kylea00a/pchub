@@ -5,6 +5,7 @@ Add-Type -AssemblyName System.Threading
 
 $Root = if ($PSScriptRoot) { $PSScriptRoot } else { "C:\PCHUB-Host" }
 $script:AllowExit = $false
+$script:LastAgentRestartAt = 0
 
 $mutex = New-Object System.Threading.Mutex($false, "Global\PCHUB-Host-Status-v1")
 $ownsMutex = $false
@@ -26,13 +27,17 @@ if (-not $ownsMutex) {
 function Query-PchubHostReadiness {
   param(
     [string]$Root,
-    [switch]$CheckWebsite
+    [switch]$CheckWebsite,
+    [switch]$TryRepairHeartbeat,
+    [switch]$RestartAgentIfOffline
   )
   $ps1 = Join-Path $Root "host-readiness.ps1"
   if (-not (Test-Path $ps1)) { throw "host-readiness.ps1 not found in $Root" }
   $ps = "$env:WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe"
   $invokeArgs = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $ps1, "-Root", $Root, "-Format", "Json")
   if ($CheckWebsite) { $invokeArgs += "-CheckWebsite" }
+  if ($TryRepairHeartbeat) { $invokeArgs += "-TryRepairHeartbeat" }
+  if ($RestartAgentIfOffline) { $invokeArgs += "-RestartAgentIfOffline" }
   $json = (& $ps @invokeArgs 2>&1 | Out-String).Trim()
   if (-not $json) { throw "Readiness check returned no data" }
   if ($json -match 'cannot be loaded|execution policy') { throw $json }
@@ -173,7 +178,13 @@ $form.Controls.Add($btnExit) | Out-Null
 
 function Update-Status {
   try {
-    $r = Query-PchubHostReadiness -Root $Root -CheckWebsite
+    $now = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+    $restartAgent = ($now -gt ($script:LastAgentRestartAt + 120))
+    $r = Query-PchubHostReadiness -Root $Root -CheckWebsite -TryRepairHeartbeat -RestartAgentIfOffline:$restartAgent
+    $agentItem = $r.Items | Where-Object { $_.Id -eq "agent" } | Select-Object -First 1
+    if ($restartAgent -and $agentItem -and $agentItem.Detail -like "Restarted agent*") {
+      $script:LastAgentRestartAt = $now
+    }
 
     if ($r.MachineName) {
       $lblPc.Text = $r.MachineName

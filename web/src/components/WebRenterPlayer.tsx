@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { prepareBrowserStream } from "@/lib/api";
+import { fetchStreamDiagnostics, prepareBrowserStream, type StreamDiagnostics } from "@/lib/api";
 import { getToken } from "@/lib/auth-session";
 import { BrowserInputCapture } from "@/lib/webrtc/browser-input";
 import { PchubStreamSession } from "@/lib/webrtc/stream-session";
 import { normalizeSignalUrl } from "@/lib/webrtc/signal-url";
+import { StreamDiagnosticsPanel } from "@/components/StreamDiagnosticsPanel";
 
 type Props = {
   rentalId: string;
@@ -25,6 +26,14 @@ export function WebRenterPlayer({ rentalId, machineName }: Props) {
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [log, setLog] = useState<string[]>([]);
+  const [diagnostics, setDiagnostics] = useState<StreamDiagnostics | null>(null);
+  const [diagLoading, setDiagLoading] = useState(false);
+  const [diagError, setDiagError] = useState<string | null>(null);
+  const [clientDiag, setClientDiag] = useState({
+    signalingJoined: false,
+    peerJoined: false,
+    webrtcState: "new",
+  });
 
   const appendLog = useCallback((line: string) => {
     setLog((prev) => [...prev.slice(-40), `[${new Date().toLocaleTimeString()}] ${line}`]);
@@ -44,7 +53,22 @@ export function WebRenterPlayer({ rentalId, machineName }: Props) {
     setConnected(false);
     setConnecting(false);
     setStatus("Disconnected");
+    setClientDiag({ signalingJoined: false, peerJoined: false, webrtcState: "closed" });
   }, [disposeSession]);
+
+  const refreshDiagnostics = useCallback(async () => {
+    if (!getToken()) return;
+    setDiagLoading(true);
+    try {
+      const data = await fetchStreamDiagnostics(rentalId);
+      setDiagnostics(data);
+      setDiagError(null);
+    } catch (err) {
+      setDiagError(err instanceof Error ? err.message : "Diagnostics failed");
+    } finally {
+      setDiagLoading(false);
+    }
+  }, [rentalId]);
 
   const connect = useCallback(async () => {
     const token = getToken();
@@ -56,6 +80,7 @@ export function WebRenterPlayer({ rentalId, machineName }: Props) {
     setError(null);
     setConnecting(true);
     setStatus("Preparing…");
+    setClientDiag({ signalingJoined: false, peerJoined: false, webrtcState: "new" });
     disposeSession();
 
     try {
@@ -74,7 +99,18 @@ export function WebRenterPlayer({ rentalId, machineName }: Props) {
           : webrtc.stunServers.map((url) => ({ urls: url })),
         {
           onLog: appendLog,
+          onSignalingJoined: () => {
+            setClientDiag((prev) => ({ ...prev, signalingJoined: true }));
+          },
+          onPeerJoined: () => {
+            setClientDiag((prev) => ({ ...prev, peerJoined: true }));
+            setStatus("Negotiating stream…");
+          },
+          onPeerLeft: () => {
+            setClientDiag((prev) => ({ ...prev, peerJoined: false }));
+          },
           onConnectionState: (state) => {
+            setClientDiag((prev) => ({ ...prev, webrtcState: state }));
             if (state === "connecting") {
               setStatus("Negotiating stream…");
             } else {
@@ -135,6 +171,12 @@ export function WebRenterPlayer({ rentalId, machineName }: Props) {
       disposeSession();
     }
   }, [appendLog, disposeSession, rentalId]);
+
+  useEffect(() => {
+    void refreshDiagnostics();
+    const t = setInterval(() => void refreshDiagnostics(), 3000);
+    return () => clearInterval(t);
+  }, [refreshDiagnostics]);
 
   useEffect(() => {
     return () => disconnect();
@@ -236,6 +278,12 @@ export function WebRenterPlayer({ rentalId, machineName }: Props) {
             {log.join("\n")}
           </pre>
         )}
+        <StreamDiagnosticsPanel
+          server={diagnostics}
+          client={clientDiag}
+          loading={diagLoading}
+          error={diagError}
+        />
       </footer>
     </div>
   );

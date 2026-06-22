@@ -12,6 +12,9 @@ export type StreamSessionHandlers = {
   onConnectionState?: (state: RTCPeerConnectionState) => void;
   onVideoStream?: (stream: MediaStream) => void;
   onInputChannel?: (channel: RTCDataChannel) => void;
+  onSignalingJoined?: () => void;
+  onPeerJoined?: (role: string) => void;
+  onPeerLeft?: (role: string) => void;
 };
 
 export class PchubStreamSession {
@@ -94,20 +97,24 @@ export class PchubStreamSession {
   private handleSignal(msg: SignalMessage) {
     if (msg.type === "joined") {
       this.log(`Signaling joined (${msg.role ?? "renter"})`);
+      this.handlers.onSignalingJoined?.();
       return;
     }
     if (msg.type === "peer" && msg.status === "joined" && !this.negotiationStarted) {
       if (!this.pc) {
         this.pendingPeerJoin = true;
         this.log("Host is ready — starting WebRTC…");
+        this.handlers.onPeerJoined?.(msg.role ?? "host");
         return;
       }
       this.negotiationStarted = true;
+      this.handlers.onPeerJoined?.(msg.role ?? "host");
       void this.startNegotiation();
       return;
     }
     if (msg.type === "peer" && msg.status === "left") {
       this.log(`Peer left (${msg.role ?? "host"})`);
+      this.handlers.onPeerLeft?.(msg.role ?? "host");
       return;
     }
     if (msg.type === "answer" && msg.sdp) {

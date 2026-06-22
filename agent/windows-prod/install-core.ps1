@@ -198,12 +198,47 @@ function Invoke-PchubHostInstall {
   Write-PchubSetupLog -Root $Root -Message "[6/6] Starting agent + status app..." -Silent:$Silent
   $statusExe = Join-Path $Root "PCHUB-Status.exe"
   $statusPs1 = Join-Path $Root "status-app.ps1"
+  $agentBat = Join-Path $Root "Start PCHUB Agent.bat"
   try {
-    Start-Process -FilePath (Join-Path $Root "Start PCHUB Agent.bat") -WorkingDirectory $Root -WindowStyle Minimized | Out-Null
+    if (Test-Path $agentBat) {
+      Start-Process -FilePath $agentBat -WorkingDirectory $Root -WindowStyle Minimized | Out-Null
+    } else {
+      Write-PchubSetupLog -Root $Root -Message "      Warning: Start PCHUB Agent.bat missing" -Silent:$Silent
+    }
   } catch {
     Write-PchubSetupLog -Root $Root -Message "      Warning: could not start agent: $($_.Exception.Message)" -Silent:$Silent
   }
-  Start-Sleep -Seconds 1
+  Start-Sleep -Seconds 2
+  $agentHeartbeatOk = $false
+  for ($i = 0; $i -lt 18; $i++) {
+    $logPath = Join-Path $Root "agent.log"
+    if (Test-Path $logPath) {
+      $cutoff = (Get-Date).AddSeconds(-30)
+      $recent = Get-Content $logPath -Tail 40 -ErrorAction SilentlyContinue |
+        Where-Object { $_ -match "Heartbeat OK" }
+      foreach ($line in $recent) {
+        if ($line -match '^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]') {
+          try {
+            $ts = [datetime]::ParseExact($matches[1], "yyyy-MM-dd HH:mm:ss", $null)
+            if ($ts -gt $cutoff) { $agentHeartbeatOk = $true; break }
+          } catch { }
+        }
+      }
+    }
+    if ($agentHeartbeatOk) { break }
+    $agentProc = Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue |
+      Where-Object { $_.CommandLine -like "*pchub-host.ps1*" }
+    if (-not $agentProc -and $i -eq 6 -and (Test-Path $agentBat)) {
+      Write-PchubSetupLog -Root $Root -Message "      Agent not running - retrying start..." -Silent:$Silent
+      Start-Process -FilePath $agentBat -WorkingDirectory $Root -WindowStyle Minimized | Out-Null
+    }
+    Start-Sleep -Seconds 2
+  }
+  if ($agentHeartbeatOk) {
+    Write-PchubSetupLog -Root $Root -Message "      Agent heartbeat OK" -Silent:$Silent
+  } else {
+    Write-PchubSetupLog -Root $Root -Message "      Agent starting (open PCHUB Host if still offline)" -Silent:$Silent
+  }
   Get-Process -Name "PCHUB-Status" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
   if (Test-Path $statusExe) {
     Start-Process -FilePath $statusExe -WindowStyle Normal

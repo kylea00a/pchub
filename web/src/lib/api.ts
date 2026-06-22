@@ -242,6 +242,42 @@ export async function prepareBrowserStream(rentalId: string) {
   }>(`/api/me/rentals/${rentalId}/stream/connect`, { method: "POST" });
 }
 
+export type StreamDiagnosticCheck = {
+  id: string;
+  label: string;
+  ok: boolean;
+  detail: string;
+};
+
+export type StreamDiagnostics = {
+  rentalId: string;
+  machineId: string;
+  machineName: string;
+  rentalStatus: string;
+  host: {
+    online: boolean;
+    lastSeenSecondsAgo: number | null;
+    status: string;
+  };
+  stream: {
+    status: string;
+    message: string | null;
+    streamHostInstalled: boolean;
+    streamHostRunning: boolean;
+    updatedAt: string | null;
+  };
+  signaling: {
+    hostInRoom: boolean;
+    renterInRoom: boolean;
+  };
+  checks: StreamDiagnosticCheck[];
+  hint: string;
+};
+
+export async function fetchStreamDiagnostics(rentalId: string) {
+  return apiFetch<StreamDiagnostics>(`/api/me/rentals/${rentalId}/stream/diagnostics`);
+}
+
 export async function uploadCloudFile(path: string, contentBase64: string) {
   return apiFetch<{ ok: boolean }>("/api/me/files", {
     method: "POST",

@@ -24,6 +24,25 @@ import {
   streamWindowsAgentBundle,
 } from "./host-bundle.js";
 import { formatConnectInfo } from "./streaming.js";
+import { promoteStreamOnHostHeartbeat } from "./stream-heartbeat.js";
+import {
+  getHostStreamDirective,
+  getStreamWakeState,
+  markStreamHostLeftSignal,
+  markStreamReadyOnHostSignal,
+  requestStreamWakeOnRenterJoin,
+  syncStreamRunningWithSignaling,
+} from "./stream-signaling.js";
+import { getSignalRoomStatus } from "./signal-rooms.js";
+import { getStreamDiagnosticsForRental } from "./stream-diagnostics.js";
+import {
+  clearSignalPeer,
+  getSignalRoom,
+  isClientSignalRole,
+  otherSignalPeer,
+  type SignalConn,
+  type SignalRole,
+} from "./signal-rooms.js";
 import {
   applyTunnelPeer,
   buildClientTunnelConfig,
@@ -47,7 +66,7 @@ import {
 } from "./storage/index.js";
 
 const PORT = Number(process.env.PORT ?? 4000);
-const ONLINE_WINDOW_MS = 90_000;
+const ONLINE_WINDOW_MS = 180_000;
 
 const app = express();
 app.use(cors());
@@ -105,11 +124,6 @@ app.post(
 
 app.use(express.json({ limit: "25mb" }));
 
-type SignalRole = "host" | "renter" | "admin";
-type SignalConn = { ws: WebSocket; role: SignalRole; rentalId: string; machineId?: string; userId?: string };
-type SignalRoom = { host?: SignalConn; renter?: SignalConn };
-const SIGNAL_ROOMS = new Map<string, SignalRoom>();
-
 function safeJsonParse(text: string) {
   try {
     return JSON.parse(text) as unknown;
@@ -134,21 +148,8 @@ function closeWith(ws: WebSocket, code: number, reason: string) {
   }
 }
 
-function getRoom(rentalId: string) {
-  const existing = SIGNAL_ROOMS.get(rentalId);
-  if (existing) return existing;
-  const created: SignalRoom = {};
-  SIGNAL_ROOMS.set(rentalId, created);
-  return created;
-}
-
-function otherPeer(room: SignalRoom, role: SignalRole) {
-  if (role === "host") return room.renter?.ws;
-  return room.host?.ws;
-}
-
 function isClientRole(role: SignalRole) {
-  return role === "renter" || role === "admin";
+  return isClientSignalRole(role);
 }
 
 const PUBLIC_STUN_SERVERS = [
@@ -321,7 +322,7 @@ function startRentalLogic(
       id, machine_id, status, price_per_minute_cents, started_at, minutes_billed,
       renter_profile_id, personal_storage, sync_status, sync_message,
       stream_status, stream_message, stream_pair_status, connect_password
-    ) VALUES (?, ?, 'active', ?, ?, 0, ?, ?, ?, ?, 'pending', ?, 'idle', ?)`
+    ) VALUES (?, ?, 'active', ?, ?, 0, ?, ?, ?, ?, 'starting', ?, 'idle', ?)`
   ).run(
     rentalId,
     machine.id,
@@ -331,7 +332,7 @@ function startRentalLogic(
     personalStorage ? 1 : 0,
     syncStatus,
     syncMessage,
-    "Preparing your remote desktop session…",
+    "Host is starting the stream engine…",
     connectPassword
   );
   db.prepare(`UPDATE machines SET status = 'rented' WHERE id = ?`).run(machine.id);
@@ -831,7 +832,18 @@ app.post("/api/agents/heartbeat", authAgent, (req, res) => {
     `UPDATE machines SET last_seen_at = ?, status = ? WHERE id = ?`
   ).run(nowIso(), nextStatus, machine.id);
 
-  res.json({ ok: true, machineId: machine.id, status: nextStatus });
+  if (activeRental) {
+    promoteStreamOnHostHeartbeat(machine.id);
+  }
+
+  const stream = getHostStreamDirective(machine.id);
+
+  res.json({
+    ok: true,
+    machineId: machine.id,
+    status: nextStatus,
+    stream,
+  });
 });
 
 app.post("/api/agents/inventory", authAgent, (req, res) => {
@@ -1241,6 +1253,17 @@ app.post("/api/me/rentals/:id/stream/connect", requireAuth, (req, res) => {
   });
 });
 
+app.get("/api/me/rentals/:id/stream/diagnostics", requireAuth, (req, res) => {
+  const user = (req as AuthedRequest).user;
+  const profile = profileForUser(user.id);
+  const diagnostics = getStreamDiagnosticsForRental(req.params.id, profile.id);
+  if (!diagnostics) {
+    res.status(404).json({ error: "Rental not found" });
+    return;
+  }
+  res.json(diagnostics);
+});
+
 app.post("/api/me/rentals/:id/pair", requireAuth, (req, res) => {
   const user = (req as AuthedRequest).user;
   const profile = profileForUser(user.id);
@@ -1432,8 +1455,13 @@ app.post("/api/agents/streaming", authAgent, async (req, res) => {
   }
 
   // WebRTC: host reports stream engine readiness (legacy DB columns reused).
+  const signaling = getSignalRoomStatus(rentalId);
+  let hostRunning = sunshineRunning === true;
+  if (hostRunning && !signaling.hostInRoom) {
+    hostRunning = false;
+  }
   const portsOpenFlag =
-    typeof portsOpen === "boolean" ? portsOpen : sunshineRunning === true;
+    typeof portsOpen === "boolean" ? portsOpen : hostRunning;
 
   try {
     db.prepare(
@@ -1462,7 +1490,7 @@ app.post("/api/agents/streaming", authAgent, async (req, res) => {
       pin ?? null,
       message ?? null,
       sunshineInstalled ? 1 : 0,
-      sunshineRunning ? 1 : 0,
+      hostRunning ? 1 : 0,
       portsOpenFlag ? 1 : 0,
       connectMode ?? null,
       nowIso(),
@@ -1511,6 +1539,10 @@ app.get("/api/agents/session", authAgent, (req, res) => {
         }
       : null;
 
+  syncStreamRunningWithSignaling(rental.id);
+  const wake = getStreamWakeState(rental.id);
+  const stream = getHostStreamDirective(machine.id);
+
   res.json({
     active: true,
     rentalId: rental.id,
@@ -1522,6 +1554,10 @@ app.get("/api/agents/session", authAgent, (req, res) => {
     sunshineUsername: machine.sunshine_username,
     sunshinePassword: machine.sunshine_password,
     pairRequest,
+    renterWaiting: wake.renterWaiting,
+    hostInSignaling: wake.hostInSignaling,
+    streamWakeRequested: wake.streamWakeRequested,
+    stream,
   });
 });
 
@@ -1674,29 +1710,34 @@ wss.on("connection", (ws) => {
         userId: auth.userId,
       };
 
-      const room = getRoom(rentalId);
+      const room = getSignalRoom(rentalId);
       if (role === "host") {
         if (room.host?.ws && room.host.ws !== ws) closeWith(room.host.ws, 1012, "replaced");
         room.host = conn;
+        markStreamReadyOnHostSignal(rentalId);
       } else {
         if (room.renter?.ws && room.renter.ws !== ws) closeWith(room.renter.ws, 1012, "replaced");
         room.renter = conn;
+        if (!room.host) {
+          requestStreamWakeOnRenterJoin(rentalId);
+        }
       }
 
       wsSend(ws, { type: "joined", role, rentalId });
-      const peer = otherPeer(room, role);
+      const peer = otherSignalPeer(room, role);
       if (peer) {
         const peerRole = role === "host" ? room.renter?.role : "host";
         wsSend(peer, { type: "peer", status: "joined", role: peerRole ?? "renter" });
         wsSend(ws, { type: "peer", status: "joined", role: role === "host" ? (room.renter?.role ?? "renter") : "host" });
+      } else if (role === "renter" || role === "admin") {
+        requestStreamWakeOnRenterJoin(rentalId);
       }
       return;
     }
 
     // forward signaling to the other peer in the room
-    const room = SIGNAL_ROOMS.get(conn.rentalId);
-    if (!room) return;
-    const peer = otherPeer(room, conn.role);
+    const room = getSignalRoom(conn.rentalId);
+    const peer = otherSignalPeer(room, conn.role);
     if (!peer) return;
 
     if (msg.type === "offer" || msg.type === "answer" || msg.type === "ice") {
@@ -1706,13 +1747,18 @@ wss.on("connection", (ws) => {
 
   ws.on("close", () => {
     if (!conn) return;
-    const room = SIGNAL_ROOMS.get(conn.rentalId);
+    const rentalId = conn.rentalId;
+    const role = conn.role;
+    const room = clearSignalPeer(rentalId, conn, ws);
+    if (role === "host") {
+      markStreamHostLeftSignal(rentalId);
+    }
     if (!room) return;
-    if (conn.role === "host" && room.host?.ws === ws) room.host = undefined;
-    if (isClientRole(conn.role) && room.renter?.ws === ws) room.renter = undefined;
-    const peer = conn.role === "host" ? room.renter?.ws : room.host?.ws;
-    if (peer) wsSend(peer, { type: "peer", status: "left", role: conn.role });
-    if (!room.host && !room.renter) SIGNAL_ROOMS.delete(conn.rentalId);
+    const peer = role === "host" ? room.renter?.ws : room.host?.ws;
+    if (peer) wsSend(peer, { type: "peer", status: "left", role });
+    if (isClientRole(role) && room.renter && !room.host) {
+      requestStreamWakeOnRenterJoin(rentalId);
+    }
   });
 });
 

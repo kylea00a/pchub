@@ -1,6 +1,8 @@
 param(
   [string]$Root = "C:\PCHUB-Host",
   [switch]$CheckWebsite,
+  [switch]$TryRepairHeartbeat,
+  [switch]$RestartAgentIfOffline,
   [ValidateSet("", "Json")]
   [string]$Format = ""
 )
@@ -46,22 +48,67 @@ function Get-PchubStreamHostReady {
   return @{ Installed = $true; Running = $running; Detail = $detail }
 }
 
-function Test-PchubAgentHeartbeat {
-  param([string]$Root)
-  $procs = Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue |
-    Where-Object { $_.CommandLine -like "*pchub-host.ps1*" }
-  if ($procs) { return $true }
+function Test-PchubRecentHeartbeatLog {
+  param(
+    [string]$Root,
+    [int]$WithinSeconds = 120
+  )
   $logPath = Join-Path $Root "agent.log"
-  if (Test-Path $logPath) {
-    return (Get-Item $logPath).LastWriteTime -gt (Get-Date).AddSeconds(-90)
+  if (-not (Test-Path $logPath)) { return $false }
+  $cutoff = (Get-Date).AddSeconds(-1 * $WithinSeconds)
+  $lines = Get-Content $logPath -Tail 250 -ErrorAction SilentlyContinue
+  foreach ($line in ($lines | Select-Object -Last 80)) {
+    if ($line -notmatch "Heartbeat OK") { continue }
+    if ($line -match '^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]') {
+      try {
+        $ts = [datetime]::ParseExact($matches[1], "yyyy-MM-dd HH:mm:ss", $null)
+        if ($ts -gt $cutoff) { return $true }
+      } catch { }
+    }
   }
   return $false
+}
+
+function Test-PchubAgentHeartbeat {
+  param([string]$Root)
+  if (Test-PchubRecentHeartbeatLog -Root $Root) { return $true }
+  $procs = Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue |
+    Where-Object { $_.CommandLine -like "*pchub-host.ps1*" }
+  return [bool]$procs
+}
+
+function Restart-PchubHostAgent {
+  param([string]$Root)
+  Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue |
+    Where-Object { $_.CommandLine -like "*pchub-host.ps1*" } |
+    ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+  $agentBat = Join-Path $Root "Start PCHUB Agent.bat"
+  if (Test-Path $agentBat) {
+    Start-Process -FilePath $agentBat -WorkingDirectory $Root -WindowStyle Minimized | Out-Null
+    return $true
+  }
+  return $false
+}
+
+function Send-PchubRepairHeartbeat {
+  param(
+    [string]$Root,
+    [string]$ApiRoot,
+    [string]$Token
+  )
+  $apiPs1 = Join-Path $Root "pchub-api.ps1"
+  if (-not (Test-Path $apiPs1)) { return $false }
+  . $apiPs1
+  Invoke-PchubApi -ApiRoot $ApiRoot -Path "/api/agents/heartbeat" -Method "POST" -Body @{ status = "online" } -Token $Token | Out-Null
+  return $true
 }
 
 function Get-PchubHostReadiness {
   param(
     [string]$Root = "C:\PCHUB-Host",
-    [switch]$CheckWebsite
+    [switch]$CheckWebsite,
+    [switch]$TryRepairHeartbeat,
+    [switch]$RestartAgentIfOffline
   )
 
   $items = @()
@@ -84,15 +131,25 @@ function Get-PchubHostReadiness {
     Detail = if ($registered) { "Machine ID saved" } else { "Run setup with a pairing code" }
   }
 
-  $hb = Test-PchubAgentHeartbeat -Root $Root
+  $hbLog = Test-PchubRecentHeartbeatLog -Root $Root
+  $hbProc = [bool](Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue |
+    Where-Object { $_.CommandLine -like "*pchub-host.ps1*" })
+  $hb = $hbLog -or $hbProc
   $items += @{
     Id = "agent"
     Label = "Host agent running"
-    Ok = $hb
-    Detail = if ($hb) { "Heartbeat active" } else { "Start PCHUB Host from taskbar or desktop" }
+    Ok = $hbLog
+    Detail = if ($hbLog) {
+      "Heartbeat active"
+    } elseif ($hbProc) {
+      "Agent process running but not heartbeating - restarting..."
+    } else {
+      "Start PCHUB Host from taskbar or desktop"
+    }
   }
 
   $online = $false
+  $lastSeenSeconds = $null
   if ($CheckWebsite -and $registered -and (Test-Path $configPath)) {
     try {
       $state = Get-Content $statePath -Raw | ConvertFrom-Json
@@ -101,16 +158,51 @@ function Get-PchubHostReadiness {
       $machine = Invoke-RestMethod -Uri "$api/api/machines/$($state.machineId)" -TimeoutSec 8
       $online = [bool]$machine.online
       $machineName = $machine.name
+      if ($machine.lastSeenAt) {
+        $lastSeenSeconds = [int][Math]::Max(0, ((Get-Date).ToUniversalTime() - [datetime]$machine.lastSeenAt).TotalSeconds)
+      }
+      if (-not $online -and $TryRepairHeartbeat -and $state.agentToken) {
+        try {
+          if (Send-PchubRepairHeartbeat -Root $Root -ApiRoot $api -Token $state.agentToken) {
+            Start-Sleep -Milliseconds 400
+            $machine = Invoke-RestMethod -Uri "$api/api/machines/$($state.machineId)" -TimeoutSec 8
+            $online = [bool]$machine.online
+            if ($machine.lastSeenAt) {
+              $lastSeenSeconds = [int][Math]::Max(0, ((Get-Date).ToUniversalTime() - [datetime]$machine.lastSeenAt).TotalSeconds)
+            }
+          }
+        } catch { }
+      }
+      if (-not $online -and $RestartAgentIfOffline -and (-not $hbLog)) {
+        if (Restart-PchubHostAgent -Root $Root) {
+          $items = @($items | Where-Object { $_.Id -ne "agent" })
+          $items += @{
+            Id = "agent"
+            Label = "Host agent running"
+            Ok = $false
+            Detail = "Restarted agent - wait 15s and click Refresh"
+          }
+        }
+      }
     } catch {
       $online = $false
     }
   }
   if ($CheckWebsite) {
+    $websiteDetail = if ($online) {
+      "Renters can see your PC"
+    } elseif ($null -ne $lastSeenSeconds -and $lastSeenSeconds -gt 120) {
+      "Server last heard from this PC ${lastSeenSeconds}s ago - agent may be stuck"
+    } elseif ($hbProc -and -not $hbLog) {
+      "Agent process is running but heartbeats are not reaching pchub.cloud"
+    } else {
+      "Waiting for first heartbeat - up to 30s after agent starts"
+    }
     $items += @{
       Id = "website"
       Label = "Listed Online on website"
       Ok = $online
-      Detail = if ($online) { "Renters can see your PC" } else { "Agent may still be starting - wait 30s" }
+      Detail = $websiteDetail
     }
   }
 
@@ -130,7 +222,7 @@ function Get-PchubHostReadiness {
     Detail = $ff.Detail
   }
 
-  $coreOk = $registered -and $hb -and $stream.Installed -and $ff.Ok
+  $coreOk = $registered -and $hbLog -and $stream.Installed -and $ff.Ok
   $readyToStream = $coreOk -and (-not $CheckWebsite -or $online)
 
   $summary = if ($readyToStream) {
@@ -154,7 +246,7 @@ function Get-PchubHostReadiness {
 }
 
 if ($Format -eq "Json") {
-  $r = Get-PchubHostReadiness -Root $Root -CheckWebsite:$CheckWebsite
+  $r = Get-PchubHostReadiness -Root $Root -CheckWebsite:$CheckWebsite -TryRepairHeartbeat:$TryRepairHeartbeat -RestartAgentIfOffline:$RestartAgentIfOffline
   $payload = [ordered]@{
     ReadyToStream = [bool]$r.ReadyToStream
     Registered = [bool]$r.Registered

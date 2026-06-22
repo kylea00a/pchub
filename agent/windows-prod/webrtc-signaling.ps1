@@ -23,9 +23,9 @@ function Get-WebRtcSignalUrl([string]$ApiRoot) {
 function Stop-HostWebRtcSignaling {
   if (-not (Test-Path $script:SignalingPidPath)) { return }
   try {
-    $pid = [int](Get-Content $script:SignalingPidPath -Raw).Trim()
-    if ($pid -gt 0) {
-      Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue
+    $streamPid = [int](Get-Content $script:SignalingPidPath -Raw).Trim()
+    if ($streamPid -gt 0) {
+      Stop-Process -Id $streamPid -Force -ErrorAction SilentlyContinue
     }
   } catch { }
   Remove-Item $script:SignalingPidPath -Force -ErrorAction SilentlyContinue
@@ -36,21 +36,42 @@ function Start-HostWebRtcSignaling {
   param(
     [object]$Config,
     [object]$State,
-    [string]$RentalId
+    [string]$RentalId,
+    [switch]$Force
   )
 
   if (-not $RentalId) { return }
-  if ($script:LastSignalingRentalId -eq $RentalId -and (Test-Path $script:SignalingPidPath)) {
-    try {
-      $pid = [int](Get-Content $script:SignalingPidPath -Raw).Trim()
-      if (Get-Process -Id $pid -ErrorAction SilentlyContinue) { return }
-    } catch { }
+  $streamhostPs1 = Join-Path $PSScriptRoot "streamhost.ps1"
+  if (Test-Path $streamhostPs1) { . $streamhostPs1 }
+  if (-not $Force -and $script:LastSignalingRentalId -eq $RentalId) {
+    if (Get-Command Test-PchubStreamHostAlive -ErrorAction SilentlyContinue) {
+      if (Test-PchubStreamHostAlive -Root $PSScriptRoot) { return }
+    }
   }
 
-  Stop-HostWebRtcSignaling
+  if (Get-Command Stop-PchubStreamHost -ErrorAction SilentlyContinue) {
+    Stop-PchubStreamHost -Root $PSScriptRoot
+  } else {
+    Stop-HostWebRtcSignaling
+  }
 
   $signalUrl = Get-WebRtcSignalUrl $Config.apiUrl
   $streamHostExe = Join-Path $PSScriptRoot "PCHUB-StreamHost.exe"
+  if (-not (Test-Path $streamHostExe)) {
+    $streamhostPs1 = Join-Path $PSScriptRoot "streamhost.ps1"
+    if (Test-Path $streamhostPs1) {
+      try {
+        . $streamhostPs1
+        if (Get-Command Install-PchubStreamHostIfNeeded -ErrorAction SilentlyContinue) {
+          $null = Install-PchubStreamHostIfNeeded -Root $PSScriptRoot
+        }
+      } catch {
+        if (Get-Command Write-Log -ErrorAction SilentlyContinue) {
+          Write-Log "StreamHost download failed: $($_.Exception.Message)"
+        }
+      }
+    }
+  }
   $stunList = "stun:stun.l.google.com:19302,stun:stun1.l.google.com:19302"
   $iceJson = $null
   try {
@@ -127,7 +148,19 @@ function Sync-HostWebRtcSignaling {
     return
   }
 
-  Start-HostWebRtcSignaling -Config $Config -State $State -RentalId $Session.rentalId
+  $forceRestart = $false
+  if ($Session.streamWakeRequested -eq $true) { $forceRestart = $true }
+  if ($Session.renterWaiting -eq $true -and $Session.hostInSignaling -ne $true) { $forceRestart = $true }
+
+  if ($forceRestart) {
+    if (Get-Command Write-Log -ErrorAction SilentlyContinue) {
+      Write-Log "Renter waiting in signaling - (re)starting StreamHost"
+    }
+    Stop-HostWebRtcSignaling
+    Start-HostWebRtcSignaling -Config $Config -State $State -RentalId $Session.rentalId -Force
+  } else {
+    Start-HostWebRtcSignaling -Config $Config -State $State -RentalId $Session.rentalId
+  }
   Update-PchubStreamingSession -Config $Config -State $State -Session $Session
 }
 
@@ -136,13 +169,12 @@ function Test-PchubStreamHostReady {
   $installed = Test-Path $exe
   $running = $false
 
-  if (Test-Path $script:SignalingPidPath) {
-    try {
-      $pid = [int](Get-Content $script:SignalingPidPath -Raw).Trim()
-      if ($pid -gt 0 -and (Get-Process -Id $pid -ErrorAction SilentlyContinue)) {
-        $running = $true
-      }
-    } catch { }
+  $streamhostPs1 = Join-Path $PSScriptRoot "streamhost.ps1"
+  if (Test-Path $streamhostPs1) {
+    . $streamhostPs1
+    if (Get-Command Test-PchubStreamHostAlive -ErrorAction SilentlyContinue) {
+      $running = Test-PchubStreamHostAlive -Root $PSScriptRoot
+    }
   }
 
   if (-not $running) {
@@ -173,7 +205,7 @@ function Get-PchubStreamingStatus {
   if ($SessionActive -and -not $Ready.Running) {
     return @{
       status = "starting"
-      message = "Starting PCHUB stream engine for this rental…"
+      message = "Starting PCHUB stream engine for this rental..."
       connectMode = "webrtc"
     }
   }
@@ -181,7 +213,7 @@ function Get-PchubStreamingStatus {
   if ($SessionActive) {
     return @{
       status = "ready"
-      message = "Ready — renter can click Connect in PCHUB Renter or browser."
+      message = "Ready - renter can click Connect in PCHUB Renter or browser."
       connectMode = "webrtc"
     }
   }
